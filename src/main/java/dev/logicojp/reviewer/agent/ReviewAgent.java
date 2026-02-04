@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.agent;
 
+import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.report.ReviewResult;
 import com.github.copilot.sdk.*;
 import com.github.copilot.sdk.events.*;
@@ -24,11 +25,16 @@ public class ReviewAgent {
     private final AgentConfig config;
     private final CopilotClient client;
     private final String githubToken;
+    private final GithubMcpConfig githubMcpConfig;
     
-    public ReviewAgent(AgentConfig config, CopilotClient client, String githubToken) {
+    public ReviewAgent(AgentConfig config,
+                       CopilotClient client,
+                       String githubToken,
+                       GithubMcpConfig githubMcpConfig) {
         this.config = config;
         this.client = client;
         this.githubToken = githubToken;
+        this.githubMcpConfig = githubMcpConfig;
     }
     
     /**
@@ -57,12 +63,7 @@ public class ReviewAgent {
         logger.info("Starting review with agent: {} for repository: {}", config.getName(), repository);
         
         // Configure GitHub MCP server for repository access
-        Map<String, Object> githubMcp = Map.of(
-            "type", "http",
-            "url", "https://api.githubcopilot.com/mcp/",
-            "headers", Map.of("Authorization", "Bearer " + githubToken),
-            "tools", List.of("*")
-        );
+        Map<String, Object> githubMcp = githubMcpConfig.toMcpServer(githubToken);
         
         // Create session with agent configuration
         var sessionConfig = new SessionConfig()

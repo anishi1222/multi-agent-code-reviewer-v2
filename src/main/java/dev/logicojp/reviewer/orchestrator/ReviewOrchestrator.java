@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.orchestrator;
 
 import dev.logicojp.reviewer.agent.AgentConfig;
 import dev.logicojp.reviewer.agent.ReviewAgent;
+import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.report.ReviewResult;
 import com.github.copilot.sdk.CopilotClient;
 import org.slf4j.Logger;
@@ -21,15 +22,20 @@ public class ReviewOrchestrator {
     
     private final CopilotClient client;
     private final String githubToken;
+    private final GithubMcpConfig githubMcpConfig;
     private final ExecutorService executorService;
     
-    public ReviewOrchestrator(CopilotClient client, String githubToken) {
-        this(client, githubToken, DEFAULT_PARALLELISM);
+    public ReviewOrchestrator(CopilotClient client, String githubToken, GithubMcpConfig githubMcpConfig) {
+        this(client, githubToken, githubMcpConfig, DEFAULT_PARALLELISM);
     }
     
-    public ReviewOrchestrator(CopilotClient client, String githubToken, int parallelism) {
+    public ReviewOrchestrator(CopilotClient client,
+                              String githubToken,
+                              GithubMcpConfig githubMcpConfig,
+                              int parallelism) {
         this.client = client;
         this.githubToken = githubToken;
+        this.githubMcpConfig = githubMcpConfig;
         this.executorService = Executors.newFixedThreadPool(parallelism);
     }
     
@@ -45,7 +51,7 @@ public class ReviewOrchestrator {
         List<CompletableFuture<ReviewResult>> futures = new ArrayList<>();
         
         for (AgentConfig config : agents.values()) {
-            ReviewAgent agent = new ReviewAgent(config, client, githubToken);
+            ReviewAgent agent = new ReviewAgent(config, client, githubToken, githubMcpConfig);
             CompletableFuture<ReviewResult> future = agent.review(repository)
                 .orTimeout(TIMEOUT_MINUTES, TimeUnit.MINUTES)
                 .exceptionally(ex -> {

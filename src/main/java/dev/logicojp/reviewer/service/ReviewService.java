@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.service;
 
 import dev.logicojp.reviewer.agent.AgentConfig;
+import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.orchestrator.ReviewOrchestrator;
 import dev.logicojp.reviewer.report.ReviewResult;
 import jakarta.inject.Inject;
@@ -20,10 +21,12 @@ public class ReviewService {
     private static final Logger logger = LoggerFactory.getLogger(ReviewService.class);
     
     private final CopilotService copilotService;
+    private final GithubMcpConfig githubMcpConfig;
     
     @Inject
-    public ReviewService(CopilotService copilotService) {
+    public ReviewService(CopilotService copilotService, GithubMcpConfig githubMcpConfig) {
         this.copilotService = copilotService;
+        this.githubMcpConfig = githubMcpConfig;
     }
     
     /**
@@ -44,7 +47,7 @@ public class ReviewService {
             agentConfigs.size(), repository);
         
         ReviewOrchestrator orchestrator = new ReviewOrchestrator(
-            copilotService.getClient(), githubToken, parallelism);
+            copilotService.getClient(), githubToken, githubMcpConfig, parallelism);
         
         try {
             return orchestrator.executeReviews(agentConfigs, repository);

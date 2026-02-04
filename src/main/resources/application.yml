@@ -5,3 +5,13 @@ micronaut:
 # Picocli integration configuration
 picocli:
   ansi: auto
+
+reviewer:
+  mcp:
+    github:
+      type: http
+      url: https://api.githubcopilot.com/mcp/
+      tools:
+        - "*"
+      auth-header-name: Authorization
+      auth-header-template: "Bearer ${token}"
