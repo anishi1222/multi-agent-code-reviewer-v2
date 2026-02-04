@@ -43,6 +43,20 @@ public class AgentMarkdownParser {
         "##\\s*(?:Focus Areas|レビュー観点|観点)\\s*\\n((?:\\s*[-*]\\s*.+\\n?)+)",
         Pattern.CASE_INSENSITIVE
     );
+
+    private static final Pattern SECTION_HEADER_PATTERN = Pattern.compile("^##\\s+(.+)$");
+    private static final Set<String> RECOGNIZED_SECTIONS = Set.of(
+        "system prompt",
+        "システムプロンプト",
+        "review prompt",
+        "レビュー依頼",
+        "レビュー用プロンプト",
+        "output format",
+        "出力フォーマット",
+        "focus areas",
+        "レビュー観点",
+        "観点"
+    );
     
     /**
      * Parses a .agent.md file and returns an AgentConfig.
@@ -77,18 +91,28 @@ public class AgentMarkdownParser {
         String displayName = metadata.getOrDefault("description", 
             metadata.getOrDefault("displayName", name));
         String model = metadata.getOrDefault("model", "claude-sonnet-4");
-        
-        // The body becomes the system prompt
-        String systemPrompt = body.trim();
-        
-        // Extract focus areas from the body if present
-        List<String> focusAreas = extractFocusAreas(body);
+
+        Map<String, String> sections = extractSections(body);
+        String systemPrompt = getSection(sections, "system prompt", "システムプロンプト");
+        String reviewPrompt = getSection(sections, "review prompt", "レビュー依頼", "レビュー用プロンプト");
+        String outputFormat = getSection(sections, "output format", "出力フォーマット");
+
+        if (systemPrompt == null || systemPrompt.isBlank()) {
+            systemPrompt = body.trim();
+        }
+
+        String focusAreasSection = getSection(sections, "focus areas", "レビュー観点", "観点");
+        List<String> focusAreas = focusAreasSection != null
+            ? extractFocusAreas(focusAreasSection)
+            : extractFocusAreas(body);
         
         AgentConfig config = new AgentConfig();
         config.setName(name);
         config.setDisplayName(displayName);
         config.setModel(model);
         config.setSystemPrompt(systemPrompt);
+        config.setReviewPrompt(reviewPrompt);
+        config.setOutputFormat(outputFormat);
         config.setFocusAreas(focusAreas);
         
         return config;
@@ -101,7 +125,16 @@ public class AgentMarkdownParser {
         config.setName(name);
         config.setDisplayName(name);
         config.setModel("claude-sonnet-4");
-        config.setSystemPrompt(content.trim());
+        Map<String, String> sections = extractSections(content);
+        String systemPrompt = getSection(sections, "system prompt", "システムプロンプト");
+        String reviewPrompt = getSection(sections, "review prompt", "レビュー依頼", "レビュー用プロンプト");
+        String outputFormat = getSection(sections, "output format", "出力フォーマット");
+        if (systemPrompt == null || systemPrompt.isBlank()) {
+            systemPrompt = content.trim();
+        }
+        config.setSystemPrompt(systemPrompt);
+        config.setReviewPrompt(reviewPrompt);
+        config.setOutputFormat(outputFormat);
         config.setFocusAreas(extractFocusAreas(content));
         
         return config;
@@ -155,6 +188,47 @@ public class AgentMarkdownParser {
         }
         
         return focusAreas;
+    }
+
+    private Map<String, String> extractSections(String body) {
+        Map<String, StringBuilder> sectionBuilders = new LinkedHashMap<>();
+        String currentKey = null;
+
+        for (String line : body.split("\\n", -1)) {
+            Matcher matcher = SECTION_HEADER_PATTERN.matcher(line.trim());
+            if (matcher.matches()) {
+                String sectionKey = normalizeSectionKey(matcher.group(1));
+                if (RECOGNIZED_SECTIONS.contains(sectionKey)) {
+                    currentKey = sectionKey;
+                    sectionBuilders.putIfAbsent(currentKey, new StringBuilder());
+                    continue;
+                }
+            }
+
+            if (currentKey != null) {
+                sectionBuilders.get(currentKey).append(line).append("\n");
+            }
+        }
+
+        Map<String, String> sections = new LinkedHashMap<>();
+        for (Map.Entry<String, StringBuilder> entry : sectionBuilders.entrySet()) {
+            sections.put(entry.getKey(), entry.getValue().toString().trim());
+        }
+        return sections;
+    }
+
+    private String getSection(Map<String, String> sections, String... keys) {
+        for (String key : keys) {
+            String normalized = normalizeSectionKey(key);
+            if (sections.containsKey(normalized)) {
+                return sections.get(normalized);
+            }
+        }
+        return null;
+    }
+
+    private String normalizeSectionKey(String key) {
+        return key == null ? "" : key.trim().toLowerCase(Locale.ROOT);
     }
     
     private String extractNameFromFilename(String filename) {

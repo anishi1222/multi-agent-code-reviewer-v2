@@ -10,9 +10,15 @@ import dev.logicojp.reviewer.service.ReviewService;
 import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import picocli.CommandLine;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.IExitCodeGenerator;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
+import picocli.CommandLine.ParameterException;
+import picocli.CommandLine.Spec;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,12 +32,15 @@ import java.util.Map;
     name = "run",
     description = "Execute a multi-agent code review on a GitHub repository."
 )
-public class ReviewCommand implements Runnable {
+public class ReviewCommand implements Runnable, IExitCodeGenerator {
     
     private static final Logger logger = LoggerFactory.getLogger(ReviewCommand.class);
     
     @ParentCommand
     private ReviewApp parent;
+
+    @Spec
+    private CommandSpec spec;
     
     @Inject
     private AgentService agentService;
@@ -44,6 +53,8 @@ public class ReviewCommand implements Runnable {
     
     @Inject
     private ReportService reportService;
+
+    private int exitCode = CommandLine.ExitCode.OK;
     
     @Option(
         names = {"-r", "--repo"},
@@ -52,18 +63,23 @@ public class ReviewCommand implements Runnable {
     )
     private String repository;
     
-    @Option(
-        names = {"-a", "--agents"},
-        description = "Comma-separated list of agent names to run",
-        split = ","
-    )
-    private List<String> agents;
-    
-    @Option(
-        names = {"--all"},
-        description = "Run all available agents"
-    )
-    private boolean allAgents;
+    static class AgentSelection {
+        @Option(
+            names = {"--all"},
+            description = "Run all available agents"
+        )
+        private boolean allAgents;
+
+        @Option(
+            names = {"-a", "--agents"},
+            description = "Comma-separated list of agent names to run",
+            split = ","
+        )
+        private List<String> agents;
+    }
+
+    @ArgGroup(exclusive = true, multiplicity = "1")
+    private AgentSelection agentSelection;
     
     @Option(
         names = {"-o", "--output"},
@@ -129,24 +145,32 @@ public class ReviewCommand implements Runnable {
     public void run() {
         try {
             execute();
+        } catch (ParameterException e) {
+            exitCode = CommandLine.ExitCode.USAGE;
+            spec.commandLine().getErr().println(e.getMessage());
+            spec.commandLine().usage(spec.commandLine().getErr());
         } catch (Exception e) {
+            exitCode = CommandLine.ExitCode.SOFTWARE;
             logger.error("Execution failed: {}", e.getMessage(), e);
-            System.err.println("Error: " + e.getMessage());
-            System.exit(1);
+            spec.commandLine().getErr().println("Error: " + e.getMessage());
         }
+    }
+
+    public int getExitCode() {
+        return exitCode;
     }
     
     private void execute() throws Exception {
-        // Validate options
-        if (!allAgents && (agents == null || agents.isEmpty())) {
-            System.err.println("Error: Either --all or --agents must be specified.");
-            System.exit(1);
+        if (agentSelection == null) {
+            throw new ParameterException(spec.commandLine(), "Either --all or --agents must be specified.");
         }
         
         // Validate GitHub token
         if (githubToken == null || githubToken.isEmpty() || githubToken.equals("${GITHUB_TOKEN}")) {
-            System.err.println("Error: GitHub token is required. Set GITHUB_TOKEN environment variable or use --token option.");
-            System.exit(1);
+            throw new ParameterException(
+                spec.commandLine(),
+                "GitHub token is required. Set GITHUB_TOKEN environment variable or use --token option."
+            );
         }
         
         // Build model configuration
@@ -157,18 +181,19 @@ public class ReviewCommand implements Runnable {
         
         // Load agent configurations
         Map<String, AgentConfig> agentConfigs;
-        if (allAgents) {
+        if (agentSelection.allAgents) {
             agentConfigs = agentService.loadAllAgents(agentDirs);
         } else {
-            agentConfigs = agentService.loadAgents(agentDirs, agents);
+            agentConfigs = agentService.loadAgents(agentDirs, agentSelection.agents);
         }
         
         if (agentConfigs.isEmpty()) {
-            System.err.println("Error: No agents found. Check the agents directories:");
+            exitCode = CommandLine.ExitCode.SOFTWARE;
+            spec.commandLine().getErr().println("Error: No agents found. Check the agents directories:");
             for (Path dir : agentDirs) {
-                System.err.println("  - " + dir);
+                spec.commandLine().getErr().println("  - " + dir);
             }
-            System.exit(1);
+            return;
         }
         
         // Apply model overrides if specified

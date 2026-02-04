@@ -3,7 +3,9 @@ package dev.logicojp.reviewer;
 import io.micronaut.configuration.picocli.PicocliRunner;
 
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Spec;
 
 /**
  * Multi-Agent Code Reviewer CLI Application.
@@ -31,6 +33,9 @@ public class ReviewApp implements Runnable {
     
     @Option(names = {"-v", "--verbose"}, description = "Enable verbose output")
     boolean verbose;
+
+    @Spec
+    private CommandSpec spec;
     
     public static void main(String[] args) {
         int exitCode = PicocliRunner.execute(ReviewApp.class, args);
@@ -40,7 +45,6 @@ public class ReviewApp implements Runnable {
     @Override
     public void run() {
         // When no subcommand is specified, show help
-        System.out.println("Use 'review run' to execute a review or 'review list' to list agents.");
-        System.out.println("Use --help for more information.");
+        spec.commandLine().usage(System.out);
     }
 }

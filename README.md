@@ -51,23 +51,30 @@ mvn clean package -Pnative
 ```bash
 # 全エージェントでレビュー実行
 java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
   --repo owner/repository \
   --all
 
 # 特定のエージェントのみ実行
 java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
   --repo owner/repository \
   --agents security,performance
 
 # LLMモデルを明示的に指定
 java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
   --repo owner/repository \
   --all \
   --review-model gpt-4.1 \
   --summary-model claude-sonnet-4
+
+# 利用可能なエージェント一覧
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  list
 ```
 
-### オプション一覧
+### run オプション一覧
 
 | オプション | 短縮形 | 説明 | デフォルト |
 |-----------|--------|------|-----------|
@@ -78,7 +85,6 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--agents-dir` | - | 追加のエージェント定義ディレクトリ | - |
 | `--token` | - | GitHub トークン | `$GITHUB_TOKEN` |
 | `--parallelism` | - | 並列実行数 | 4 |
-| `--list` | - | 利用可能なエージェント一覧 | - |
 | `--no-summary` | - | サマリー生成をスキップ | false |
 | `--model` | - | 全ステージのデフォルトモデル | - |
 | `--review-model` | - | レビュー用モデル | エージェント設定 |
@@ -86,6 +92,10 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--summary-model` | - | サマリー生成用モデル | claude-sonnet-4 |
 | `--help` | `-h` | ヘルプ表示 | - |
 | `--version` | `-V` | バージョン表示 | - |
+
+### list サブコマンド
+
+利用可能なエージェント一覧を表示します。`--agents-dir` で追加のディレクトリも指定可能です。
 
 ### 環境変数
 
@@ -139,6 +149,8 @@ focusAreas:
 
 ### GitHub Copilot形式 (`.github/agents/security.agent.md`)
 
+`Review Prompt` では `${repository}`, `${displayName}`, `${focusAreas}` のプレースホルダーが利用できます。
+
 ```markdown
 ---
 name: security
@@ -148,14 +160,31 @@ model: claude-sonnet-4
 
 # セキュリティレビューエージェント
 
+## System Prompt
+
 あなたはセキュリティ専門のコードレビュアーです。
 豊富な経験を持つセキュリティエンジニアとして、コードの脆弱性を特定します。
+
+## Review Prompt
+
+以下のGitHubリポジトリのコードレビューを実施してください。
+
+**対象リポジトリ**: ${repository}
+
+リポジトリ内のすべてのソースコードを分析し、あなたの専門分野（${displayName}）の観点から問題点を特定してください。
+
+特に以下の点に注目してください：
+${focusAreas}
 
 ## Focus Areas
 
 - SQLインジェクション
 - XSS脆弱性
 - 認証・認可の問題
+
+## Output Format
+
+レビュー結果は必ず以下の形式で出力してください。
 ```
 
 ### デフォルトエージェント
@@ -197,7 +226,7 @@ model: claude-sonnet-4
 mvn clean package -Pnative
 
 # 実行
-./target/review --repo owner/repository --all
+./target/review run --repo owner/repository --all
 ```
 
 ## プロジェクト構造

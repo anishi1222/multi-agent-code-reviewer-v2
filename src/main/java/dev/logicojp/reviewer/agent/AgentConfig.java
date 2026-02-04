@@ -12,6 +12,8 @@ public class AgentConfig {
     private String displayName;
     private String model;
     private String systemPrompt;
+    private String reviewPrompt;
+    private String outputFormat;
     private List<String> focusAreas;
     
     public AgentConfig() {
@@ -58,6 +60,22 @@ public class AgentConfig {
     public void setSystemPrompt(String systemPrompt) {
         this.systemPrompt = systemPrompt;
     }
+
+    public String getReviewPrompt() {
+        return reviewPrompt;
+    }
+
+    public void setReviewPrompt(String reviewPrompt) {
+        this.reviewPrompt = reviewPrompt;
+    }
+
+    public String getOutputFormat() {
+        return outputFormat;
+    }
+
+    public void setOutputFormat(String outputFormat) {
+        this.outputFormat = outputFormat;
+    }
     
     public List<String> getFocusAreas() {
         return focusAreas;
@@ -72,57 +90,51 @@ public class AgentConfig {
      */
     public String buildFullSystemPrompt() {
         StringBuilder sb = new StringBuilder();
-        sb.append(systemPrompt).append("\n\n");
-        
-        sb.append("## レビュー観点\n");
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            sb.append(systemPrompt.trim()).append("\n\n");
+        }
+
+        if (focusAreas != null && !focusAreas.isEmpty()) {
+            sb.append("## レビュー観点\n");
+            for (String area : focusAreas) {
+                sb.append("- ").append(area).append("\n");
+            }
+            sb.append("\n");
+        }
+
+        if (outputFormat != null && !outputFormat.isBlank()) {
+            String outputText = outputFormat.trim();
+            if (!outputText.startsWith("##")) {
+                sb.append("## 出力フォーマット\n\n");
+            }
+            sb.append(outputText).append("\n");
+        }
+
+        return sb.toString();
+    }
+
+    public String buildReviewPrompt(String repository) {
+        if (reviewPrompt == null || reviewPrompt.isBlank()) {
+            throw new IllegalStateException("Review prompt is not configured for agent: " + name);
+        }
+
+        String focusAreaText = formatFocusAreas();
+        return reviewPrompt
+            .replace("${repository}", repository)
+            .replace("${displayName}", displayName != null ? displayName : name)
+            .replace("${name}", name)
+            .replace("${focusAreas}", focusAreaText);
+    }
+
+    private String formatFocusAreas() {
+        if (focusAreas == null || focusAreas.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder sb = new StringBuilder();
         for (String area : focusAreas) {
             sb.append("- ").append(area).append("\n");
         }
-        sb.append("\n");
-        
-        sb.append("""
-            ## 出力フォーマット
-            
-            レビュー結果は必ず以下の形式で出力してください。複数の指摘がある場合は、それぞれについて以下の形式で記載してください。
-            
-            ---
-            
-            ### [指摘番号]. [タイトル]
-            
-            | 項目 | 内容 |
-            |------|------|
-            | **Priority** | Critical / High / Medium / Low のいずれか |
-            | **指摘の概要** | 何が問題かの簡潔な説明 |
-            | **修正しない場合の影響** | 放置した場合のリスクや影響 |
-            | **該当箇所** | ファイルパスと行番号（例: `src/main/java/Example.java` L42-50） |
-            
-            **推奨対応**
-            
-            具体的な修正方法の説明。可能な場合はコード例を含める：
-            
-            ```
-            // 修正前
-            問題のあるコード
-            
-            // 修正後
-            推奨されるコード
-            ```
-            
-            **効果**
-            
-            この修正による改善効果の説明。
-            
-            ---
-            
-            ## Priority の基準
-            - **Critical**: セキュリティ脆弱性、データ損失、本番障害につながる問題。即時対応必須
-            - **High**: 重大なバグ、パフォーマンス問題、重要な機能の不具合。早急な対応が必要
-            - **Medium**: コード品質の問題、保守性の低下、軽微なバグ。計画的に対応
-            - **Low**: スタイルの問題、軽微な改善提案。時間があれば対応
-            
-            指摘がない場合は「指摘事項なし」と記載してください。
-            """);
-        
         return sb.toString();
     }
     

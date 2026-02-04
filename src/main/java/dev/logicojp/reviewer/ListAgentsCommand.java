@@ -2,9 +2,13 @@ package dev.logicojp.reviewer;
 
 import dev.logicojp.reviewer.service.AgentService;
 import jakarta.inject.Inject;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.IExitCodeGenerator;
+import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
+import picocli.CommandLine.Spec;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,13 +21,18 @@ import java.util.List;
     name = "list",
     description = "List all available review agents."
 )
-public class ListAgentsCommand implements Runnable {
+public class ListAgentsCommand implements Runnable, IExitCodeGenerator {
     
     @ParentCommand
     private ReviewApp parent;
+
+    @Spec
+    private CommandSpec spec;
     
     @Inject
     private AgentService agentService;
+
+    private int exitCode = CommandLine.ExitCode.OK;
     
     @Option(
         names = {"--agents-dir"},
@@ -54,8 +63,12 @@ public class ListAgentsCommand implements Runnable {
                 System.out.println("  - " + agent);
             }
         } catch (Exception e) {
-            System.err.println("Error listing agents: " + e.getMessage());
-            System.exit(1);
+            exitCode = CommandLine.ExitCode.SOFTWARE;
+            spec.commandLine().getErr().println("Error listing agents: " + e.getMessage());
         }
+    }
+
+    public int getExitCode() {
+        return exitCode;
     }
 }

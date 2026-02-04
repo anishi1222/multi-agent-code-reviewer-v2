@@ -76,7 +76,7 @@ public class ReviewAgent {
         
         try {
             // Build the review prompt
-            String reviewPrompt = buildReviewPrompt(repository);
+            String reviewPrompt = config.buildReviewPrompt(repository);
             
             // Execute the review
             logger.debug("Sending review prompt to agent: {}", config.getName());
@@ -96,32 +96,5 @@ public class ReviewAgent {
         } finally {
             session.close();
         }
-    }
-    
-    private String buildReviewPrompt(String repository) {
-        return String.format("""
-            以下のGitHubリポジトリのコードレビューを実施してください。
-            
-            **対象リポジトリ**: %s
-            
-            リポジトリ内のすべてのソースコードを分析し、あなたの専門分野（%s）の観点から問題点を特定してください。
-            
-            まず、リポジトリの構造を確認し、主要なソースファイルを読み込んで分析してください。
-            発見した問題は、指定されたフォーマットに従って報告してください。
-            
-            特に以下の点に注目してください：
-            %s
-            """,
-            repository,
-            config.getDisplayName(),
-            formatFocusAreas());
-    }
-    
-    private String formatFocusAreas() {
-        StringBuilder sb = new StringBuilder();
-        for (String area : config.getFocusAreas()) {
-            sb.append("- ").append(area).append("\n");
-        }
-        return sb.toString();
     }
 }
