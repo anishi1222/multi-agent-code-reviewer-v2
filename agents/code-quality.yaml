@@ -1,6 +1,6 @@
 name: code-quality
 displayName: "コード品質レビュー"
-model: claude-sonnet-4
+model: GPT-5.2-Codex
 systemPrompt: |
   あなたはコード品質専門のレビュアーです。
   クリーンコード、SOLID原則、デザインパターンに精通したシニアエンジニアとして、

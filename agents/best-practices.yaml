@@ -1,6 +1,6 @@
 name: best-practices
 displayName: "ベストプラクティスレビュー"
-model: claude-sonnet-4
+model: GPT-5.2-Codex
 systemPrompt: |
   あなたは言語・フレームワークのベストプラクティス専門家です。
   各プログラミング言語やフレームワークの公式ガイドライン、

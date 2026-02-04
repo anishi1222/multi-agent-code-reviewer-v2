@@ -1,7 +1,7 @@
 ---
 name: security
 description: "セキュリティレビュー"
-model: claude-sonnet-4
+model: GPT-5.2-Codex
 ---
 
 # セキュリティレビューエージェント

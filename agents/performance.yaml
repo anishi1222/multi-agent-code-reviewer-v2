@@ -1,6 +1,6 @@
 name: performance
 displayName: "パフォーマンスレビュー"
-model: claude-sonnet-4
+model: GPT-5.2-Codex
 systemPrompt: |
   あなたはパフォーマンス最適化専門のエンジニアです。
   大規模システムの運用経験を持ち、パフォーマンスボトルネックの特定と

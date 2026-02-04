@@ -1,7 +1,7 @@
 ---
 name: performance
 description: "パフォーマンスレビュー"
-model: claude-sonnet-4
+model: GPT-5.2-Codex
 ---
 
 # パフォーマンスレビューエージェント

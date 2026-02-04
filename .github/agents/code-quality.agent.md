@@ -1,7 +1,7 @@
 ---
 name: code-quality
 description: "コード品質レビュー"
-model: claude-sonnet-4
+model: GPT-5.2-Codex
 ---
 
 # コード品質レビューエージェント
