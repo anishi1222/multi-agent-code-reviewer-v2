@@ -2,9 +2,13 @@
 
 GitHub Copilot SDK for Java を使用した、複数のAIエージェントによる並列コードレビューアプリケーションです。
 
+![alt text](image.png)
+
 ## 特徴
 
 - **複数エージェント並列実行**: セキュリティ、コード品質、パフォーマンス、ベストプラクティスの各観点から同時レビュー
+- **GitHubリポジトリ/ローカルディレクトリ対応**: GitHubリポジトリまたはローカルディレクトリのソースコードをレビュー
+- **カスタムインストラクション**: プロジェクト固有のルールやガイドラインをレビューに反映
 - **柔軟なエージェント定義**: GitHub Copilot形式 (.agent.md) でエージェントを定義
 - **外部設定ファイル**: エージェント定義はビルド不要で差し替え可能
 - **LLMモデル指定**: レビュー、レポート生成、サマリー生成で異なるモデルを使用可能
@@ -18,7 +22,7 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 - GitHub Copilot CLI 0.0.401 以上
 - GitHub トークン（リポジトリアクセス用）
 
-### GraalVM のインストール
+### GraalVM の インストール
 
 SDKMAN を使用する場合:
 
@@ -49,10 +53,16 @@ mvn clean package -Pnative
 ### 基本的な使用方法
 
 ```bash
-# 全エージェントでレビュー実行
+# 全エージェントでレビュー実行（GitHubリポジトリ）
 java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --repo owner/repository \
+  --all
+
+# ローカルディレクトリのレビュー
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --local ./my-project \
   --all
 
 # 特定のエージェントのみ実行
@@ -69,6 +79,13 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   --review-model gpt-4.1 \
   --summary-model claude-sonnet-4
 
+# カスタムインストラクションを指定してレビュー
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --local ./my-project \
+  --all \
+  --instructions ./my-instructions.md
+
 # 利用可能なエージェント一覧
 java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   list
@@ -78,7 +95,8 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 
 | オプション | 短縮形 | 説明 | デフォルト |
 |-----------|--------|------|-----------|
-| `--repo` | `-r` | 対象リポジトリ（必須） | - |
+| `--repo` | `-r` | 対象GitHubリポジトリ（`--local`と排他） | - |
+| `--local` | `-l` | 対象ローカルディレクトリ（`--repo`と排他） | - |
 | `--agents` | `-a` | 実行するエージェント（カンマ区切り） | - |
 | `--all` | - | 全エージェント実行 | false |
 | `--output` | `-o` | 出力ディレクトリ | `./report` |
@@ -90,6 +108,8 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--review-model` | - | レビュー用モデル | エージェント設定 |
 | `--report-model` | - | レポート生成用モデル | review-model |
 | `--summary-model` | - | サマリー生成用モデル | claude-sonnet-4 |
+| `--instructions` | - | カスタムインストラクションファイル（複数指定可） | - |
+| `--no-instructions` | - | カスタムインストラクションの自動読込を無効化 | false |
 | `--help` | `-h` | ヘルプ表示 | - |
 | `--version` | `-V` | バージョン表示 | - |
 
@@ -102,6 +122,58 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 ```bash
 export GITHUB_TOKEN=your_github_token
 ```
+
+### ローカルディレクトリレビュー
+
+GitHubリポジトリにアクセスできない環境でも、ローカルディレクトリのソースコードをレビューできます。
+
+```bash
+# ローカルプロジェクトをレビュー
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --local /path/to/project \
+  --all
+```
+
+対応しているファイル拡張子:
+- Java: `.java`
+- Kotlin: `.kt`, `.kts`
+- JavaScript/TypeScript: `.js`, `.ts`, `.jsx`, `.tsx`
+- Python: `.py`
+- Go: `.go`
+- Ruby: `.rb`
+- その他: `.c`, `.cpp`, `.h`, `.cs`, `.rs`, `.swift`, `.php`
+
+### カスタムインストラクション
+
+プロジェクト固有のルールやガイドラインをレビューに反映できます。
+
+```bash
+# インストラクションファイルを指定
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --local ./my-project \
+  --all \
+  --instructions ./coding-standards.md \
+  --instructions ./security-guidelines.md
+
+# 自動読込を無効化
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --local ./my-project \
+  --all \
+  --no-instructions
+```
+
+#### 自動検出されるインストラクションファイル
+
+ローカルディレクトリレビュー時、以下のパスからカスタムインストラクションが自動的に読み込まれます（優先度順）:
+
+1. `.github/copilot-instructions.md`
+2. `.copilot/instructions.md`
+3. `INSTRUCTIONS.md`
+4. `.instructions.md`
+5. `copilot-instructions.md`
 
 ### 出力例
 
@@ -137,26 +209,12 @@ reviewer:
     summary-model: claude-sonnet-4   # サマリー生成用モデル
 ```
 
-### 設定項目
-
-| 項目 | 説明 | デフォルト |
-|------|------|------------|
-| `reviewer.orchestrator.default-parallelism` | デフォルトの並列実行数 | 4 |
-| `reviewer.orchestrator.timeout-minutes` | レビュータイムアウト（分） | 10 |
-| `reviewer.mcp.github.url` | GitHub MCP Server URL | https://api.githubcopilot.com/mcp/ |
-| `reviewer.mcp.github.tools` | 使用するツール | ["*"] |
-| `reviewer.models.review-model` | レビュー用LLMモデル | claude-sonnet-4 |
-| `reviewer.models.report-model` | レポート生成用LLMモデル | claude-sonnet-4 |
-| `reviewer.models.summary-model` | サマリー生成用LLMモデル | claude-sonnet-4 |
-
-## エージェント定義
-
 ### エージェントディレクトリ
 
 以下のディレクトリが自動的に検索されます:
 
 - `./agents/` - デフォルトディレクトリ
-- `./.github/agents/` - GitHub Copilot形式のディレクトリ
+- `./.github/agents/` - 代替ディレクトリ
 
 `--agents-dir` オプションで追加のディレクトリを指定できます。
 
@@ -230,6 +288,72 @@ ${focusAreas}
 - **Medium**: コード品質の問題、保守性の低下。計画的に対応
 - **Low**: スタイルの問題、軽微な改善提案。時間があれば対応
 
+## Agent Skill
+
+エージェントには個別のスキルを定義し、特定のタスクを実行できます。
+
+### skill サブコマンド
+
+```bash
+# 利用可能なスキル一覧
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  skill --list
+
+# スキルを実行
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  skill sql-injection-check \
+  --param target=owner/repository
+
+# パラメータ付きでスキル実行
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  skill secret-scan \
+  --param repository=owner/repository \
+  --model claude-sonnet-4
+```
+
+### skill オプション一覧
+
+| オプション | 短縮形 | 説明 | デフォルト |
+|-----------|--------|------|-----------|
+| `--list` | - | 利用可能なスキル一覧を表示 | - |
+| `--param` | `-p` | パラメータ（key=value形式） | - |
+| `--token` | - | GitHub トークン | `$GITHUB_TOKEN` |
+| `--model` | - | 使用するLLMモデル | claude-sonnet-4 |
+| `--agents-dir` | - | エージェント定義ディレクトリ | - |
+
+### スキル定義（.agent.md形式）
+
+エージェント定義ファイル（`.agent.md`）内に `## Skills` セクションを追加します：
+
+```markdown
+## Skills
+
+### sql-injection-check
+- **Name**: SQLインジェクション検査
+- **Description**: 指定されたファイルまたはリポジトリ内のSQLインジェクション脆弱性を検査します
+- **Parameters**:
+  - `target` (required): 検査対象のファイルパスまたはリポジトリ
+- **Prompt**: |
+  以下のコードをSQLインジェクション脆弱性の観点から分析してください。
+  
+  **対象**: ${target}
+  
+  特に以下のパターンを確認してください：
+  - 文字列連結によるSQL文の構築
+  - パラメータ化されていないクエリ
+  - ユーザー入力の直接的なSQL文への埋め込み
+
+### secret-scan
+- **Name**: 機密情報スキャン
+- **Description**: コード内のハードコードされた機密情報を検出します
+- **Parameters**:
+  - `repository` (required): 対象リポジトリ
+- **Prompt**: |
+  以下のコードを機密情報漏洩の観点から分析してください。
+  
+  **対象リポジトリ**: ${repository}
+```
+
 ## GraalVM Native Image
 
 ネイティブバイナリとしてビルドする場合:
@@ -289,7 +413,6 @@ flowchart TB
     CodeQuality -.-> Copilot
     Performance -.-> Copilot
     BestPractices -.-> Copilot
-    SummaryGenerator -.-> Copilot
 
     Security -.-> GitHub
     CodeQuality -.-> GitHub
@@ -297,26 +420,68 @@ flowchart TB
     BestPractices -.-> GitHub
 ```
 
+## テンプレートのカスタマイズ
+
+レポートやサマリーのフォーマットは、テンプレートファイルで外部化されています。
+
+### テンプレートディレクトリ
+
+デフォルトでは `templates/` ディレクトリ内のテンプレートが使用されます。
+
+```
+templates/
+├── summary-system.md          # サマリー生成システムプロンプト
+├── summary-prompt.md          # サマリー生成ユーザープロンプト
+├── default-output-format.md   # デフォルト出力フォーマット
+├── report.md                  # 個別レポートテンプレート
+├── executive-summary.md       # エグゼクティブサマリーテンプレート
+├── fallback-summary.md        # フォールバックサマリーテンプレート
+├── custom-instruction-section.md  # カスタムインストラクションセクション
+├── local-review-content.md    # ローカルレビューコンテンツ
+└── review-custom-instruction.md   # レビュー用カスタムインストラクション
+```
+
+### テンプレート設定
+
+`application.yml` でテンプレートパスをカスタマイズできます:
+
+```yaml
+reviewer:
+  templates:
+    directory: templates                    # テンプレートディレクトリ
+    summary-system-prompt: summary-system.md
+    summary-user-prompt: summary-prompt.md
+    default-output-format: default-output-format.md
+    report: report.md
+    executive-summary: executive-summary.md
+    fallback-summary: fallback-summary.md
+```
+
+### プレースホルダー
+
+テンプレート内では `{{placeholder}}` 形式のプレースホルダーが使用できます。各テンプレートで使用可能なプレースホルダーはテンプレートファイルを参照してください。
+
 ## プロジェクト構造
 
 ```
 multi-agent-reviewer/
 ├── pom.xml                              # Maven設定
 ├── .sdkmanrc                            # SDKMAN GraalVM設定
-├── agents/                              # エージェント定義
+├── agents/                              # エージェント定義（.agent.md形式）
 │   ├── security.agent.md
 │   ├── code-quality.agent.md
 │   ├── performance.agent.md
 │   └── best-practices.agent.md
-├── .github/agents/                      # 代替エージェントディレクトリ
-│   ├── security.agent.md
-│   ├── code-quality.agent.md
-│   ├── performance.agent.md
-│   └── best-practices.agent.md
+├── templates/                           # テンプレートファイル
+│   ├── summary-system.md
+│   ├── summary-prompt.md
+│   ├── report.md
+│   └── ...
 └── src/main/java/dev/logicojp/reviewer/
     ├── ReviewApp.java                   # CLIエントリポイント
     ├── ReviewCommand.java               # reviewサブコマンド
     ├── ListAgentsCommand.java           # listサブコマンド
+    ├── SkillCommand.java                # skillサブコマンド
     ├── agent/
     │   ├── AgentConfig.java             # 設定モデル
     │   ├── AgentConfigLoader.java       # 設定読込
@@ -324,19 +489,37 @@ multi-agent-reviewer/
     │   └── ReviewAgent.java             # レビューエージェント
     ├── config/
     │   ├── ModelConfig.java             # LLMモデル設定
+    │   ├── ExecutionConfig.java         # 実行設定
     │   ├── GithubMcpConfig.java         # GitHub MCP設定
-    │   └── OrchestratorConfig.java      # オーケストレーター設定
+    │   └── TemplateConfig.java          # テンプレート設定
+    ├── instruction/
+    │   ├── CustomInstruction.java       # カスタムインストラクションモデル
+    │   ├── CustomInstructionLoader.java # インストラクション読込
+    │   └── InstructionSource.java       # ソース種別
     ├── orchestrator/
     │   └── ReviewOrchestrator.java      # 並列実行制御
     ├── report/
     │   ├── ReviewResult.java            # 結果モデル
     │   ├── ReportGenerator.java         # 個別レポート生成
     │   └── SummaryGenerator.java        # サマリー生成
-    └── service/
-        ├── AgentService.java            # エージェント管理
-        ├── CopilotService.java          # Copilot SDK連携
-        ├── ReportService.java           # レポート生成
-        └── ReviewService.java           # レビュー実行
+    ├── service/
+    │   ├── AgentService.java            # エージェント管理
+    │   ├── CopilotService.java          # Copilot SDK連携
+    │   ├── ReportService.java           # レポート生成
+    │   ├── ReviewService.java           # レビュー実行
+    │   ├── SkillService.java            # スキル管理
+    │   └── TemplateService.java         # テンプレート読込
+    ├── skill/
+    │   ├── SkillDefinition.java         # スキル定義モデル
+    │   ├── SkillParameter.java          # スキルパラメータモデル
+    │   ├── SkillRegistry.java           # スキルレジストリ
+    │   ├── SkillExecutor.java           # スキル実行
+    │   └── SkillResult.java             # スキル結果モデル
+    ├── target/
+    │   ├── ReviewTarget.java            # レビュー対象インターフェース
+    │   └── LocalFileProvider.java       # ローカルファイル収集
+    └── util/
+        └── FileExtensionUtils.java      # ファイル拡張子ユーティリティ
 ```
 
 ## ライセンス

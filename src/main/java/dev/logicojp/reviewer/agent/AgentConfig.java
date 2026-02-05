@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.agent;
 
+import dev.logicojp.reviewer.skill.SkillDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +19,8 @@ public record AgentConfig(
     String systemPrompt,
     String reviewPrompt,
     String outputFormat,
-    List<String> focusAreas
+    List<String> focusAreas,
+    List<SkillDefinition> skills
 ) {
 
     private static final Logger logger = LoggerFactory.getLogger(AgentConfig.class);
@@ -83,6 +85,7 @@ public record AgentConfig(
         model = (model == null || model.isBlank()) ? "claude-sonnet-4" : model;
         outputFormat = normalizeOutputFormat(outputFormat);
         focusAreas = focusAreas == null ? List.of() : List.copyOf(focusAreas);
+        skills = skills == null ? List.of() : List.copyOf(skills);
     }
 
     public String getName() {
@@ -113,6 +116,10 @@ public record AgentConfig(
         return focusAreas;
     }
 
+    public List<SkillDefinition> getSkills() {
+        return skills;
+    }
+
     public AgentConfig withModel(String overrideModel) {
         return new AgentConfig(
             name,
@@ -121,7 +128,8 @@ public record AgentConfig(
             systemPrompt,
             reviewPrompt,
             outputFormat,
-            focusAreas
+            focusAreas,
+            skills
         );
     }
 
@@ -232,6 +240,38 @@ public record AgentConfig(
             .replace("${displayName}", displayName != null ? displayName : name)
             .replace("${name}", name)
             .replace("${focusAreas}", focusAreaText);
+    }
+
+    /**
+     * Builds the review prompt for a local directory review.
+     * Embeds the source code content directly in the prompt.
+     * @param targetName Display name of the target directory
+     * @param sourceContent Collected source code content
+     * @return The formatted review prompt with embedded source code
+     */
+    public String buildLocalReviewPrompt(String targetName, String sourceContent) {
+        if (reviewPrompt == null || reviewPrompt.isBlank()) {
+            throw new IllegalStateException("Review prompt is not configured for agent: " + name);
+        }
+
+        String focusAreaText = formatFocusAreas();
+        
+        // Build embedded source content section
+        String embeddedContent = """
+            
+            以下は対象ディレクトリのソースコードです:
+            
+            %s
+            """.formatted(sourceContent);
+        
+        // Replace placeholders and append source content
+        String basePrompt = reviewPrompt
+            .replace("${repository}", targetName)
+            .replace("${displayName}", displayName != null ? displayName : name)
+            .replace("${name}", name)
+            .replace("${focusAreas}", focusAreaText);
+        
+        return basePrompt + embeddedContent;
     }
 
     private String formatFocusAreas() {

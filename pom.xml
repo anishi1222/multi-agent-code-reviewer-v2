@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.micronaut.platform</groupId>
         <artifactId>micronaut-parent</artifactId>
-        <version>4.7.3</version>
+        <version>4.10.7</version>
     </parent>
 
     <groupId>dev.logicojp</groupId>
@@ -19,9 +19,9 @@
     <description>Multiple AI agents review code and generate executive summary</description>
 
     <properties>
-        <jdk.version>21</jdk.version>
-        <release.version>21</release.version>
-        <micronaut.version>4.7.3</micronaut.version>
+        <jdk.version>25</jdk.version>
+        <release.version>25</release.version>
+        <micronaut.version>4.10.7</micronaut.version>
         <micronaut.picocli.version>5.8.0</micronaut.picocli.version>
         <micronaut.runtime>netty</micronaut.runtime>
         <exec.mainClass>dev.logicojp.reviewer.ReviewApp</exec.mainClass>
@@ -95,6 +95,25 @@
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
             <scope>compile</scope>
+        </dependency>
+
+        <!-- Test Dependencies -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>3.25.3</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.micronaut.test</groupId>
+            <artifactId>micronaut-test-junit5</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -184,6 +203,15 @@
                     <plugin>
                         <groupId>org.graalvm.buildtools</groupId>
                         <artifactId>native-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>native-image</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                         <configuration>
                             <mainClass>dev.logicojp.reviewer.ReviewApp</mainClass>
                             <imageName>review</imageName>

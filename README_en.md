@@ -2,10 +2,15 @@
 
 A parallel code review application using multiple AI agents with GitHub Copilot SDK for Java.
 
+![alt text](image.png)
+
 ## Features
 
 - **Parallel Multi-Agent Execution**: Simultaneous review from security, code quality, performance, and best practices perspectives
+- **GitHub Repository / Local Directory Support**: Review source code from GitHub repositories or local directories
+- **Custom Instructions**: Incorporate project-specific rules and guidelines into the review
 - **Flexible Agent Definitions**: Define agents in GitHub Copilot format (.agent.md)
+- **Agent Skill Support**: Define individual skills for agents to execute specific tasks
 - **External Configuration Files**: Agent definitions can be swapped without rebuilding
 - **LLM Model Selection**: Use different models for review, report generation, and summary generation
 - **Structured Review Results**: Consistent format with Priority (Critical/High/Medium/Low)
@@ -49,10 +54,16 @@ mvn clean package -Pnative
 ### Basic Usage
 
 ```bash
-# Run review with all agents
+# Run review with all agents (GitHub repository)
 java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --repo owner/repository \
+  --all
+
+# Review a local directory
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --local ./my-project \
   --all
 
 # Run only specific agents
@@ -69,6 +80,13 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   --review-model gpt-4.1 \
   --summary-model claude-sonnet-4
 
+# Review with custom instructions
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --local ./my-project \
+  --all \
+  --instructions ./my-instructions.md
+
 # List available agents
 java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   list
@@ -78,7 +96,8 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 
 | Option | Short | Description | Default |
 |--------|-------|-------------|---------|
-| `--repo` | `-r` | Target repository (required) | - |
+| `--repo` | `-r` | Target GitHub repository (exclusive with `--local`) | - |
+| `--local` | `-l` | Target local directory (exclusive with `--repo`) | - |
 | `--agents` | `-a` | Agents to run (comma-separated) | - |
 | `--all` | - | Run all agents | false |
 | `--output` | `-o` | Output directory | `./report` |
@@ -90,6 +109,8 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--review-model` | - | Model for review | Agent config |
 | `--report-model` | - | Model for report generation | review-model |
 | `--summary-model` | - | Model for summary generation | claude-sonnet-4 |
+| `--instructions` | - | Custom instruction file (can be specified multiple times) | - |
+| `--no-instructions` | - | Disable automatic loading of custom instructions | false |
 | `--help` | `-h` | Show help | - |
 | `--version` | `-V` | Show version | - |
 
@@ -102,6 +123,58 @@ Displays a list of available agents. Additional directories can be specified wit
 ```bash
 export GITHUB_TOKEN=your_github_token
 ```
+
+### Local Directory Review
+
+You can review source code from a local directory even when you cannot access a GitHub repository.
+
+```bash
+# Review a local project
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --local /path/to/project \
+  --all
+```
+
+Supported file extensions:
+- Java: `.java`
+- Kotlin: `.kt`, `.kts`
+- JavaScript/TypeScript: `.js`, `.ts`, `.jsx`, `.tsx`
+- Python: `.py`
+- Go: `.go`
+- Ruby: `.rb`
+- Others: `.c`, `.cpp`, `.h`, `.cs`, `.rs`, `.swift`, `.php`
+
+### Custom Instructions
+
+You can incorporate project-specific rules and guidelines into the review.
+
+```bash
+# Specify instruction files
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --local ./my-project \
+  --all \
+  --instructions ./coding-standards.md \
+  --instructions ./security-guidelines.md
+
+# Disable automatic loading
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --local ./my-project \
+  --all \
+  --no-instructions
+```
+
+#### Auto-detected Instruction Files
+
+During local directory review, custom instructions are automatically loaded from the following paths (in order of priority):
+
+1. `.github/copilot-instructions.md`
+2. `.copilot/instructions.md`
+3. `INSTRUCTIONS.md`
+4. `.instructions.md`
+5. `copilot-instructions.md`
 
 ### Output Example
 
@@ -137,26 +210,12 @@ reviewer:
     summary-model: claude-sonnet-4   # Model for summary generation
 ```
 
-### Configuration Options
-
-| Option | Description | Default |
-|--------|-------------|--------|
-| `reviewer.orchestrator.default-parallelism` | Default parallel execution count | 4 |
-| `reviewer.orchestrator.timeout-minutes` | Review timeout (minutes) | 10 |
-| `reviewer.mcp.github.url` | GitHub MCP Server URL | https://api.githubcopilot.com/mcp/ |
-| `reviewer.mcp.github.tools` | Tools to use | ["*"] |
-| `reviewer.models.review-model` | LLM model for review | claude-sonnet-4 |
-| `reviewer.models.report-model` | LLM model for report generation | claude-sonnet-4 |
-| `reviewer.models.summary-model` | LLM model for summary generation | claude-sonnet-4 |
-
-## Agent Definitions
-
 ### Agent Directories
 
 The following directories are automatically searched:
 
 - `./agents/` - Default directory
-- `./.github/agents/` - GitHub Copilot format directory
+- `./.github/agents/` - Alternative directory
 
 Additional directories can be specified with the `--agents-dir` option.
 
@@ -230,6 +289,72 @@ Each finding is output in the following format:
 - **Medium**: Code quality issues, reduced maintainability. Address in planned manner
 - **Low**: Style issues, minor improvement suggestions. Fix when time permits
 
+## Agent Skill
+
+Agents can have individual skills defined to execute specific tasks.
+
+### skill Subcommand
+
+```bash
+# List available skills
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  skill --list
+
+# Execute a skill
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  skill sql-injection-check \
+  --param target=owner/repository
+
+# Execute a skill with parameters
+java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  skill secret-scan \
+  --param repository=owner/repository \
+  --model claude-sonnet-4
+```
+
+### skill Options
+
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--list` | - | List available skills | - |
+| `--param` | `-p` | Parameter (key=value format) | - |
+| `--token` | - | GitHub token | `$GITHUB_TOKEN` |
+| `--model` | - | LLM model to use | claude-sonnet-4 |
+| `--agents-dir` | - | Agent definitions directory | - |
+
+### Skill Definition (`.agent.md` format)
+
+Add a `## Skills` section to your agent definition file (`.agent.md`):
+
+```markdown
+## Skills
+
+### sql-injection-check
+- **Name**: SQL Injection Check
+- **Description**: Checks for SQL injection vulnerabilities in specified file or repository
+- **Parameters**:
+  - `target` (required): Target file path or repository
+- **Prompt**: |
+  Analyze the following code for SQL injection vulnerabilities.
+  
+  **Target**: ${target}
+  
+  Look for these patterns:
+  - SQL statements built with string concatenation
+  - Non-parameterized queries
+  - Direct embedding of user input in SQL statements
+
+### secret-scan
+- **Name**: Secret Scan
+- **Description**: Detects hardcoded secrets in code
+- **Parameters**:
+  - `repository` (required): Target repository
+- **Prompt**: |
+  Analyze the following code for secret leakage.
+  
+  **Target Repository**: ${repository}
+```
+
 ## GraalVM Native Image
 
 To build as a native binary:
@@ -297,26 +422,68 @@ flowchart TB
     BestPractices -.-> GitHub
 ```
 
+## Template Customization
+
+Report and summary formats are externalized in template files.
+
+### Template Directory
+
+By default, templates in the `templates/` directory are used.
+
+```
+templates/
+├── summary-system.md          # Summary generation system prompt
+├── summary-prompt.md          # Summary generation user prompt
+├── default-output-format.md   # Default output format
+├── report.md                  # Individual report template
+├── executive-summary.md       # Executive summary template
+├── fallback-summary.md        # Fallback summary template
+├── custom-instruction-section.md  # Custom instruction section
+├── local-review-content.md    # Local review content
+└── review-custom-instruction.md   # Review custom instruction
+```
+
+### Template Configuration
+
+You can customize template paths in `application.yml`:
+
+```yaml
+reviewer:
+  templates:
+    directory: templates                    # Template directory
+    summary-system-prompt: summary-system.md
+    summary-user-prompt: summary-prompt.md
+    default-output-format: default-output-format.md
+    report: report.md
+    executive-summary: executive-summary.md
+    fallback-summary: fallback-summary.md
+```
+
+### Placeholders
+
+Templates support `{{placeholder}}` format placeholders. See each template file for available placeholders.
+
 ## Project Structure
 
 ```
 multi-agent-reviewer/
 ├── pom.xml                              # Maven configuration
 ├── .sdkmanrc                            # SDKMAN GraalVM configuration
-├── agents/                              # Agent definitions
+├── agents/                              # Agent definitions (.agent.md format)
 │   ├── security.agent.md
 │   ├── code-quality.agent.md
 │   ├── performance.agent.md
 │   └── best-practices.agent.md
-├── .github/agents/                      # Alternative agent directory
-│   ├── security.agent.md
-│   ├── code-quality.agent.md
-│   ├── performance.agent.md
-│   └── best-practices.agent.md
+├── templates/                           # Template files
+│   ├── summary-system.md
+│   ├── summary-prompt.md
+│   ├── report.md
+│   └── ...
 └── src/main/java/dev/logicojp/reviewer/
     ├── ReviewApp.java                   # CLI entry point
     ├── ReviewCommand.java               # review subcommand
     ├── ListAgentsCommand.java           # list subcommand
+    ├── SkillCommand.java                # skill subcommand
     ├── agent/
     │   ├── AgentConfig.java             # Config model
     │   ├── AgentConfigLoader.java       # Config loader
@@ -324,19 +491,37 @@ multi-agent-reviewer/
     │   └── ReviewAgent.java             # Review agent
     ├── config/
     │   ├── ModelConfig.java             # LLM model config
+    │   ├── ExecutionConfig.java         # Execution config
     │   ├── GithubMcpConfig.java         # GitHub MCP config
-    │   └── OrchestratorConfig.java      # Orchestrator config
+    │   └── TemplateConfig.java          # Template config
+    ├── instruction/
+    │   ├── CustomInstruction.java       # Custom instruction model
+    │   ├── CustomInstructionLoader.java # Instruction loader
+    │   └── InstructionSource.java       # Source type
     ├── orchestrator/
     │   └── ReviewOrchestrator.java      # Parallel execution control
     ├── report/
     │   ├── ReviewResult.java            # Result model
     │   ├── ReportGenerator.java         # Individual report generation
     │   └── SummaryGenerator.java        # Summary generation
-    └── service/
-        ├── AgentService.java            # Agent management
-        ├── CopilotService.java          # Copilot SDK integration
-        ├── ReportService.java           # Report generation
-        └── ReviewService.java           # Review execution
+    ├── service/
+    │   ├── AgentService.java            # Agent management
+    │   ├── CopilotService.java          # Copilot SDK integration
+    │   ├── ReportService.java           # Report generation
+    │   ├── ReviewService.java           # Review execution
+    │   ├── SkillService.java            # Skill management
+    │   └── TemplateService.java         # Template loading
+    ├── skill/
+    │   ├── SkillDefinition.java         # Skill definition model
+    │   ├── SkillParameter.java          # Skill parameter model
+    │   ├── SkillRegistry.java           # Skill registry
+    │   ├── SkillExecutor.java           # Skill executor
+    │   └── SkillResult.java             # Skill result model
+    ├── target/
+    │   ├── ReviewTarget.java            # Review target interface
+    │   └── LocalFileProvider.java       # Local file collector
+    └── util/
+        └── FileExtensionUtils.java      # File extension utilities
 ```
 
 ## License
