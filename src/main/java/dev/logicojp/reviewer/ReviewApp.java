@@ -68,7 +68,12 @@ public class ReviewApp {
             CliUsage.printGeneral(System.out);
             return ExitCodes.USAGE;
         }
-        if (CliParsing.hasHelpFlag(filteredArgs)) {
+
+        // Treat --help / -h as general help only when no subcommand is provided.
+        boolean hasHelpFlag = CliParsing.hasHelpFlag(filteredArgs);
+        boolean hasSubcommand = Arrays.stream(filteredArgs)
+            .anyMatch(arg -> "run".equals(arg) || "list".equals(arg) || "skill".equals(arg));
+        if (hasHelpFlag && !hasSubcommand) {
             CliUsage.printGeneral(System.out);
             return ExitCodes.OK;
         }
