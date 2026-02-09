@@ -214,9 +214,10 @@ public class ReviewCommand implements Runnable, IExitCodeGenerator {
 
         // Build review target
         ReviewTarget target;
-        GitHubTokenResolver tokenResolver = new GitHubTokenResolver();
-        String resolvedToken = tokenResolver.resolve(githubToken).orElse(null);
+        String resolvedToken = null;
         if (targetSelection.repository != null) {
+            GitHubTokenResolver tokenResolver = new GitHubTokenResolver();
+            resolvedToken = tokenResolver.resolve(githubToken).orElse(null);
             target = ReviewTarget.gitHub(targetSelection.repository);
             
             // Validate GitHub token for repository access
@@ -280,15 +281,7 @@ public class ReviewCommand implements Runnable, IExitCodeGenerator {
         // Load custom instructions
         String customInstruction = loadCustomInstructions(target);
         
-        // Ensure we have a valid token before initializing Copilot
-        if (resolvedToken == null || resolvedToken.trim().isEmpty()) {
-            throw new ParameterException(
-                spec.commandLine(),
-                "Error: GitHub token is required to run Copilot reviews. " +
-                "Please provide it via --github-token or the GITHUB_TOKEN environment variable."
-            );
-        }
-        
+
         // Execute reviews using the Copilot service
         copilotService.initialize(resolvedToken);
         

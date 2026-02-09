@@ -86,7 +86,9 @@ public class SkillCommand implements Runnable, IExitCodeGenerator {
         GitHubTokenResolver tokenResolver = new GitHubTokenResolver();
         String resolvedToken = tokenResolver.resolve(githubToken).orElse(null);
         if (resolvedToken == null || resolvedToken.isBlank()) {
-            throw new IllegalArgumentException("GitHub token is required. Set GITHUB_TOKEN, use --token, or login with `gh auth login`.");
+            spec.commandLine().getErr().println("Error: GitHub token is required. Set GITHUB_TOKEN, use --token, or login with `gh auth login`.");
+            exitCode = CommandLine.ExitCode.USAGE;
+            return;
         }
         Map<String, String> parameters = parseParameters();
         if (!skillService.getSkill(skillId).isPresent()) {
