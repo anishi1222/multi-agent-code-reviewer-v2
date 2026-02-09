@@ -28,7 +28,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         
         <!-- Application dependencies -->
-        <copilot.sdk.version>1.0.6</copilot.sdk.version>
+        <copilot.sdk.version>1.0.8</copilot.sdk.version>
         <graalvm.version>25.0.2</graalvm.version>
     </properties>
 
