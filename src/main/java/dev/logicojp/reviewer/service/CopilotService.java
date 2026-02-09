@@ -47,8 +47,9 @@ public class CopilotService {
             if (cliPath != null && !cliPath.isBlank()) {
                 options.setCliPath(cliPath);
             }
-            verifyCliHealthy(cliPath);
-            if (githubToken != null && !githubToken.isBlank() && !githubToken.equals("${GITHUB_TOKEN}")) {
+            boolean useToken = githubToken != null && !githubToken.isBlank() && !githubToken.equals("${GITHUB_TOKEN}");
+            verifyCliHealthy(cliPath, useToken);
+            if (useToken) {
                 options.setGithubToken(githubToken);
                 options.setUseLoggedInUser(Boolean.FALSE);
             } else {
@@ -131,7 +132,7 @@ public class CopilotService {
             + "`github-copilot` or `copilot` is available, or set " + CLI_PATH_ENV + ".", null);
     }
 
-    private void verifyCliHealthy(String cliPath) throws ExecutionException, InterruptedException {
+    private void verifyCliHealthy(String cliPath, boolean tokenProvided) throws ExecutionException, InterruptedException {
         if (cliPath == null || cliPath.isBlank()) {
             return;
         }
@@ -140,10 +141,14 @@ public class CopilotService {
             "Copilot CLI exited with code ",
             "Failed to execute Copilot CLI: ");
 
-        runCliCommand(List.of(cliPath, "auth", "status"), resolveCliAuthcheckSeconds(),
-            "Copilot CLI auth status timed out after ",
-            "Copilot CLI auth status failed with code ",
-            "Failed to execute Copilot CLI auth status: ");
+        if (tokenProvided) {
+            logger.info("GITHUB_TOKEN provided — skipping CLI auth status check");
+        } else {
+            runCliCommand(List.of(cliPath, "auth", "status"), resolveCliAuthcheckSeconds(),
+                "Copilot CLI auth status timed out after ",
+                "Copilot CLI auth status failed with code ",
+                "Failed to execute Copilot CLI auth status: ");
+        }
     }
 
     private void runCliCommand(List<String> command, long timeoutSeconds,
