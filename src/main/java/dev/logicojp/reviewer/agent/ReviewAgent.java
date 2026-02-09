@@ -133,13 +133,13 @@ public class ReviewAgent {
         long timeoutMs = TimeUnit.MINUTES.toMillis(timeoutMinutes);
         
         try {
-            // Build the review prompt
-            String reviewPrompt = config.buildReviewPrompt(repository);
+            // Build the instruction
+            String instruction = config.buildInstruction(repository);
             
             // Execute the review
-            logger.debug("Sending review prompt to agent: {}", config.getName());
+            logger.debug("Sending instruction to agent: {}", config.getName());
             var response = session
-                .sendAndWait(new MessageOptions().setPrompt(reviewPrompt), timeoutMs)
+                .sendAndWait(new MessageOptions().setPrompt(instruction), timeoutMs)
                 .get(timeoutMinutes, TimeUnit.MINUTES);
             
             String content = response.getData().getContent();
@@ -188,13 +188,13 @@ public class ReviewAgent {
         long timeoutMs = TimeUnit.MINUTES.toMillis(timeoutMinutes);
         
         try {
-            // Build the review prompt with embedded source code
-            String reviewPrompt = config.buildLocalReviewPrompt(target.getDisplayName(), sourceContent);
+            // Build the instruction with embedded source code
+            String instruction = config.buildLocalInstruction(target.getDisplayName(), sourceContent);
             
             // Execute the review
-            logger.debug("Sending local review prompt to agent: {}", config.getName());
+            logger.debug("Sending local instruction to agent: {}", config.getName());
             var response = session
-                .sendAndWait(new MessageOptions().setPrompt(reviewPrompt), timeoutMs)
+                .sendAndWait(new MessageOptions().setPrompt(instruction), timeoutMs)
                 .get(timeoutMinutes, TimeUnit.MINUTES);
             
             String content = response.getData().getContent();

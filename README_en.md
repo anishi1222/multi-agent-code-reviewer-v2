@@ -228,7 +228,17 @@ Additional directories can be specified with the `--agents-dir` option.
 
 ### Agent Definition File (`.agent.md`)
 
-In `Review Prompt`, you can use placeholders: `${repository}`, `${displayName}`, `${focusAreas}`.
+Following the GitHub Copilot Custom Agent format, all section names are in English. Recognized sections:
+
+| Section | Description |
+|---------|-------------|
+| `## Role` | Agent role / system prompt |
+| `## Instruction` | Review instruction prompt |
+| `## Focus Areas` | List of review focus areas |
+| `## Output Format` | Output format specification |
+| `## Skills` | Skill definitions |
+
+In `Instruction`, you can use placeholders: `${repository}`, `${displayName}`, `${focusAreas}`.
 
 ```markdown
 ---
@@ -239,12 +249,12 @@ model: claude-sonnet-4
 
 # Security Review Agent
 
-## System Prompt
+## Role
 
 You are a security-focused code reviewer.
 As an experienced security engineer, you identify vulnerabilities in the code.
 
-## Review Prompt
+## Instruction
 
 Please perform a code review of the following GitHub repository.
 

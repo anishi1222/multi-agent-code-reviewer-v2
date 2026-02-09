@@ -227,7 +227,17 @@ reviewer:
 
 ### エージェント定義ファイル (`.agent.md`)
 
-`Review Prompt` では `${repository}`, `${displayName}`, `${focusAreas}` のプレースホルダーが利用できます。
+GitHub Copilot Custom Agent の書式に従い、セクション名はすべて英語で記述します。認識されるセクション:
+
+| セクション | 説明 |
+|---------|------|
+| `## Role` | エージェントの役割・システムプロンプト |
+| `## Instruction` | レビュー依頼プロンプト |
+| `## Focus Areas` | レビュー観点のリスト |
+| `## Output Format` | 出力フォーマット |
+| `## Skills` | スキル定義 |
+
+`Instruction` では `${repository}`, `${displayName}`, `${focusAreas}` のプレースホルダーが利用できます。
 
 ```markdown
 ---
@@ -238,12 +248,12 @@ model: claude-sonnet-4
 
 # セキュリティレビューエージェント
 
-## System Prompt
+## Role
 
 あなたはセキュリティ専門のコードレビュアーです。
 豊富な経験を持つセキュリティエンジニアとして、コードの脆弱性を特定します。
 
-## Review Prompt
+## Instruction
 
 以下のGitHubリポジトリのコードレビューを実施してください。
 
