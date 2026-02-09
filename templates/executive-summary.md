@@ -12,6 +12,12 @@
 
 ---
 
+## 各レビュー 指摘事項一覧
+
+{{findingsSummary}}
+
+---
+
 ## 個別レポート
 
 {{reportLinks}}

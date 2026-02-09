@@ -172,10 +172,37 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 ローカルディレクトリレビュー時、以下のパスからカスタムインストラクションが自動的に読み込まれます（優先度順）:
 
 1. `.github/copilot-instructions.md`
-2. `.copilot/instructions.md`
-3. `INSTRUCTIONS.md`
-4. `.instructions.md`
-5. `copilot-instructions.md`
+2. `.github/instructions/*.instructions.md` （GitHub Copilot スコープ付きインストラクション）
+3. `.copilot/instructions.md`
+4. `INSTRUCTIONS.md`
+5. `.instructions.md`
+6. `copilot-instructions.md`
+
+#### GitHub Copilot スコープ付きインストラクション
+
+GitHub Copilot の `.github/instructions/*.instructions.md` 形式をサポートしています。  
+YAML フロントマターで `applyTo`（対象ファイルのglobパターン）と `description`（説明）を指定できます。
+
+```markdown
+---
+applyTo: '**/*.java'
+description: 'Java コーディング規約'
+---
+- クラス名はUpperCamelCaseを使用すること
+- publicメソッドにはJavadocを記述すること
+- 可能な限りイミュータブルなオブジェクトを使用すること
+```
+
+複数のインストラクションファイルを `.github/instructions/` ディレクトリに配置できます：
+
+```
+.github/
+├── copilot-instructions.md          # リポジトリ全体のインストラクション
+└── instructions/
+    ├── java.instructions.md         # Java固有のルール
+    ├── typescript.instructions.md   # TypeScript固有のルール
+    └── security.instructions.md     # セキュリティガイドライン
+```
 
 ### 出力例
 
@@ -459,9 +486,7 @@ templates/
 ├── fallback-agent-row.md          # フォールバックテーブル行
 ├── fallback-agent-success.md      # フォールバック成功詳細
 ├── fallback-agent-failure.md      # フォールバック失敗詳細
-├── custom-instruction-section.md  # カスタムインストラクションセクション
-├── local-review-content.md        # ローカルレビューコンテンツ
-└── review-custom-instruction.md   # レビュー用カスタムインストラクション
+└── local-review-content.md        # ローカルレビューコンテンツ
 ```
 
 ### テンプレート設定

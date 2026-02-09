@@ -10,17 +10,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Loads custom instructions from repository or local directory.
  * 
  * Supports the following instruction file locations (in priority order):
  * - .github/copilot-instructions.md
+ * - .github/instructions/*.instructions.md (GitHub Copilot per-scope format with YAML frontmatter)
  * - .copilot/instructions.md
  * - copilot-instructions.md (root)
  * - INSTRUCTIONS.md (root)
  * - .instructions.md (root)
+ * 
+ * Per-scope instruction files (.github/instructions/*.instructions.md) support YAML frontmatter:
+ * <pre>
+ * ---
+ * applyTo: '**&#47;*.java'
+ * description: 'Java coding standards'
+ * ---
+ * Follow these coding standards...
+ * </pre>
  */
 public class CustomInstructionLoader {
 
@@ -34,6 +44,12 @@ public class CustomInstructionLoader {
         "INSTRUCTIONS.md",
         ".instructions.md"
     );
+
+    /** Directory for GitHub Copilot per-scope instruction files */
+    private static final String INSTRUCTIONS_DIRECTORY = ".github/instructions";
+
+    /** File extension for per-scope instruction files */
+    private static final String INSTRUCTIONS_EXTENSION = ".instructions.md";
 
     private final List<Path> additionalInstructionPaths;
 
@@ -50,11 +66,11 @@ public class CustomInstructionLoader {
     /**
      * Loads custom instructions from a local directory.
      * @param directory The directory to search for instruction files
-     * @return Optional containing the instruction content, or empty if not found
+     * @return List of custom instructions found (empty if none found)
      */
-    public Optional<CustomInstruction> loadFromLocalDirectory(Path directory) {
+    public List<CustomInstruction> loadFromLocalDirectory(Path directory) {
         if (directory == null || !Files.isDirectory(directory)) {
-            return Optional.empty();
+            return List.of();
         }
 
         Path resolvedDirectory = directory.toAbsolutePath().normalize();
@@ -66,6 +82,9 @@ public class CustomInstructionLoader {
             loadInstructionFile(instructionPath).ifPresent(instructions::add);
         }
 
+        // Check .github/instructions/ directory for per-scope instruction files
+        instructions.addAll(loadFromInstructionsDirectory(resolvedDirectory));
+
         // Check additional paths
         for (Path additionalPath : additionalInstructionPaths) {
             Path resolvedPath = additionalPath.isAbsolute() 
@@ -76,11 +95,9 @@ public class CustomInstructionLoader {
 
         if (instructions.isEmpty()) {
             logger.debug("No custom instructions found in: {}", resolvedDirectory);
-            return Optional.empty();
         }
 
-        // Merge all found instructions
-        return Optional.of(mergeInstructions(instructions));
+        return List.copyOf(instructions);
     }
 
     /**
@@ -89,68 +106,153 @@ public class CustomInstructionLoader {
      * For GitHub targets, this returns empty (GitHub instructions should be fetched via MCP).
      * 
      * @param target The review target
-     * @return Optional containing the instruction content
+     * @return List of custom instructions found
      */
-    public Optional<CustomInstruction> loadForTarget(ReviewTarget target) {
+    public List<CustomInstruction> loadForTarget(ReviewTarget target) {
         if (target.isLocal()) {
-            return target.getLocalPath().flatMap(this::loadFromLocalDirectory);
+            return target.getLocalPath()
+                .map(this::loadFromLocalDirectory)
+                .orElse(List.of());
         }
         // For GitHub targets, instructions should be fetched via MCP tools
         // Return empty here - the caller should handle GitHub instruction fetching
-        return Optional.empty();
+        return List.of();
+    }
+
+    /**
+     * Loads per-scope instruction files from the .github/instructions/ directory.
+     * Files must have the .instructions.md extension and may contain YAML frontmatter
+     * with applyTo and description fields.
+     */
+    List<CustomInstruction> loadFromInstructionsDirectory(Path baseDirectory) {
+        Path instructionsDir = baseDirectory.resolve(INSTRUCTIONS_DIRECTORY);
+        if (!Files.isDirectory(instructionsDir)) {
+            return List.of();
+        }
+
+        List<CustomInstruction> instructions = new ArrayList<>();
+        try (Stream<Path> stream = Files.list(instructionsDir)) {
+            stream.filter(Files::isRegularFile)
+                  .filter(p -> p.getFileName().toString().endsWith(INSTRUCTIONS_EXTENSION))
+                  .sorted()
+                  .forEach(path -> {
+                      try {
+                          String rawContent = Files.readString(path, StandardCharsets.UTF_8);
+                          if (rawContent.isBlank()) {
+                              logger.debug("Scoped instruction file is empty: {}", path);
+                              return;
+                          }
+
+                          ParsedInstruction parsed = parseFrontmatter(rawContent);
+                          instructions.add(new CustomInstruction(
+                              path.toString(),
+                              parsed.content().trim(),
+                              InstructionSource.LOCAL_FILE,
+                              parsed.applyTo(),
+                              parsed.description()
+                          ));
+                          logger.info("Loaded scoped instruction from: {} (applyTo: {})", 
+                              path, parsed.applyTo());
+                      } catch (IOException e) {
+                          logger.warn("Failed to read instruction file {}: {}", path, e.getMessage());
+                      }
+                  });
+        } catch (IOException e) {
+            logger.warn("Failed to scan instructions directory {}: {}", instructionsDir, e.getMessage());
+        }
+        return instructions;
     }
 
     /**
      * Loads a single instruction file.
      */
-    private Optional<CustomInstruction> loadInstructionFile(Path path) {
+    private java.util.Optional<CustomInstruction> loadInstructionFile(Path path) {
         if (!Files.exists(path) || !Files.isRegularFile(path)) {
-            return Optional.empty();
+            return java.util.Optional.empty();
         }
 
         try {
             String content = Files.readString(path, StandardCharsets.UTF_8);
             if (content.isBlank()) {
                 logger.debug("Instruction file is empty: {}", path);
-                return Optional.empty();
+                return java.util.Optional.empty();
             }
 
             logger.info("Loaded custom instruction from: {}", path);
-            return Optional.of(new CustomInstruction(
+            return java.util.Optional.of(new CustomInstruction(
                 path.toString(),
                 content.trim(),
-                InstructionSource.LOCAL_FILE
+                InstructionSource.LOCAL_FILE,
+                null,
+                null
             ));
         } catch (IOException e) {
             logger.warn("Failed to read instruction file {}: {}", path, e.getMessage());
-            return Optional.empty();
+            return java.util.Optional.empty();
         }
     }
 
     /**
-     * Merges multiple instructions into one.
+     * Parsed result of a frontmatter-enabled instruction file.
+     * 
+     * @param content The instruction content (without frontmatter)
+     * @param applyTo The glob pattern from frontmatter (nullable)
+     * @param description The description from frontmatter (nullable)
      */
-    private CustomInstruction mergeInstructions(List<CustomInstruction> instructions) {
-        if (instructions.size() == 1) {
-            return instructions.getFirst();
+    record ParsedInstruction(String content, String applyTo, String description) {}
+
+    /**
+     * Parses YAML frontmatter from an instruction file content.
+     * Frontmatter is delimited by --- lines at the start of the file.
+     * Supports applyTo and description fields.
+     * 
+     * @param rawContent The raw file content
+     * @return ParsedInstruction with separated content and metadata
+     */
+    static ParsedInstruction parseFrontmatter(String rawContent) {
+        if (rawContent == null || !rawContent.startsWith("---")) {
+            return new ParsedInstruction(rawContent, null, null);
         }
 
-        StringBuilder mergedContent = new StringBuilder();
-        List<String> sources = new ArrayList<>();
-
-        for (CustomInstruction instruction : instructions) {
-            if (!mergedContent.isEmpty()) {
-                mergedContent.append("\n\n---\n\n");
-            }
-            mergedContent.append("<!-- Source: ").append(instruction.source()).append(" -->\n");
-            mergedContent.append(instruction.content());
-            sources.add(instruction.sourcePath());
+        // Find the closing --- delimiter
+        int endIndex = rawContent.indexOf("\n---", 3);
+        if (endIndex < 0) {
+            // No closing delimiter found — treat entire content as body
+            return new ParsedInstruction(rawContent, null, null);
         }
 
-        return new CustomInstruction(
-            String.join(", ", sources),
-            mergedContent.toString(),
-            InstructionSource.MERGED
+        String frontmatter = rawContent.substring(3, endIndex).trim();
+        // Skip past the closing --- and any trailing newline
+        String content = rawContent.substring(endIndex + 4).trim();
+
+        String applyTo = extractFrontmatterValue(frontmatter, "applyTo");
+        String description = extractFrontmatterValue(frontmatter, "description");
+
+        return new ParsedInstruction(
+            content.isEmpty() ? rawContent : content,
+            applyTo,
+            description
         );
+    }
+
+    /**
+     * Extracts a value for the given key from YAML frontmatter text.
+     * Supports both quoted ('value' or "value") and unquoted values.
+     */
+    private static String extractFrontmatterValue(String frontmatter, String key) {
+        for (String line : frontmatter.split("\n")) {
+            line = line.trim();
+            if (line.startsWith(key + ":")) {
+                String value = line.substring(key.length() + 1).trim();
+                // Remove surrounding quotes
+                if (value.length() >= 2
+                        && ((value.startsWith("'") && value.endsWith("'"))
+                         || (value.startsWith("\"") && value.endsWith("\"")))) {
+                    value = value.substring(1, value.length() - 1);
+                }
+                return value.isEmpty() ? null : value;
+            }
+        }
+        return null;
     }
 }

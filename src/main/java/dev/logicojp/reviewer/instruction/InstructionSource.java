@@ -13,10 +13,5 @@ public enum InstructionSource {
     /**
      * Instruction fetched from a GitHub repository.
      */
-    GITHUB_REPOSITORY,
-    
-    /**
-     * Multiple instructions merged together.
-     */
-    MERGED
+    GITHUB_REPOSITORY
 }

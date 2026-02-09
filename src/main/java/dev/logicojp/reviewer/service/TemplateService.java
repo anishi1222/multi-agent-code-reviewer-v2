@@ -132,24 +132,10 @@ public class TemplateService {
     }
 
     /**
-     * Loads the custom instruction section template with placeholders applied.
-     */
-    public String getCustomInstructionSection(Map<String, String> placeholders) {
-        return loadTemplate(config.customInstructionSection(), placeholders);
-    }
-
-    /**
      * Loads the local review content template with placeholders applied.
      */
     public String getLocalReviewContent(Map<String, String> placeholders) {
         return loadTemplate(config.localReviewContent(), placeholders);
-    }
-
-    /**
-     * Loads the review custom instruction template with placeholders applied.
-     */
-    public String getReviewCustomInstruction(Map<String, String> placeholders) {
-        return loadTemplate(config.reviewCustomInstruction(), placeholders);
     }
 
     /**

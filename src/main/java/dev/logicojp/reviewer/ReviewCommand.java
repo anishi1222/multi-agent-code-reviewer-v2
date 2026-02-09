@@ -7,7 +7,9 @@ import dev.logicojp.reviewer.cli.CliValidationException;
 import dev.logicojp.reviewer.cli.ExitCodes;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.ModelConfig;
+import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.instruction.CustomInstructionLoader;
+import dev.logicojp.reviewer.instruction.InstructionSource;
 import dev.logicojp.reviewer.report.ReviewResult;
 import dev.logicojp.reviewer.service.AgentService;
 import dev.logicojp.reviewer.service.CopilotService;
@@ -357,7 +359,7 @@ public class ReviewCommand {
         printBanner(agentConfigs, agentDirs, modelConfig, target);
 
         // Load custom instructions
-        String customInstruction = loadCustomInstructions(target);
+        List<CustomInstruction> customInstructions = loadCustomInstructions(target);
 
 
         // Execute reviews using the Copilot service
@@ -367,7 +369,7 @@ public class ReviewCommand {
             System.out.println("Starting reviews...");
             List<ReviewResult> results = reviewService.executeReviews(
                 agentConfigs, target, resolvedToken, parallelism,
-                customInstruction, modelConfig.reasoningEffort());
+                customInstructions, modelConfig.reasoningEffort());
 
             // Generate individual reports
             System.out.println("\nGenerating reports...");
@@ -420,13 +422,13 @@ public class ReviewCommand {
     /**
      * Loads custom instructions from specified paths or target directory.
      */
-    private String loadCustomInstructions(ReviewTarget target) {
+    private List<CustomInstruction> loadCustomInstructions(ReviewTarget target) {
         if (noInstructions) {
             logger.info("Custom instructions disabled by --no-instructions flag");
-            return null;
+            return List.of();
         }
 
-        StringBuilder combined = new StringBuilder();
+        List<CustomInstruction> instructions = new ArrayList<>();
 
         // Load from explicitly specified paths
         if (instructionPaths != null && !instructionPaths.isEmpty()) {
@@ -435,11 +437,9 @@ public class ReviewCommand {
                     if (Files.exists(path) && Files.isRegularFile(path)) {
                         String content = Files.readString(path);
                         if (!content.isBlank()) {
-                            if (!combined.isEmpty()) {
-                                combined.append("\n\n---\n\n");
-                            }
-                            combined.append("<!-- Source: ").append(path).append(" -->\n");
-                            combined.append(content.trim());
+                            instructions.add(new CustomInstruction(
+                                path.toString(), content.trim(),
+                                InstructionSource.LOCAL_FILE, null, null));
                             System.out.println("  ✓ Loaded instructions: " + path);
                         }
                     } else {
@@ -454,17 +454,14 @@ public class ReviewCommand {
         // Also try to load from target directory (for local targets)
         if (target.isLocal()) {
             CustomInstructionLoader loader = new CustomInstructionLoader();
-            loader.loadForTarget(target).ifPresent(instruction -> {
-                if (!combined.isEmpty()) {
-                    combined.append("\n\n---\n\n");
-                }
-                combined.append(instruction.content());
+            List<CustomInstruction> targetInstructions = loader.loadForTarget(target);
+            for (CustomInstruction instruction : targetInstructions) {
+                instructions.add(instruction);
                 System.out.println("  ✓ Loaded instructions from target: " + instruction.sourcePath());
-            });
+            }
         }
 
-        String result = combined.toString().trim();
-        return result.isEmpty() ? null : result;
+        return List.copyOf(instructions);
     }
 
     private void printBanner(Map<String, AgentConfig> agentConfigs,

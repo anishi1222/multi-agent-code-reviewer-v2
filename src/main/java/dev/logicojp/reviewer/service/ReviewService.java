@@ -42,38 +42,8 @@ public class ReviewService {
      * @param agentConfigs Map of agent configurations
      * @param target Target to review (GitHub repository or local directory)
      * @param githubToken GitHub authentication token (required for GitHub targets)
-     * @return List of review results from all agents
-     */
-    public List<ReviewResult> executeReviews(
-            Map<String, AgentConfig> agentConfigs,
-            ReviewTarget target,
-            String githubToken) {
-        return executeReviews(agentConfigs, target, githubToken, executionConfig.parallelism(), null, null);
-    }
-    
-    /**
-     * Executes reviews with all specified agents in parallel with custom parallelism.
-     * @param agentConfigs Map of agent configurations
-     * @param target Target to review (GitHub repository or local directory)
-     * @param githubToken GitHub authentication token (required for GitHub targets)
      * @param parallelism Number of parallel agents (overrides config)
-     * @return List of review results from all agents
-     */
-    public List<ReviewResult> executeReviews(
-            Map<String, AgentConfig> agentConfigs,
-            ReviewTarget target,
-            String githubToken,
-            int parallelism) {
-        return executeReviews(agentConfigs, target, githubToken, parallelism, null, null);
-    }
-    
-    /**
-     * Executes reviews with all specified agents in parallel with custom instruction.
-     * @param agentConfigs Map of agent configurations
-     * @param target Target to review (GitHub repository or local directory)
-     * @param githubToken GitHub authentication token (required for GitHub targets)
-     * @param parallelism Number of parallel agents (overrides config)
-     * @param customInstruction Custom instruction content (optional)
+     * @param customInstructions List of custom instructions to apply (may be empty)
      * @param reasoningEffort Reasoning effort level for reasoning models (optional)
      * @return List of review results from all agents
      */
@@ -82,22 +52,21 @@ public class ReviewService {
             ReviewTarget target,
             String githubToken,
             int parallelism,
-            String customInstruction,
+            List<CustomInstruction> customInstructions,
             String reasoningEffort) {
         
         logger.info("Executing reviews for {} agents on target: {}", 
             agentConfigs.size(), target.getDisplayName());
         
-        // Load custom instruction from target if not provided
-        String effectiveCustomInstruction = customInstruction;
-        if (effectiveCustomInstruction == null || effectiveCustomInstruction.isBlank()) {
+        // Load custom instructions from target if none provided
+        List<CustomInstruction> effectiveInstructions = customInstructions;
+        if (effectiveInstructions == null || effectiveInstructions.isEmpty()) {
             CustomInstructionLoader loader = new CustomInstructionLoader();
-            effectiveCustomInstruction = loader.loadForTarget(target)
-                .map(CustomInstruction::content)
-                .orElse(null);
+            effectiveInstructions = loader.loadForTarget(target);
             
-            if (effectiveCustomInstruction != null) {
-                logger.info("Loaded custom instruction from target directory");
+            if (!effectiveInstructions.isEmpty()) {
+                logger.info("Loaded {} custom instruction(s) from target directory", 
+                    effectiveInstructions.size());
             }
         }
         
@@ -113,7 +82,7 @@ public class ReviewService {
         
         ReviewOrchestrator orchestrator = new ReviewOrchestrator(
             copilotService.getClient(), githubToken, githubMcpConfig, overriddenConfig,
-            effectiveCustomInstruction, reasoningEffort);
+            effectiveInstructions, reasoningEffort);
         
         try {
             return orchestrator.executeReviews(agentConfigs, target);

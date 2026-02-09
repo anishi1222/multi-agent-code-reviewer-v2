@@ -173,10 +173,37 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 During local directory review, custom instructions are automatically loaded from the following paths (in order of priority):
 
 1. `.github/copilot-instructions.md`
-2. `.copilot/instructions.md`
-3. `INSTRUCTIONS.md`
-4. `.instructions.md`
-5. `copilot-instructions.md`
+2. `.github/instructions/*.instructions.md` (GitHub Copilot per-scope instructions)
+3. `.copilot/instructions.md`
+4. `INSTRUCTIONS.md`
+5. `.instructions.md`
+6. `copilot-instructions.md`
+
+#### GitHub Copilot Per-scope Instructions
+
+The `.github/instructions/*.instructions.md` format used by GitHub Copilot is supported.  
+YAML frontmatter can specify `applyTo` (target file glob pattern) and `description`.
+
+```markdown
+---
+applyTo: '**/*.java'
+description: 'Java coding standards'
+---
+- Use UpperCamelCase for class names
+- Write Javadoc for all public methods
+- Prefer immutable objects where possible
+```
+
+Multiple instruction files can be placed in the `.github/instructions/` directory:
+
+```
+.github/
+├── copilot-instructions.md          # Repository-wide instructions
+└── instructions/
+    ├── java.instructions.md         # Java-specific rules
+    ├── typescript.instructions.md   # TypeScript-specific rules
+    └── security.instructions.md     # Security guidelines
+```
 
 ### Output Example
 
@@ -461,9 +488,7 @@ templates/
 ├── fallback-agent-row.md          # Fallback table row
 ├── fallback-agent-success.md      # Fallback success detail
 ├── fallback-agent-failure.md      # Fallback failure detail
-├── custom-instruction-section.md  # Custom instruction section
-├── local-review-content.md        # Local review content
-└── review-custom-instruction.md   # Review custom instruction
+└── local-review-content.md        # Local review content
 ```
 
 ### Template Configuration

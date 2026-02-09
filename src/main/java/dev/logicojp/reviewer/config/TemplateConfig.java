@@ -15,9 +15,7 @@ public record TemplateConfig(
     @Nullable String report,
     @Nullable String executiveSummary,
     @Nullable String fallbackSummary,
-    @Nullable String customInstructionSection,
     @Nullable String localReviewContent,
-    @Nullable String reviewCustomInstruction,
     @Nullable String summaryResultEntry,
     @Nullable String summaryResultErrorEntry,
     @Nullable String fallbackAgentRow,
@@ -33,9 +31,7 @@ public record TemplateConfig(
     private static final String DEFAULT_REPORT = "report.md";
     private static final String DEFAULT_EXECUTIVE_SUMMARY = "executive-summary.md";
     private static final String DEFAULT_FALLBACK_SUMMARY = "fallback-summary.md";
-    private static final String DEFAULT_CUSTOM_INSTRUCTION_SECTION = "custom-instruction-section.md";
     private static final String DEFAULT_LOCAL_REVIEW_CONTENT = "local-review-content.md";
-    private static final String DEFAULT_REVIEW_CUSTOM_INSTRUCTION = "review-custom-instruction.md";
     private static final String DEFAULT_SUMMARY_RESULT_ENTRY = "summary-result-entry.md";
     private static final String DEFAULT_SUMMARY_RESULT_ERROR_ENTRY = "summary-result-error-entry.md";
     private static final String DEFAULT_FALLBACK_AGENT_ROW = "fallback-agent-row.md";
@@ -57,12 +53,8 @@ public record TemplateConfig(
             ? DEFAULT_EXECUTIVE_SUMMARY : executiveSummary;
         fallbackSummary = (fallbackSummary == null || fallbackSummary.isBlank())
             ? DEFAULT_FALLBACK_SUMMARY : fallbackSummary;
-        customInstructionSection = (customInstructionSection == null || customInstructionSection.isBlank())
-            ? DEFAULT_CUSTOM_INSTRUCTION_SECTION : customInstructionSection;
         localReviewContent = (localReviewContent == null || localReviewContent.isBlank())
             ? DEFAULT_LOCAL_REVIEW_CONTENT : localReviewContent;
-        reviewCustomInstruction = (reviewCustomInstruction == null || reviewCustomInstruction.isBlank())
-            ? DEFAULT_REVIEW_CUSTOM_INSTRUCTION : reviewCustomInstruction;
         summaryResultEntry = (summaryResultEntry == null || summaryResultEntry.isBlank())
             ? DEFAULT_SUMMARY_RESULT_ENTRY : summaryResultEntry;
         summaryResultErrorEntry = (summaryResultErrorEntry == null || summaryResultErrorEntry.isBlank())

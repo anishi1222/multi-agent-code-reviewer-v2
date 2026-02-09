@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,7 +119,12 @@ public class SummaryGenerator {
             var response = session
                 .sendAndWait(new MessageOptions().setPrompt(prompt), timeoutMs)
                 .get(timeoutMinutes, TimeUnit.MINUTES);
-            return response.getData().getContent();
+            String content = response.getData().getContent();
+            if (content == null || content.isBlank()) {
+                logger.warn("AI summary response was empty, using fallback summary");
+                return buildFallbackSummary(results);
+            }
+            return content;
         } catch (java.util.concurrent.TimeoutException ex) {
             logger.error("Summary generation timed out: {}", ex.getMessage());
             return buildFallbackSummary(results);
@@ -198,6 +204,12 @@ public class SummaryGenerator {
             reportLinksBuilder.append(templateService.getReportLinkEntry(linkPlaceholders));
         }
         
+        // Build deterministic findings summary from review results
+        String findingsSummary = FindingsExtractor.buildFindingsSummary(results);
+        if (findingsSummary.isEmpty()) {
+            findingsSummary = "指摘事項はありません。";
+        }
+        
         // Apply executive summary template
         Map<String, String> placeholders = new HashMap<>();
         placeholders.put("date", LocalDate.now().format(DATE_FORMATTER));
@@ -205,7 +217,8 @@ public class SummaryGenerator {
         placeholders.put("agentCount", String.valueOf(results.size()));
         placeholders.put("successCount", String.valueOf(results.stream().filter(ReviewResult::isSuccess).count()));
         placeholders.put("failureCount", String.valueOf(results.stream().filter(r -> !r.isSuccess()).count()));
-        placeholders.put("summaryContent", summaryContent);
+        placeholders.put("summaryContent", summaryContent != null ? summaryContent : "");
+        placeholders.put("findingsSummary", findingsSummary);
         placeholders.put("reportLinks", reportLinksBuilder.toString());
         
         return templateService.getExecutiveSummaryTemplate(placeholders);

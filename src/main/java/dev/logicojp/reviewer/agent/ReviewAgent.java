@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.agent;
 
 import dev.logicojp.reviewer.config.GithubMcpConfig;
+import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.report.ReviewResult;
 import dev.logicojp.reviewer.target.LocalFileProvider;
 import dev.logicojp.reviewer.target.ReviewTarget;
@@ -11,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -30,39 +32,22 @@ public class ReviewAgent {
     private final String githubToken;
     private final GithubMcpConfig githubMcpConfig;
     private final long timeoutMinutes;
-    private final String customInstruction;
+    private final List<CustomInstruction> customInstructions;
     private final String reasoningEffort;
-    
-    public ReviewAgent(AgentConfig config,
-                       CopilotClient client,
-                       String githubToken,
-                       GithubMcpConfig githubMcpConfig,
-                       long timeoutMinutes) {
-        this(config, client, githubToken, githubMcpConfig, timeoutMinutes, null, null);
-    }
-    
-    public ReviewAgent(AgentConfig config,
-                       CopilotClient client,
-                       String githubToken,
-                       GithubMcpConfig githubMcpConfig,
-                       long timeoutMinutes,
-                       String customInstruction) {
-        this(config, client, githubToken, githubMcpConfig, timeoutMinutes, customInstruction, null);
-    }
 
     public ReviewAgent(AgentConfig config,
                        CopilotClient client,
                        String githubToken,
                        GithubMcpConfig githubMcpConfig,
                        long timeoutMinutes,
-                       String customInstruction,
+                       List<CustomInstruction> customInstructions,
                        String reasoningEffort) {
         this.config = config;
         this.client = client;
         this.githubToken = githubToken;
         this.githubMcpConfig = githubMcpConfig;
         this.timeoutMinutes = timeoutMinutes;
-        this.customInstruction = customInstruction;
+        this.customInstructions = customInstructions != null ? List.copyOf(customInstructions) : List.of();
         this.reasoningEffort = reasoningEffort;
     }
     
@@ -215,18 +200,22 @@ public class ReviewAgent {
     
     /**
      * Builds the system prompt including custom instructions if available.
+     * Each custom instruction is rendered with its scope metadata (applyTo, description)
+     * from GitHub Copilot per-scope instruction files (.github/instructions/*.instructions.md).
      */
     private String buildSystemPromptWithCustomInstruction() {
         StringBuilder sb = new StringBuilder();
         sb.append(config.buildFullSystemPrompt());
         
-        if (customInstruction != null && !customInstruction.isBlank()) {
-            sb.append("\n\n");
-            sb.append("## カスタムインストラクション\n\n");
-            sb.append("以下のプロジェクト固有の指示に従ってレビューを行ってください:\n\n");
-            sb.append(customInstruction.trim());
-            sb.append("\n");
-            logger.debug("Applied custom instruction to agent: {}", config.getName());
+        if (!customInstructions.isEmpty()) {
+            for (CustomInstruction instruction : customInstructions) {
+                if (!instruction.isEmpty()) {
+                    sb.append("\n\n");
+                    sb.append(instruction.toPromptSection());
+                    logger.debug("Applied custom instruction from {} to agent: {}", 
+                        instruction.sourcePath(), config.getName());
+                }
+            }
         }
         
         return sb.toString();

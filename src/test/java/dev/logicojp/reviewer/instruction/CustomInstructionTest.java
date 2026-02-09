@@ -17,7 +17,7 @@ class CustomInstructionTest {
         @DisplayName("contentがnullの場合はtrueを返す")
         void nullContentReturnsTrue() {
             CustomInstruction instruction = new CustomInstruction(
-                "/path/to/file.md", null, InstructionSource.LOCAL_FILE
+                "/path/to/file.md", null, InstructionSource.LOCAL_FILE, null, null
             );
             
             assertThat(instruction.isEmpty()).isTrue();
@@ -27,7 +27,7 @@ class CustomInstructionTest {
         @DisplayName("contentが空文字列の場合はtrueを返す")
         void emptyContentReturnsTrue() {
             CustomInstruction instruction = new CustomInstruction(
-                "/path/to/file.md", "", InstructionSource.LOCAL_FILE
+                "/path/to/file.md", "", InstructionSource.LOCAL_FILE, null, null
             );
             
             assertThat(instruction.isEmpty()).isTrue();
@@ -37,7 +37,7 @@ class CustomInstructionTest {
         @DisplayName("contentが空白のみの場合はtrueを返す")
         void blankContentReturnsTrue() {
             CustomInstruction instruction = new CustomInstruction(
-                "/path/to/file.md", "   \t\n  ", InstructionSource.LOCAL_FILE
+                "/path/to/file.md", "   \t\n  ", InstructionSource.LOCAL_FILE, null, null
             );
             
             assertThat(instruction.isEmpty()).isTrue();
@@ -47,7 +47,7 @@ class CustomInstructionTest {
         @DisplayName("contentに内容がある場合はfalseを返す")
         void nonBlankContentReturnsFalse() {
             CustomInstruction instruction = new CustomInstruction(
-                "/path/to/file.md", "Some instruction content", InstructionSource.LOCAL_FILE
+                "/path/to/file.md", "Some instruction content", InstructionSource.LOCAL_FILE, null, null
             );
             
             assertThat(instruction.isEmpty()).isFalse();
@@ -57,10 +57,60 @@ class CustomInstructionTest {
         @DisplayName("contentに空白を含む内容がある場合はfalseを返す")
         void contentWithWhitespaceReturnsFalse() {
             CustomInstruction instruction = new CustomInstruction(
-                "/path/to/file.md", "  Content with spaces  ", InstructionSource.LOCAL_FILE
+                "/path/to/file.md", "  Content with spaces  ", InstructionSource.LOCAL_FILE, null, null
             );
             
             assertThat(instruction.isEmpty()).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("hasMetadata")
+    class HasMetadata {
+
+        @Test
+        @DisplayName("applyToもdescriptionもnullの場合はfalse")
+        void noMetadataReturnsFalse() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, null, null
+            );
+            assertThat(instruction.hasMetadata()).isFalse();
+        }
+
+        @Test
+        @DisplayName("applyToが設定されている場合はtrue")
+        void withApplyToReturnsTrue() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, "**/*.java", null
+            );
+            assertThat(instruction.hasMetadata()).isTrue();
+        }
+
+        @Test
+        @DisplayName("descriptionが設定されている場合はtrue")
+        void withDescriptionReturnsTrue() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, null, "Java standards"
+            );
+            assertThat(instruction.hasMetadata()).isTrue();
+        }
+
+        @Test
+        @DisplayName("両方設定されている場合はtrue")
+        void withBothReturnsTrue() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, "**/*.java", "Java standards"
+            );
+            assertThat(instruction.hasMetadata()).isTrue();
+        }
+
+        @Test
+        @DisplayName("空白のみのapplyToはfalse")
+        void blankApplyToReturnsFalse() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, "  ", null
+            );
+            assertThat(instruction.hasMetadata()).isFalse();
         }
     }
 
@@ -72,7 +122,7 @@ class CustomInstructionTest {
         @DisplayName("カスタムインストラクションヘッダーを含む")
         void includesHeader() {
             CustomInstruction instruction = new CustomInstruction(
-                "/path/to/file.md", "Follow these rules", InstructionSource.LOCAL_FILE
+                "/path/to/file.md", "Follow these rules", InstructionSource.LOCAL_FILE, null, null
             );
             
             String result = instruction.toPromptSection();
@@ -84,7 +134,7 @@ class CustomInstructionTest {
         @DisplayName("指示文を含む")
         void includesInstructions() {
             CustomInstruction instruction = new CustomInstruction(
-                "/path/to/file.md", "Custom content", InstructionSource.LOCAL_FILE
+                "/path/to/file.md", "Custom content", InstructionSource.LOCAL_FILE, null, null
             );
             
             String result = instruction.toPromptSection();
@@ -97,7 +147,7 @@ class CustomInstructionTest {
         void includesContent() {
             String content = "Use TypeScript for all new code.";
             CustomInstruction instruction = new CustomInstruction(
-                "/path/to/file.md", content, InstructionSource.LOCAL_FILE
+                "/path/to/file.md", content, InstructionSource.LOCAL_FILE, null, null
             );
             
             String result = instruction.toPromptSection();
@@ -114,7 +164,7 @@ class CustomInstructionTest {
                 Rule 3: Follow coding standards.
                 """;
             CustomInstruction instruction = new CustomInstruction(
-                "/path/to/file.md", content.trim(), InstructionSource.LOCAL_FILE
+                "/path/to/file.md", content.trim(), InstructionSource.LOCAL_FILE, null, null
             );
             
             String result = instruction.toPromptSection();
@@ -122,6 +172,63 @@ class CustomInstructionTest {
             assertThat(result).contains("Rule 1:");
             assertThat(result).contains("Rule 2:");
             assertThat(result).contains("Rule 3:");
+        }
+
+        @Test
+        @DisplayName("applyToが設定されている場合は適用対象を含む")
+        void includesApplyTo() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path/to/file.md", "Follow Java standards", InstructionSource.LOCAL_FILE,
+                "**/*.java", null
+            );
+            
+            String result = instruction.toPromptSection();
+            
+            assertThat(result).contains("**適用対象**: `**/*.java`");
+            assertThat(result).contains("Follow Java standards");
+        }
+
+        @Test
+        @DisplayName("descriptionが設定されている場合は説明を含む")
+        void includesDescription() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path/to/file.md", "Follow Java standards", InstructionSource.LOCAL_FILE,
+                null, "Java coding standards"
+            );
+            
+            String result = instruction.toPromptSection();
+            
+            assertThat(result).contains("**説明**: Java coding standards");
+            assertThat(result).doesNotContain("適用対象");
+        }
+
+        @Test
+        @DisplayName("applyToとdescription両方が設定されている場合")
+        void includesBothMetadata() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path/to/file.md", "Follow Java standards", InstructionSource.LOCAL_FILE,
+                "**/*.java", "Java coding standards"
+            );
+            
+            String result = instruction.toPromptSection();
+            
+            assertThat(result).contains("**適用対象**: `**/*.java`");
+            assertThat(result).contains("**説明**: Java coding standards");
+            assertThat(result).contains("Follow Java standards");
+        }
+
+        @Test
+        @DisplayName("メタデータなしの場合はコンテンツのみ")
+        void noMetadataOnlyContent() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path/to/file.md", "General rules", InstructionSource.LOCAL_FILE, null, null
+            );
+            
+            String result = instruction.toPromptSection();
+            
+            assertThat(result).doesNotContain("適用対象");
+            assertThat(result).doesNotContain("説明");
+            assertThat(result).contains("General rules");
         }
     }
 
@@ -133,7 +240,7 @@ class CustomInstructionTest {
         @DisplayName("sourcePathを取得できる")
         void canGetSourcePath() {
             CustomInstruction instruction = new CustomInstruction(
-                "/my/path/instructions.md", "content", InstructionSource.GITHUB_REPOSITORY
+                "/my/path/instructions.md", "content", InstructionSource.GITHUB_REPOSITORY, null, null
             );
             
             assertThat(instruction.sourcePath()).isEqualTo("/my/path/instructions.md");
@@ -143,7 +250,7 @@ class CustomInstructionTest {
         @DisplayName("contentを取得できる")
         void canGetContent() {
             CustomInstruction instruction = new CustomInstruction(
-                "/path", "My instruction content", InstructionSource.LOCAL_FILE
+                "/path", "My instruction content", InstructionSource.LOCAL_FILE, null, null
             );
             
             assertThat(instruction.content()).isEqualTo("My instruction content");
@@ -153,10 +260,41 @@ class CustomInstructionTest {
         @DisplayName("sourceを取得できる")
         void canGetSource() {
             CustomInstruction instruction = new CustomInstruction(
-                "/path", "content", InstructionSource.MERGED
+                "/path", "content", InstructionSource.LOCAL_FILE, null, null
             );
             
-            assertThat(instruction.source()).isEqualTo(InstructionSource.MERGED);
+            assertThat(instruction.source()).isEqualTo(InstructionSource.LOCAL_FILE);
+        }
+
+        @Test
+        @DisplayName("applyToを取得できる")
+        void canGetApplyTo() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, "**/*.java", null
+            );
+            
+            assertThat(instruction.applyTo()).isEqualTo("**/*.java");
+        }
+
+        @Test
+        @DisplayName("descriptionを取得できる")
+        void canGetDescription() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, null, "Java standards"
+            );
+            
+            assertThat(instruction.description()).isEqualTo("Java standards");
+        }
+
+        @Test
+        @DisplayName("メタデータなしの場合applyToとdescriptionはnull")
+        void threeArgConstructorSetsNullMetadata() {
+            CustomInstruction instruction = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, null, null
+            );
+            
+            assertThat(instruction.applyTo()).isNull();
+            assertThat(instruction.description()).isNull();
         }
     }
 
@@ -168,10 +306,24 @@ class CustomInstructionTest {
         @DisplayName("同じ値を持つレコードは等価である")
         void sameValuesAreEqual() {
             CustomInstruction inst1 = new CustomInstruction(
-                "/path", "content", InstructionSource.LOCAL_FILE
+                "/path", "content", InstructionSource.LOCAL_FILE, null, null
             );
             CustomInstruction inst2 = new CustomInstruction(
-                "/path", "content", InstructionSource.LOCAL_FILE
+                "/path", "content", InstructionSource.LOCAL_FILE, null, null
+            );
+            
+            assertThat(inst1).isEqualTo(inst2);
+            assertThat(inst1.hashCode()).isEqualTo(inst2.hashCode());
+        }
+
+        @Test
+        @DisplayName("同じ値を持つ5引数レコードは等価である")
+        void sameValuesWithMetadataAreEqual() {
+            CustomInstruction inst1 = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, "**/*.java", "desc"
+            );
+            CustomInstruction inst2 = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, "**/*.java", "desc"
             );
             
             assertThat(inst1).isEqualTo(inst2);
@@ -182,10 +334,10 @@ class CustomInstructionTest {
         @DisplayName("異なるsourcePathを持つレコードは等価でない")
         void differentPathsNotEqual() {
             CustomInstruction inst1 = new CustomInstruction(
-                "/path1", "content", InstructionSource.LOCAL_FILE
+                "/path1", "content", InstructionSource.LOCAL_FILE, null, null
             );
             CustomInstruction inst2 = new CustomInstruction(
-                "/path2", "content", InstructionSource.LOCAL_FILE
+                "/path2", "content", InstructionSource.LOCAL_FILE, null, null
             );
             
             assertThat(inst1).isNotEqualTo(inst2);
@@ -195,10 +347,10 @@ class CustomInstructionTest {
         @DisplayName("異なるcontentを持つレコードは等価でない")
         void differentContentNotEqual() {
             CustomInstruction inst1 = new CustomInstruction(
-                "/path", "content1", InstructionSource.LOCAL_FILE
+                "/path", "content1", InstructionSource.LOCAL_FILE, null, null
             );
             CustomInstruction inst2 = new CustomInstruction(
-                "/path", "content2", InstructionSource.LOCAL_FILE
+                "/path", "content2", InstructionSource.LOCAL_FILE, null, null
             );
             
             assertThat(inst1).isNotEqualTo(inst2);
@@ -208,10 +360,36 @@ class CustomInstructionTest {
         @DisplayName("異なるsourceを持つレコードは等価でない")
         void differentSourceNotEqual() {
             CustomInstruction inst1 = new CustomInstruction(
-                "/path", "content", InstructionSource.LOCAL_FILE
+                "/path", "content", InstructionSource.LOCAL_FILE, null, null
             );
             CustomInstruction inst2 = new CustomInstruction(
-                "/path", "content", InstructionSource.GITHUB_REPOSITORY
+                "/path", "content", InstructionSource.GITHUB_REPOSITORY, null, null
+            );
+            
+            assertThat(inst1).isNotEqualTo(inst2);
+        }
+
+        @Test
+        @DisplayName("異なるapplyToを持つレコードは等価でない")
+        void differentApplyToNotEqual() {
+            CustomInstruction inst1 = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, "**/*.java", null
+            );
+            CustomInstruction inst2 = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, "**/*.ts", null
+            );
+            
+            assertThat(inst1).isNotEqualTo(inst2);
+        }
+
+        @Test
+        @DisplayName("異なるdescriptionを持つレコードは等価でない")
+        void differentDescriptionNotEqual() {
+            CustomInstruction inst1 = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, null, "desc1"
+            );
+            CustomInstruction inst2 = new CustomInstruction(
+                "/path", "content", InstructionSource.LOCAL_FILE, null, "desc2"
             );
             
             assertThat(inst1).isNotEqualTo(inst2);
