@@ -113,6 +113,7 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--no-instructions` | - | Disable automatic loading of custom instructions | false |
 | `--help` | `-h` | Show help | - |
 | `--version` | `-V` | Show version | - |
+./target/review run --local . --all --no-summary| `--verbose` | `-v` | Enable verbose logging (debug level) | - |
 
 ### List Subcommand
 

@@ -112,6 +112,7 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--no-instructions` | - | カスタムインストラクションの自動読込を無効化 | false |
 | `--help` | `-h` | ヘルプ表示 | - |
 | `--version` | `-V` | バージョン表示 | - |
+| `--verbose` | `-v` | 詳細ログ出力（debugレベル） | - |
 
 ### list サブコマンド
 
