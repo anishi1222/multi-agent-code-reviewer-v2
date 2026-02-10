@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static dev.logicojp.reviewer.report.SummaryGenerator.resolveReasoningEffort;
@@ -57,13 +58,10 @@ public class ReviewAgent {
      * @return ReviewResult containing the review content
      */
     public CompletableFuture<ReviewResult> review(ReviewTarget target) {
-        return review(target, null);
+        return review(target, Executors.newVirtualThreadPerTaskExecutor());
     }
 
     public CompletableFuture<ReviewResult> review(ReviewTarget target, Executor executor) {
-        if (executor == null) {
-            return CompletableFuture.supplyAsync(() -> runReview(target));
-        }
         return CompletableFuture.supplyAsync(() -> runReview(target), executor);
     }
 

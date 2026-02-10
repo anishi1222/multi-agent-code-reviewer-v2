@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -28,7 +29,8 @@ public class SkillExecutor {
     public SkillExecutor(CopilotClient client, String githubToken,
                          GithubMcpConfig githubMcpConfig, String defaultModel,
                          long timeoutMinutes) {
-        this(client, githubToken, githubMcpConfig, defaultModel, timeoutMinutes, null);
+        this(client, githubToken, githubMcpConfig, defaultModel, timeoutMinutes,
+             Executors.newVirtualThreadPerTaskExecutor());
     }
 
     public SkillExecutor(CopilotClient client, String githubToken,
@@ -55,9 +57,6 @@ public class SkillExecutor {
     public CompletableFuture<SkillResult> execute(SkillDefinition skill,
                                                   Map<String, String> parameters,
                                                   String systemPrompt) {
-        if (executor == null) {
-            return CompletableFuture.supplyAsync(() -> executeSafely(skill, parameters, systemPrompt));
-        }
         return CompletableFuture.supplyAsync(() -> executeSafely(skill, parameters, systemPrompt), executor);
     }
 

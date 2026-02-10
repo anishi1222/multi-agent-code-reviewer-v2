@@ -410,6 +410,36 @@ mvn clean package -Pnative
 ./target/review run --repo owner/repository --all
 ```
 
+### リフレクション設定の生成（初回ビルド時・依存関係更新時）
+
+Copilot SDK は内部で Jackson Databind を使用して JSON-RPC 通信を行います。GraalVM Native Image ではリフレクションが制限されるため、SDK 内部の DTO クラス群に対してリフレクション設定を事前に登録する必要があります。
+
+設定が不足している場合、Native Image の実行時に Copilot CLI との通信でタイムアウトが発生します（FAT JAR では発生しません）。これは Jackson がリフレクション経由で JSON のシリアライズ/デシリアライズを行う際に、Native Image 環境では未登録クラスのメタデータにアクセスできず、SDK 内部で例外が握り潰されて `CompletableFuture` が完了しなくなるためです。
+
+GraalVM の**トレーシングエージェント**を使って、実際の実行で必要なリフレクション情報を自動収集してください。
+
+```bash
+# 1. まず FAT JAR をビルド
+mvn clean package -DskipTests
+
+# 2. トレーシングエージェント付きで実行し、リフレクション設定を自動生成
+#    既存の設定とマージするため config-merge-dir を使用
+java -agentlib:native-image-agent=config-merge-dir=src/main/resources/META-INF/native-image \
+     -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+     run --repo owner/repository --all
+
+# 3. 生成された設定を確認
+ls src/main/resources/META-INF/native-image/
+# reflect-config.json, resource-config.json, proxy-config.json 等が生成・更新される
+
+# 4. Native Image を再ビルド
+mvn clean package -Pnative -DskipTests
+```
+
+> **注意**: `config-output-dir` ではなく `config-merge-dir` を使うことで、既存の設定（Logback 等）を上書きせずマージできます。また、レビュー対象の全エージェント（security, performance 等）を一通り実行し、すべてのコードパスを通すことで、漏れのない設定を生成できます。
+
+> **ヒント**: Copilot SDK や Jackson 等の依存ライブラリを更新した場合も、トレーシングエージェントを再実行して設定を更新してください。
+
 ## アーキテクチャ
 
 ```mermaid

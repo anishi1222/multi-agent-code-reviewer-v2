@@ -411,6 +411,36 @@ mvn clean package -Pnative
 ./target/review run --repo owner/repository --all
 ```
 
+### Generating Reflection Configuration (First Build / After Dependency Updates)
+
+The Copilot SDK internally uses Jackson Databind for JSON-RPC communication. Because GraalVM Native Image restricts reflection, reflection configuration must be registered in advance for the SDK's internal DTO classes.
+
+If the configuration is missing, the Native Image binary will time out when communicating with the Copilot CLI (this does not occur with the FAT JAR). This happens because Jackson performs JSON serialization/deserialization via reflection, and in a Native Image environment, metadata for unregistered classes is inaccessible. Exceptions are silently caught inside the SDK, leaving `CompletableFuture` instances permanently incomplete.
+
+Use the GraalVM **tracing agent** to automatically collect the required reflection information from an actual execution.
+
+```bash
+# 1. Build the FAT JAR first
+mvn clean package -DskipTests
+
+# 2. Run with the tracing agent to auto-generate reflection configuration
+#    Use config-merge-dir to merge with existing configuration
+java -agentlib:native-image-agent=config-merge-dir=src/main/resources/META-INF/native-image \
+     -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+     run --repo owner/repository --all
+
+# 3. Verify the generated configuration
+ls src/main/resources/META-INF/native-image/
+# reflect-config.json, resource-config.json, proxy-config.json, etc. are generated/updated
+
+# 4. Rebuild as Native Image
+mvn clean package -Pnative -DskipTests
+```
+
+> **Note**: Use `config-merge-dir` instead of `config-output-dir` to merge with existing configurations (e.g., Logback) rather than overwriting them. Also, run all agents (security, performance, etc.) to exercise all code paths and generate complete configuration.
+
+> **Tip**: Re-run the tracing agent whenever you update dependencies such as the Copilot SDK or Jackson.
+
 ## Architecture
 
 ```mermaid

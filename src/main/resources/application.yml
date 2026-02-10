@@ -5,10 +5,10 @@ micronaut:
 reviewer:
   execution:
     parallelism: 4
-    orchestrator-timeout-minutes: 10
-    agent-timeout-minutes: 10
-    skill-timeout-minutes: 10
-    summary-timeout-minutes: 10
+    orchestrator-timeout-minutes: 45
+    agent-timeout-minutes: 20
+    skill-timeout-minutes: 20
+    summary-timeout-minutes: 20
     gh-auth-timeout-seconds: 30
   templates:
     directory: templates
