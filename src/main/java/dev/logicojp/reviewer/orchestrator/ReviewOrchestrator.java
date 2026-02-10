@@ -27,6 +27,7 @@ public class ReviewOrchestrator {
     private final GithubMcpConfig githubMcpConfig;
     private final ExecutionConfig executionConfig;
     private final ExecutorService executorService;
+    private final Semaphore concurrencyLimit;
     private final List<CustomInstruction> customInstructions;
     private final String reasoningEffort;
 
@@ -42,9 +43,12 @@ public class ReviewOrchestrator {
         this.executionConfig = executionConfig;
         // Java 21+: Use virtual threads for better scalability with I/O-bound tasks
         this.executorService = Executors.newVirtualThreadPerTaskExecutor();
+        // Limit concurrent agent executions via --parallelism
+        this.concurrencyLimit = new Semaphore(executionConfig.parallelism());
         this.customInstructions = customInstructions != null ? List.copyOf(customInstructions) : List.of();
         this.reasoningEffort = reasoningEffort;
         
+        logger.info("Parallelism set to {}", executionConfig.parallelism());
         if (!this.customInstructions.isEmpty()) {
             logger.info("Custom instructions loaded ({} instruction(s))", this.customInstructions.size());
         }
@@ -66,7 +70,25 @@ public class ReviewOrchestrator {
         for (AgentConfig config : agents.values()) {
             ReviewAgent agent = new ReviewAgent(config, client, githubToken, githubMcpConfig,
                 executionConfig.agentTimeoutMinutes(), customInstructions, reasoningEffort);
-            CompletableFuture<ReviewResult> future = agent.review(target, executorService)
+            CompletableFuture<ReviewResult> future = CompletableFuture
+                .supplyAsync(() -> {
+                    try {
+                        concurrencyLimit.acquire();
+                        try {
+                            return agent.review(target);
+                        } finally {
+                            concurrencyLimit.release();
+                        }
+                    } catch (InterruptedException _) {
+                        Thread.currentThread().interrupt();
+                        return ReviewResult.builder()
+                            .agentConfig(config)
+                            .repository(target.getDisplayName())
+                            .success(false)
+                            .errorMessage("Review interrupted while waiting for concurrency permit")
+                            .build();
+                    }
+                }, executorService)
                 .orTimeout(timeoutMinutes, TimeUnit.MINUTES)
                 .exceptionally(ex -> {
                     logger.error("Agent {} failed with timeout or error: {}", 

@@ -14,9 +14,6 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static dev.logicojp.reviewer.report.SummaryGenerator.resolveReasoningEffort;
@@ -53,19 +50,11 @@ public class ReviewAgent {
     }
     
     /**
-     * Executes the review for the given target.
+     * Executes the review synchronously on the calling thread.
      * @param target The target to review (GitHub repository or local directory)
      * @return ReviewResult containing the review content
      */
-    public CompletableFuture<ReviewResult> review(ReviewTarget target) {
-        return review(target, Executors.newVirtualThreadPerTaskExecutor());
-    }
-
-    public CompletableFuture<ReviewResult> review(ReviewTarget target, Executor executor) {
-        return CompletableFuture.supplyAsync(() -> runReview(target), executor);
-    }
-
-    private ReviewResult runReview(ReviewTarget target) {
+    public ReviewResult review(ReviewTarget target) {
         try {
             return executeReview(target);
         } catch (Exception e) {
