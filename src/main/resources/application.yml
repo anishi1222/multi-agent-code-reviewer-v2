@@ -30,5 +30,5 @@ reviewer:
   models:
     review-model: GPT-5.2-Codex
     report-model: claude-opus-4.6
-    summary-model: claude-opus-4.6
+    summary-model: claude-sonnet-4.5
     reasoning-effort: high
