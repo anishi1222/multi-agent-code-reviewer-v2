@@ -16,9 +16,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-/**
- * Service for managing the Copilot SDK client lifecycle.
- */
+/// Service for managing the Copilot SDK client lifecycle.
 @Singleton
 public class CopilotService {
     
@@ -36,9 +34,7 @@ public class CopilotService {
     private CopilotClient client;
     private boolean initialized = false;
     
-    /**
-     * Initializes the Copilot client.
-     */
+    /// Initializes the Copilot client.
     public synchronized void initialize(String githubToken) throws ExecutionException, InterruptedException {
         if (!initialized) {
             logger.info("Initializing Copilot client...");
@@ -218,11 +214,9 @@ public class CopilotService {
             + "or set " + CLI_PATH_ENV + " to the correct executable.";
     }
     
-    /**
-     * Gets the Copilot client. Must call initialize() first.
-     * @return The initialized CopilotClient
-     * @throws IllegalStateException if not initialized
-     */
+    /// Gets the Copilot client. Must call initialize() first.
+    /// @return The initialized CopilotClient
+    /// @throws IllegalStateException if not initialized
     public CopilotClient getClient() {
         if (!initialized || client == null) {
             throw new IllegalStateException("CopilotService not initialized. Call initialize() first.");
@@ -230,16 +224,12 @@ public class CopilotService {
         return client;
     }
     
-    /**
-     * Checks if the service is initialized.
-     */
+    /// Checks if the service is initialized.
     public boolean isInitialized() {
         return initialized;
     }
     
-    /**
-     * Shuts down the Copilot client.
-     */
+    /// Shuts down the Copilot client.
     @PreDestroy
     public synchronized void shutdown() {
         if (client != null) {

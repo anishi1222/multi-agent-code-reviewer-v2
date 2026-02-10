@@ -14,19 +14,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Service for loading and managing agent configurations.
- */
+/// Service for loading and managing agent configurations.
 @Singleton
 public class AgentService {
     
     private static final Logger logger = LoggerFactory.getLogger(AgentService.class);
     
-    /**
-     * Builds the list of agent directories to search.
-     * @param additionalDirs Additional directories specified via CLI
-     * @return List of directories to search for agents
-     */
+    /// Builds the list of agent directories to search.
+    /// @param additionalDirs Additional directories specified via CLI
+    /// @return List of directories to search for agents
     public List<Path> buildAgentDirectories(List<Path> additionalDirs) {
         List<Path> dirs = new ArrayList<>();
         
@@ -54,25 +50,19 @@ public class AgentService {
         return dirs;
     }
     
-    /**
-     * Loads all agents from the specified directories.
-     */
+    /// Loads all agents from the specified directories.
     public Map<String, AgentConfig> loadAllAgents(List<Path> agentDirs) throws IOException {
         AgentConfigLoader loader = new AgentConfigLoader(agentDirs);
         return loader.loadAllAgents();
     }
     
-    /**
-     * Loads specific agents by name from the specified directories.
-     */
+    /// Loads specific agents by name from the specified directories.
     public Map<String, AgentConfig> loadAgents(List<Path> agentDirs, List<String> agentNames) throws IOException {
         AgentConfigLoader loader = new AgentConfigLoader(agentDirs);
         return loader.loadAgents(agentNames);
     }
     
-    /**
-     * Lists all available agent names from the specified directories.
-     */
+    /// Lists all available agent names from the specified directories.
     public List<String> listAvailableAgents(List<Path> agentDirs) throws IOException {
         AgentConfigLoader loader = new AgentConfigLoader(agentDirs);
         return loader.listAvailableAgents();

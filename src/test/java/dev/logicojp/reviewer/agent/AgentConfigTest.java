@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.agent;
 
+import dev.logicojp.reviewer.config.ModelConfig;
 import dev.logicojp.reviewer.skill.SkillDefinition;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -66,7 +67,7 @@ class AgentConfigTest {
                 VALID_NAME, "Display", null, VALID_SYSTEM_PROMPT, VALID_INSTRUCTION,
                 VALID_OUTPUT_FORMAT, List.of("area"), List.of()
             );
-            assertThat(config.model()).isEqualTo("claude-sonnet-4");
+            assertThat(config.model()).isEqualTo(ModelConfig.DEFAULT_MODEL);
         }
 
         @Test
@@ -76,7 +77,7 @@ class AgentConfigTest {
                 VALID_NAME, "Display", "  ", VALID_SYSTEM_PROMPT, VALID_INSTRUCTION,
                 VALID_OUTPUT_FORMAT, List.of("area"), List.of()
             );
-            assertThat(config.model()).isEqualTo("claude-sonnet-4");
+            assertThat(config.model()).isEqualTo(ModelConfig.DEFAULT_MODEL);
         }
 
         @Test

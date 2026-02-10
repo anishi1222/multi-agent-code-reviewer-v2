@@ -13,9 +13,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
-/**
- * Service for generating review reports and executive summaries.
- */
+/// Service for generating review reports and executive summaries.
 @Singleton
 public class ReportService {
     
@@ -35,12 +33,10 @@ public class ReportService {
         this.templateService = templateService;
     }
     
-    /**
-     * Generates individual reports for each review result.
-     * @param results List of review results
-     * @param outputDirectory Directory to write reports to
-     * @return List of paths to generated report files
-     */
+    /// Generates individual reports for each review result.
+    /// @param results List of review results
+    /// @param outputDirectory Directory to write reports to
+    /// @return List of paths to generated report files
     public List<Path> generateReports(List<ReviewResult> results, Path outputDirectory) 
             throws IOException {
         logger.info("Generating {} individual reports", results.size());
@@ -49,15 +45,13 @@ public class ReportService {
         return generator.generateReports(results);
     }
     
-    /**
-     * Generates an executive summary from all review results.
-     * @param results List of review results
-     * @param repository Target repository that was reviewed
-     * @param outputDirectory Directory to write summary to
-     * @param summaryModel LLM model to use for summary generation
-     * @param reasoningEffort Reasoning effort level for reasoning models (e.g. "high")
-     * @return Path to the generated summary file
-     */
+    /// Generates an executive summary from all review results.
+    /// @param results List of review results
+    /// @param repository Target repository that was reviewed
+    /// @param outputDirectory Directory to write summary to
+    /// @param summaryModel LLM model to use for summary generation
+    /// @param reasoningEffort Reasoning effort level for reasoning models (e.g. "high")
+    /// @return Path to the generated summary file
     public Path generateSummary(
             List<ReviewResult> results,
             String repository,

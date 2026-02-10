@@ -2,9 +2,7 @@ package dev.logicojp.reviewer.config;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 
-/**
- * Configuration for the review orchestrator.
- */
+/// Configuration for the review orchestrator.
 @ConfigurationProperties("reviewer.orchestrator")
 public class OrchestratorConfig {
 

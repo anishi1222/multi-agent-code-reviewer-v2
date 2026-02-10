@@ -17,9 +17,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Service for managing and executing skills.
- */
+/// Service for managing and executing skills.
 @Singleton
 public class SkillService {
 
@@ -42,9 +40,7 @@ public class SkillService {
         this.executorService = Executors.newFixedThreadPool(executionConfig.parallelism());
     }
 
-    /**
-     * Registers all skills from an agent configuration.
-     */
+    /// Registers all skills from an agent configuration.
     public void registerAgentSkills(AgentConfig agentConfig) {
         if (agentConfig.getSkills() != null) {
             for (SkillDefinition skill : agentConfig.getSkills()) {
@@ -55,41 +51,31 @@ public class SkillService {
         }
     }
 
-    /**
-     * Registers multiple agent skills.
-     */
+    /// Registers multiple agent skills.
     public void registerAllAgentSkills(Map<String, AgentConfig> agents) {
         for (AgentConfig agent : agents.values()) {
             registerAgentSkills(agent);
         }
     }
 
-    /**
-     * Gets the skill registry.
-     */
+    /// Gets the skill registry.
     public SkillRegistry getRegistry() {
         return skillRegistry;
     }
 
-    /**
-     * Gets a skill by ID.
-     */
+    /// Gets a skill by ID.
     public Optional<SkillDefinition> getSkill(String skillId) {
         return skillRegistry.get(skillId);
     }
 
-    /**
-     * Lists all available skill IDs.
-     */
+    /// Lists all available skill IDs.
     public List<String> listSkills() {
         return skillRegistry.getAll().stream()
             .map(SkillDefinition::id)
             .toList();
     }
 
-    /**
-     * Executes a skill by ID with the given parameters.
-     */
+    /// Executes a skill by ID with the given parameters.
     public CompletableFuture<SkillResult> executeSkill(String skillId,
                                                         Map<String, String> parameters,
                                                         String githubToken,
@@ -113,9 +99,7 @@ public class SkillService {
         return executor.execute(skill, parameters);
     }
 
-    /**
-     * Executes a skill with a custom system prompt.
-     */
+    /// Executes a skill with a custom system prompt.
     public CompletableFuture<SkillResult> executeSkill(String skillId,
                                                         Map<String, String> parameters,
                                                         String githubToken,

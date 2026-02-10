@@ -13,9 +13,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Command to list all available review agents.
- */
+/// Command to list all available review agents.
 @Singleton
 public class ListAgentsCommand {
 

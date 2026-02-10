@@ -2,19 +2,15 @@ package dev.logicojp.reviewer.util;
 
 import java.util.Map;
 
-/**
- * Utility class for file extension operations.
- * Provides methods to extract file extensions and map them to programming languages.
- */
+/// Utility class for file extension operations.
+/// Provides methods to extract file extensions and map them to programming languages.
 public final class FileExtensionUtils {
 
     private FileExtensionUtils() {
         // Utility class - prevent instantiation
     }
 
-    /**
-     * Mapping of file extensions to language identifiers for syntax highlighting.
-     */
+    /// Mapping of file extensions to language identifiers for syntax highlighting.
     private static final Map<String, String> EXTENSION_TO_LANGUAGE = Map.ofEntries(
         // JVM languages
         Map.entry("java", "java"),
@@ -73,12 +69,10 @@ public final class FileExtensionUtils {
         Map.entry("hcl", "hcl")
     );
 
-    /**
-     * Extracts the file extension from a filename.
-     * 
-     * @param fileName The filename to extract extension from
-     * @return The lowercase extension without the dot, or empty string if none
-     */
+    /// Extracts the file extension from a filename.
+    ///
+    /// @param fileName The filename to extract extension from
+    /// @return The lowercase extension without the dot, or empty string if none
     public static String getExtension(String fileName) {
         if (fileName == null || fileName.isEmpty()) {
             return "";
@@ -91,12 +85,10 @@ public final class FileExtensionUtils {
         return "";
     }
 
-    /**
-     * Gets the language identifier for syntax highlighting based on file path.
-     * 
-     * @param filePath The file path or filename
-     * @return The language identifier, or empty string if unknown
-     */
+    /// Gets the language identifier for syntax highlighting based on file path.
+    ///
+    /// @param filePath The file path or filename
+    /// @return The language identifier, or empty string if unknown
     public static String getLanguageForFile(String filePath) {
         if (filePath == null || filePath.isEmpty()) {
             return "";
@@ -106,12 +98,10 @@ public final class FileExtensionUtils {
         return EXTENSION_TO_LANGUAGE.getOrDefault(ext, "");
     }
 
-    /**
-     * Checks if the given extension is a known language extension.
-     * 
-     * @param extension The file extension (without dot)
-     * @return true if the extension maps to a known language
-     */
+    /// Checks if the given extension is a known language extension.
+    ///
+    /// @param extension The file extension (without dot)
+    /// @return true if the extension maps to a known language
     public static boolean isKnownExtension(String extension) {
         if (extension == null || extension.isEmpty()) {
             return false;

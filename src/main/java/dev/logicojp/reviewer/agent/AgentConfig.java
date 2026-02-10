@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.agent;
 
+import dev.logicojp.reviewer.config.ModelConfig;
 import dev.logicojp.reviewer.skill.SkillDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,10 +9,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/**
- * Configuration model for a review agent.
- * Loaded from YAML files in the agents/ directory.
- */
+/// Configuration model for a review agent.
+/// Loaded from YAML files in the agents/ directory.
 public record AgentConfig(
     String name,
     String displayName,
@@ -82,7 +81,7 @@ public record AgentConfig(
     public AgentConfig {
         name = name == null ? "" : name;
         displayName = (displayName == null || displayName.isBlank()) ? name : displayName;
-        model = (model == null || model.isBlank()) ? "claude-sonnet-4" : model;
+        model = (model == null || model.isBlank()) ? ModelConfig.DEFAULT_MODEL : model;
         outputFormat = normalizeOutputFormat(outputFormat);
         focusAreas = focusAreas == null ? List.of() : List.copyOf(focusAreas);
         skills = skills == null ? List.of() : List.copyOf(skills);
@@ -201,9 +200,8 @@ public record AgentConfig(
         return "## Output Format\n\n" + trimmed;
     }
 
-    /**
-     * Builds the complete system prompt including output format instructions.
-     */
+    /// Builds the complete system prompt including output format instructions
+    /// and output constraints (language, CoT suppression).
     public String buildFullSystemPrompt() {
         StringBuilder sb = new StringBuilder();
         if (systemPrompt != null && !systemPrompt.isBlank()) {
@@ -243,13 +241,11 @@ public record AgentConfig(
             .replace("${focusAreas}", focusAreaText);
     }
 
-    /**
-     * Builds the instruction for a local directory review.
-     * Embeds the source code content directly in the prompt.
-     * @param targetName Display name of the target directory
-     * @param sourceContent Collected source code content
-     * @return The formatted instruction with embedded source code
-     */
+    /// Builds the instruction for a local directory review.
+    /// Embeds the source code content directly in the prompt.
+    /// @param targetName Display name of the target directory
+    /// @param sourceContent Collected source code content
+    /// @return The formatted instruction with embedded source code
     public String buildLocalInstruction(String targetName, String sourceContent) {
         if (instruction == null || instruction.isBlank()) {
             throw new IllegalStateException("Instruction is not configured for agent: " + name);

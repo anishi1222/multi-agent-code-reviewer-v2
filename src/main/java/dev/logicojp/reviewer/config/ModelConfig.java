@@ -2,69 +2,87 @@ package dev.logicojp.reviewer.config;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 
-/**
- * Configuration for LLM models used in different stages of the review process.
- * Allows specifying different models for review, report generation, and summary.
- *
- * <p>{@code reasoningEffort} controls the effort level for reasoning models
- * (e.g. Claude Opus, o3). Valid values are {@code "low"}, {@code "medium"},
- * {@code "high"}. The value is only applied to models that support reasoning
- * effort; non-reasoning models ignore it.</p>
- */
+import java.util.List;
+
+/// Configuration for LLM models used in different stages of the review process.
+/// Allows specifying different models for review, report generation, and summary.
+///
+/// `reasoningEffort` controls the effort level for reasoning models
+/// (e.g. Claude Opus, o3). Valid values are `"low"`, `"medium"`,
+/// `"high"`. The value is only applied to models that support reasoning
+/// effort; non-reasoning models ignore it.
+///
+/// `defaultModel` provides a single YAML-configurable fallback
+/// (`reviewer.models.default-model`). When `reviewModel`, `reportModel`,
+/// or `summaryModel` is not explicitly configured, `defaultModel` is used.
+/// If `defaultModel` itself is not set, `DEFAULT_MODEL` is applied.
 @ConfigurationProperties("reviewer.models")
 public record ModelConfig(
     String reviewModel,
     String reportModel,
     String summaryModel,
-    String reasoningEffort
+    String reasoningEffort,
+    String defaultModel
 ) {
 
-    /** Default reasoning effort applied to reasoning models. */
+    /// Hardcoded last-resort default model, used when no configuration is provided.
+    public static final String DEFAULT_MODEL = "claude-sonnet-4.5";
+
+    /// Default reasoning effort applied to reasoning models.
     public static final String DEFAULT_REASONING_EFFORT = "high";
 
+    /// Patterns matched via `String.contains` to identify reasoning models.
+    private static final List<String> REASONING_CONTAINS_PATTERNS = List.of("opus");
+
+    /// Prefixes matched via `String.startsWith` to identify reasoning models.
+    private static final List<String> REASONING_PREFIX_PATTERNS = List.of("o3", "o4-mini");
+
     public ModelConfig {
+        defaultModel = (defaultModel == null || defaultModel.isBlank())
+            ? DEFAULT_MODEL : defaultModel;
         reviewModel = (reviewModel == null || reviewModel.isBlank())
-            ? "claude-sonnet-4" : reviewModel;
+            ? defaultModel : reviewModel;
         reportModel = (reportModel == null || reportModel.isBlank())
-            ? "claude-sonnet-4" : reportModel;
+            ? defaultModel : reportModel;
         summaryModel = (summaryModel == null || summaryModel.isBlank())
-            ? "claude-sonnet-4" : summaryModel;
+            ? defaultModel : summaryModel;
         reasoningEffort = (reasoningEffort == null || reasoningEffort.isBlank())
             ? DEFAULT_REASONING_EFFORT : reasoningEffort;
     }
 
     public ModelConfig() {
-        this("claude-sonnet-4", "claude-sonnet-4", "claude-sonnet-4", DEFAULT_REASONING_EFFORT);
+        this(null, null, null, DEFAULT_REASONING_EFFORT, DEFAULT_MODEL);
     }
 
-    public ModelConfig(String defaultModel) {
-        this(defaultModel, defaultModel, defaultModel, DEFAULT_REASONING_EFFORT);
+    public ModelConfig(String model) {
+        this(model, model, model, DEFAULT_REASONING_EFFORT, null);
     }
 
     public ModelConfig(String reviewModel, String reportModel, String summaryModel) {
-        this(reviewModel, reportModel, summaryModel, DEFAULT_REASONING_EFFORT);
+        this(reviewModel, reportModel, summaryModel, DEFAULT_REASONING_EFFORT, null);
     }
 
-    /**
-     * Checks whether the given model is a reasoning model that requires
-     * explicit {@code reasoningEffort} configuration.
-     *
-     * @param model the model identifier
-     * @return {@code true} if effort should be set for this model
-     */
+    public ModelConfig(String reviewModel, String reportModel, String summaryModel, String reasoningEffort) {
+        this(reviewModel, reportModel, summaryModel, reasoningEffort, null);
+    }
+
+    /// Checks whether the given model is a reasoning model that requires
+    /// explicit `reasoningEffort` configuration.
+    ///
+    /// @param model the model identifier
+    /// @return `true` if effort should be set for this model
     public static boolean isReasoningModel(String model) {
         if (model == null) {
             return false;
         }
         String lower = model.toLowerCase();
-        return lower.contains("opus") || lower.startsWith("o3") || lower.startsWith("o4-mini");
+        return REASONING_CONTAINS_PATTERNS.stream().anyMatch(lower::contains)
+            || REASONING_PREFIX_PATTERNS.stream().anyMatch(lower::startsWith);
     }
 
-    /**
-     * Gets the effective model for review, considering agent override.
-     * @param agentModel The model specified in the agent config (may be null)
-     * @return The model to use for this agent's review
-     */
+    /// Gets the effective model for review, considering agent override.
+    /// @param agentModel The model specified in the agent config (may be null)
+    /// @return The model to use for this agent's review
     public String getEffectiveReviewModel(String agentModel) {
         if (agentModel != null && !agentModel.isEmpty()) {
             return agentModel;
@@ -74,21 +92,19 @@ public record ModelConfig(
 
     @Override
     public String toString() {
-        return String.format("ModelConfig{review='%s', report='%s', summary='%s', reasoningEffort='%s'}",
-            reviewModel, reportModel, summaryModel, reasoningEffort);
+        return String.format("ModelConfig{review='%s', report='%s', summary='%s', reasoningEffort='%s', default='%s'}",
+            reviewModel, reportModel, summaryModel, reasoningEffort, defaultModel);
     }
 
-    /**
-     * Creates a builder for ModelConfig.
-     */
+    /// Creates a builder for ModelConfig.
     public static Builder builder() {
         return new Builder();
     }
 
     public static class Builder {
-        private String reviewModel = "claude-sonnet-4";
-        private String reportModel = "claude-sonnet-4";
-        private String summaryModel = "claude-sonnet-4";
+        private String reviewModel;
+        private String reportModel;
+        private String summaryModel;
         private String reasoningEffort = DEFAULT_REASONING_EFFORT;
 
         public Builder reviewModel(String model) {
@@ -111,6 +127,8 @@ public record ModelConfig(
             return this;
         }
 
+        /// Sets all three model fields (`reviewModel`, `reportModel`,
+        /// `summaryModel`) to the same value.
         public Builder defaultModel(String model) {
             this.reviewModel = model;
             this.reportModel = model;
@@ -119,7 +137,7 @@ public record ModelConfig(
         }
 
         public ModelConfig build() {
-            return new ModelConfig(reviewModel, reportModel, summaryModel, reasoningEffort);
+            return new ModelConfig(reviewModel, reportModel, summaryModel, reasoningEffort, null);
         }
     }
 }

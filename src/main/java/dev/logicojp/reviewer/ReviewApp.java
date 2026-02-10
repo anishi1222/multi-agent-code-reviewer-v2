@@ -11,9 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Multi-Agent Code Reviewer CLI Application.
- */
+/// Multi-Agent Code Reviewer CLI Application.
 @Singleton
 public class ReviewApp {
     private final ReviewCommand reviewCommand;

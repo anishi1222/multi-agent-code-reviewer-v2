@@ -6,6 +6,7 @@ import dev.logicojp.reviewer.cli.CliUsage;
 import dev.logicojp.reviewer.cli.CliValidationException;
 import dev.logicojp.reviewer.cli.ExitCodes;
 import dev.logicojp.reviewer.config.ExecutionConfig;
+import dev.logicojp.reviewer.config.ModelConfig;
 import dev.logicojp.reviewer.service.AgentService;
 import dev.logicojp.reviewer.service.CopilotService;
 import dev.logicojp.reviewer.service.SkillService;
@@ -84,7 +85,7 @@ public class SkillCommand {
         skillId = null;
         paramStrings = new ArrayList<>();
         githubToken = System.getenv("GITHUB_TOKEN");
-        model = "claude-sonnet-4";
+        model = ModelConfig.DEFAULT_MODEL;
         additionalAgentDirs = new ArrayList<>();
         listSkills = false;
         helpRequested = false;

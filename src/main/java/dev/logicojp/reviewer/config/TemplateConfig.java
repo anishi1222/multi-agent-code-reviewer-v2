@@ -3,9 +3,7 @@ package dev.logicojp.reviewer.config;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.core.annotation.Nullable;
 
-/**
- * Configuration for template paths (summary system prompt, user prompt, etc.).
- */
+/// Configuration for template paths (summary system prompt, user prompt, etc.).
 @ConfigurationProperties("reviewer.templates")
 public record TemplateConfig(
     @Nullable String directory,
@@ -21,7 +19,8 @@ public record TemplateConfig(
     @Nullable String fallbackAgentRow,
     @Nullable String fallbackAgentSuccess,
     @Nullable String fallbackAgentFailure,
-    @Nullable String reportLinkEntry
+    @Nullable String reportLinkEntry,
+    @Nullable String outputConstraints
 ) {
 
     private static final String DEFAULT_DIRECTORY = "templates";
@@ -38,6 +37,7 @@ public record TemplateConfig(
     private static final String DEFAULT_FALLBACK_AGENT_SUCCESS = "fallback-agent-success.md";
     private static final String DEFAULT_FALLBACK_AGENT_FAILURE = "fallback-agent-failure.md";
     private static final String DEFAULT_REPORT_LINK_ENTRY = "report-link-entry.md";
+    private static final String DEFAULT_OUTPUT_CONSTRAINTS = "output-constraints.md";
 
     public TemplateConfig {
         directory = (directory == null || directory.isBlank()) ? DEFAULT_DIRECTORY : directory;
@@ -67,5 +67,7 @@ public record TemplateConfig(
             ? DEFAULT_FALLBACK_AGENT_FAILURE : fallbackAgentFailure;
         reportLinkEntry = (reportLinkEntry == null || reportLinkEntry.isBlank())
             ? DEFAULT_REPORT_LINK_ENTRY : reportLinkEntry;
+        outputConstraints = (outputConstraints == null || outputConstraints.isBlank())
+            ? DEFAULT_OUTPUT_CONSTRAINTS : outputConstraints;
     }
 }

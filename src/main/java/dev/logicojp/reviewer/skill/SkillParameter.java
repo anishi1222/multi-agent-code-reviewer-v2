@@ -1,8 +1,6 @@
 package dev.logicojp.reviewer.skill;
 
-/**
- * Defines a parameter for a skill.
- */
+/// Defines a parameter for a skill.
 public record SkillParameter(
     String name,
     String description,
@@ -23,16 +21,12 @@ public record SkillParameter(
         }
     }
 
-    /**
-     * Creates a required parameter.
-     */
+    /// Creates a required parameter.
     public static SkillParameter required(String name, String description) {
         return new SkillParameter(name, description, "string", true, null);
     }
 
-    /**
-     * Creates an optional parameter with a default value.
-     */
+    /// Creates an optional parameter with a default value.
     public static SkillParameter optional(String name, String description, String defaultValue) {
         return new SkillParameter(name, description, "string", false, defaultValue);
     }

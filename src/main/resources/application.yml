@@ -7,6 +7,7 @@ reviewer:
     parallelism: 4
     orchestrator-timeout-minutes: 45
     agent-timeout-minutes: 20
+    idle-timeout-minutes: 5
     skill-timeout-minutes: 20
     summary-timeout-minutes: 20
     gh-auth-timeout-seconds: 30
@@ -20,6 +21,7 @@ reviewer:
     executive-summary: executive-summary.md
     fallback-summary: fallback-summary.md
     local-review-content: local-review-content.md
+    output-constraints: output-constraints.md
   mcp:
     github:
       type: http
@@ -29,6 +31,7 @@ reviewer:
       auth-header-name: Authorization
       auth-header-template: "Bearer {token}"
   models:
+    default-model: claude-sonnet-4.5
     review-model: GPT-5.2-Codex
     report-model: claude-opus-4.6
     summary-model: claude-sonnet-4.5

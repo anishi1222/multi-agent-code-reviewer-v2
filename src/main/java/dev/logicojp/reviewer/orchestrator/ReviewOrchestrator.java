@@ -15,9 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.*;
 
-/**
- * Orchestrates parallel execution of multiple review agents.
- */
+/// Orchestrates parallel execution of multiple review agents.
 public class ReviewOrchestrator {
     
     private static final Logger logger = LoggerFactory.getLogger(ReviewOrchestrator.class);
@@ -30,13 +28,15 @@ public class ReviewOrchestrator {
     private final Semaphore concurrencyLimit;
     private final List<CustomInstruction> customInstructions;
     private final String reasoningEffort;
+    private final String outputConstraints;
 
     public ReviewOrchestrator(CopilotClient client,
                               String githubToken,
                               GithubMcpConfig githubMcpConfig,
                               ExecutionConfig executionConfig,
                               List<CustomInstruction> customInstructions,
-                              String reasoningEffort) {
+                              String reasoningEffort,
+                              String outputConstraints) {
         this.client = client;
         this.githubToken = githubToken;
         this.githubMcpConfig = githubMcpConfig;
@@ -47,6 +47,7 @@ public class ReviewOrchestrator {
         this.concurrencyLimit = new Semaphore(executionConfig.parallelism());
         this.customInstructions = customInstructions != null ? List.copyOf(customInstructions) : List.of();
         this.reasoningEffort = reasoningEffort;
+        this.outputConstraints = outputConstraints;
         
         logger.info("Parallelism set to {}", executionConfig.parallelism());
         if (!this.customInstructions.isEmpty()) {
@@ -54,12 +55,10 @@ public class ReviewOrchestrator {
         }
     }
     
-    /**
-     * Executes reviews for all provided agents in parallel.
-     * @param agents Map of agent name to AgentConfig
-     * @param target The target to review (GitHub repository or local directory)
-     * @return List of ReviewResults from all agents
-     */
+    /// Executes reviews for all provided agents in parallel.
+    /// @param agents Map of agent name to AgentConfig
+    /// @param target The target to review (GitHub repository or local directory)
+    /// @return List of ReviewResults from all agents
     public List<ReviewResult> executeReviews(Map<String, AgentConfig> agents, ReviewTarget target) {
         logger.info("Starting parallel review for {} agents on target: {}", 
             agents.size(), target.getDisplayName());
@@ -72,8 +71,9 @@ public class ReviewOrchestrator {
         
         for (AgentConfig config : agents.values()) {
             ReviewAgent agent = new ReviewAgent(config, client, githubToken, githubMcpConfig,
-                executionConfig.agentTimeoutMinutes(), customInstructions, reasoningEffort,
-                executionConfig.maxRetries());
+                executionConfig.agentTimeoutMinutes(), executionConfig.idleTimeoutMinutes(),
+                customInstructions, reasoningEffort,
+                executionConfig.maxRetries(), outputConstraints);
             CompletableFuture<ReviewResult> future = CompletableFuture
                 .supplyAsync(() -> {
                     try {
@@ -139,9 +139,7 @@ public class ReviewOrchestrator {
         return results;
     }
     
-    /**
-     * Shuts down the executor service.
-     */
+    /// Shuts down the executor service.
     public void shutdown() {
         executorService.shutdown();
         try {

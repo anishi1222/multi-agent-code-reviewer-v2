@@ -13,10 +13,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-/**
- * Service for loading and processing templates.
- * Supports loading from external files with fallback to classpath resources.
- */
+/// Service for loading and processing templates.
+/// Supports loading from external files with fallback to classpath resources.
 @Singleton
 public class TemplateService {
 
@@ -29,24 +27,20 @@ public class TemplateService {
         this.config = config;
     }
 
-    /**
-     * Loads a template by name, applying placeholder substitutions.
-     *
-     * @param templateName The template name (without directory prefix)
-     * @param placeholders Map of placeholder names to values (e.g., "repository" -> "owner/repo")
-     * @return The processed template content
-     */
+    /// Loads a template by name, applying placeholder substitutions.
+    ///
+    /// @param templateName The template name (without directory prefix)
+    /// @param placeholders Map of placeholder names to values (e.g., "repository" -> "owner/repo")
+    /// @return The processed template content
     public String loadTemplate(String templateName, Map<String, String> placeholders) {
         String content = loadTemplateContent(templateName);
         return applyPlaceholders(content, placeholders);
     }
 
-    /**
-     * Loads raw template content without placeholder substitution.
-     *
-     * @param templateName The template name
-     * @return The raw template content
-     */
+    /// Loads raw template content without placeholder substitution.
+    ///
+    /// @param templateName The template name
+    /// @return The raw template content
     public String loadTemplateContent(String templateName) {
         Path templatePath = Path.of(config.directory(), templateName);
 
@@ -76,14 +70,12 @@ public class TemplateService {
         return "";
     }
 
-    /**
-     * Applies placeholder substitutions to a template.
-     * Placeholders are in the format {{name}}.
-     *
-     * @param template The template content
-     * @param placeholders Map of placeholder names to values
-     * @return The processed content
-     */
+    /// Applies placeholder substitutions to a template.
+    /// Placeholders are in the format {{name}}.
+    ///
+    /// @param template The template content
+    /// @param placeholders Map of placeholder names to values
+    /// @return The processed content
     public String applyPlaceholders(String template, Map<String, String> placeholders) {
         if (template == null || template.isEmpty()) {
             return "";
@@ -103,100 +95,79 @@ public class TemplateService {
 
     // Convenience methods for specific templates
 
-    /**
-     * Loads the default output format template.
-     */
+    /// Loads the default output format template.
     public String getDefaultOutputFormat() {
         return loadTemplateContent(config.defaultOutputFormat());
     }
 
-    /**
-     * Loads the report template with placeholders applied.
-     */
+    /// Loads the report template with placeholders applied.
     public String getReportTemplate(Map<String, String> placeholders) {
         return loadTemplate(config.report(), placeholders);
     }
 
-    /**
-     * Loads the executive summary template with placeholders applied.
-     */
+    /// Loads the executive summary template with placeholders applied.
     public String getExecutiveSummaryTemplate(Map<String, String> placeholders) {
         return loadTemplate(config.executiveSummary(), placeholders);
     }
 
-    /**
-     * Loads the fallback summary template with placeholders applied.
-     */
+    /// Loads the fallback summary template with placeholders applied.
     public String getFallbackSummaryTemplate(Map<String, String> placeholders) {
         return loadTemplate(config.fallbackSummary(), placeholders);
     }
 
-    /**
-     * Loads the local review content template with placeholders applied.
-     */
+    /// Loads the local review content template with placeholders applied.
     public String getLocalReviewContent(Map<String, String> placeholders) {
         return loadTemplate(config.localReviewContent(), placeholders);
     }
 
-    /**
-     * Loads the summary system prompt template.
-     */
+    /// Loads the summary system prompt template.
     public String getSummarySystemPrompt() {
         return loadTemplateContent(config.summarySystemPrompt());
     }
 
-    /**
-     * Loads the summary user prompt template with placeholders applied.
-     */
+    /// Loads the summary user prompt template with placeholders applied.
     public String getSummaryUserPrompt(Map<String, String> placeholders) {
         return loadTemplate(config.summaryUserPrompt(), placeholders);
     }
 
-    /**
-     * Loads the summary result entry template (per-agent success) with placeholders applied.
-     */
+    /// Loads the summary result entry template (per-agent success) with placeholders applied.
     public String getSummaryResultEntry(Map<String, String> placeholders) {
         return loadTemplate(config.summaryResultEntry(), placeholders);
     }
 
-    /**
-     * Loads the summary result error entry template (per-agent failure) with placeholders applied.
-     */
+    /// Loads the summary result error entry template (per-agent failure) with placeholders applied.
     public String getSummaryResultErrorEntry(Map<String, String> placeholders) {
         return loadTemplate(config.summaryResultErrorEntry(), placeholders);
     }
 
-    /**
-     * Loads the fallback agent row template (table row) with placeholders applied.
-     */
+    /// Loads the fallback agent row template (table row) with placeholders applied.
     public String getFallbackAgentRow(Map<String, String> placeholders) {
         return loadTemplate(config.fallbackAgentRow(), placeholders);
     }
 
-    /**
-     * Loads the fallback agent success detail template with placeholders applied.
-     */
+    /// Loads the fallback agent success detail template with placeholders applied.
     public String getFallbackAgentSuccess(Map<String, String> placeholders) {
         return loadTemplate(config.fallbackAgentSuccess(), placeholders);
     }
 
-    /**
-     * Loads the fallback agent failure detail template with placeholders applied.
-     */
+    /// Loads the fallback agent failure detail template with placeholders applied.
     public String getFallbackAgentFailure(Map<String, String> placeholders) {
         return loadTemplate(config.fallbackAgentFailure(), placeholders);
     }
 
-    /**
-     * Loads the report link entry template with placeholders applied.
-     */
+    /// Loads the report link entry template with placeholders applied.
     public String getReportLinkEntry(Map<String, String> placeholders) {
         return loadTemplate(config.reportLinkEntry(), placeholders);
     }
 
-    /**
-     * Gets the template configuration.
-     */
+    /// Loads the output constraints template.
+    /// Contains constraints such as CoT suppression, output format enforcement,
+    /// and language requirements for review output.
+    public String getOutputConstraints() {
+        return loadTemplateContent(config.outputConstraints());
+    }
+
+    /// Gets the template configuration.
     public TemplateConfig getConfig() {
         return config;
     }

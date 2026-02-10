@@ -8,9 +8,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.*;
 
-/**
- * Unit tests for FileExtensionUtils.
- */
+/// Unit tests for FileExtensionUtils.
 class FileExtensionUtilsTest {
 
     // === getExtension Tests ===

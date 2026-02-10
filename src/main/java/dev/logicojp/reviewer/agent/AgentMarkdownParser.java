@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.agent;
 
+import dev.logicojp.reviewer.config.ModelConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,24 +11,24 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Parses GitHub Copilot agent definition files (.agent.md format).
- * 
- * Format example:
- * ---
- * name: security-reviewer
- * description: Security code review agent
- * model: claude-sonnet-4
- * ---
- * 
- * # Security Reviewer
- * 
- * You are a security expert...
- * 
- * ## Focus Areas
- * - SQL Injection
- * - XSS
- */
+/// Parses GitHub Copilot agent definition files (.agent.md format).
+///
+/// Format example:
+/// ```
+/// ---
+/// name: security-reviewer
+/// description: Security code review agent
+/// model: claude-sonnet-4
+/// ---
+///
+/// # Security Reviewer
+///
+/// You are a security expert...
+///
+/// ## Focus Areas
+/// - SQL Injection
+/// - XSS
+/// ```
 public class AgentMarkdownParser {
     
     private static final Logger logger = LoggerFactory.getLogger(AgentMarkdownParser.class);
@@ -52,19 +53,15 @@ public class AgentMarkdownParser {
         "focus areas"
     );
     
-    /**
-     * Parses a .agent.md file and returns an AgentConfig.
-     * @param mdFile Path to the .agent.md file
-     * @return AgentConfig parsed from the file
-     */
+    /// Parses a .agent.md file and returns an AgentConfig.
+    /// @param mdFile Path to the .agent.md file
+    /// @return AgentConfig parsed from the file
     public AgentConfig parse(Path mdFile) throws IOException {
         String content = Files.readString(mdFile);
         return parseContent(content, mdFile.getFileName().toString());
     }
     
-    /**
-     * Parses markdown content and returns an AgentConfig.
-     */
+    /// Parses markdown content and returns an AgentConfig.
     public AgentConfig parseContent(String content, String filename) {
         Matcher frontmatterMatcher = FRONTMATTER_PATTERN.matcher(content);
 
@@ -84,7 +81,7 @@ public class AgentMarkdownParser {
         String name = metadata.getOrDefault("name", extractNameFromFilename(filename));
         String displayName = metadata.getOrDefault("description",
             metadata.getOrDefault("displayName", name));
-        String model = metadata.getOrDefault("model", "claude-sonnet-4");
+        String model = metadata.getOrDefault("model", ModelConfig.DEFAULT_MODEL);
 
         Map<String, String> sections = extractSections(body);
         String systemPrompt = getSection(sections, "role");
@@ -133,7 +130,7 @@ public class AgentMarkdownParser {
         AgentConfig config = new AgentConfig(
             name,
             name,
-            "claude-sonnet-4",
+            ModelConfig.DEFAULT_MODEL,
             systemPrompt,
             instruction,
             outputFormat,
@@ -186,10 +183,8 @@ public class AgentMarkdownParser {
         return focusAreas;
     }
 
-    /**
-     * Parses focus area items from an already-extracted section body (header stripped).
-     * Falls back to default if no bullet items are found.
-     */
+    /// Parses focus area items from an already-extracted section body (header stripped).
+    /// Falls back to default if no bullet items are found.
     private List<String> parseFocusAreaItems(String sectionContent) {
         List<String> focusAreas = parseBulletItems(sectionContent);
         if (focusAreas.isEmpty()) {

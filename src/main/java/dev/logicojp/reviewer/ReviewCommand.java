@@ -28,9 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Main review command that executes the multi-agent code review.
- */
+/// Main review command that executes the multi-agent code review.
 @Singleton
 public class ReviewCommand {
 
@@ -50,9 +48,7 @@ public class ReviewCommand {
 
     private int exitCode = ExitCodes.OK;
 
-    /**
-     * Target selection - either GitHub repository or local directory.
-     */
+    /// Target selection - either GitHub repository or local directory.
     static class TargetSelection {
         private String repository;
         private Path localDirectory;
@@ -419,9 +415,7 @@ public class ReviewCommand {
         return builder.build();
     }
 
-    /**
-     * Loads custom instructions from specified paths or target directory.
-     */
+    /// Loads custom instructions from specified paths or target directory.
     private List<CustomInstruction> loadCustomInstructions(ReviewTarget target) {
         if (noInstructions) {
             logger.info("Custom instructions disabled by --no-instructions flag");

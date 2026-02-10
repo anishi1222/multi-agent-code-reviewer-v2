@@ -7,9 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Configuration for the GitHub MCP server connection.
- */
+/// Configuration for the GitHub MCP server connection.
 @ConfigurationProperties("reviewer.mcp.github")
 public record GithubMcpConfig(
     String type,

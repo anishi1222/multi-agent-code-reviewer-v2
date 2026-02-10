@@ -9,9 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Resolves a GitHub token from CLI options, environment, or gh auth.
- */
+/// Resolves a GitHub token from CLI options, environment, or gh auth.
 public final class GitHubTokenResolver {
 
     private static final Logger logger = LoggerFactory.getLogger(GitHubTokenResolver.class);

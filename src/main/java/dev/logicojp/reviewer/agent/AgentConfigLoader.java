@@ -9,14 +9,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/**
- * Loads agent configurations from external files.
- * Supports GitHub Copilot agent definition format (.agent.md).
- * 
- * Files can be placed in:
- * - agents/ directory
- * - .github/agents/ directory
- */
+/// Loads agent configurations from external files.
+/// Supports GitHub Copilot agent definition format (.agent.md).
+///
+/// Files can be placed in:
+/// - agents/ directory
+/// - .github/agents/ directory
 public class AgentConfigLoader {
     
     private static final Logger logger = LoggerFactory.getLogger(AgentConfigLoader.class);
@@ -24,26 +22,20 @@ public class AgentConfigLoader {
     private final List<Path> agentDirectories;
     private final AgentMarkdownParser markdownParser;
     
-    /**
-     * Creates a loader with a single agents directory.
-     */
+    /// Creates a loader with a single agents directory.
     public AgentConfigLoader(Path agentsDirectory) {
         this(List.of(agentsDirectory));
     }
     
-    /**
-     * Creates a loader with multiple agent directories.
-     * Directories are searched in order; later directories override earlier ones.
-     */
+    /// Creates a loader with multiple agent directories.
+    /// Directories are searched in order; later directories override earlier ones.
     public AgentConfigLoader(List<Path> agentDirectories) {
         this.agentDirectories = new ArrayList<>(agentDirectories);
         this.markdownParser = new AgentMarkdownParser();
     }
     
-    /**
-     * Loads all agent configurations from all configured directories.
-     * @return Map of agent name to AgentConfig
-     */
+    /// Loads all agent configurations from all configured directories.
+    /// @return Map of agent name to AgentConfig
     public Map<String, AgentConfig> loadAllAgents() throws IOException {
         Map<String, AgentConfig> agents = new HashMap<>();
         
@@ -90,11 +82,9 @@ public class AgentConfigLoader {
         return filename.endsWith(".agent.md");
     }
     
-    /**
-     * Loads specific agents by name.
-     * @param agentNames List of agent names to load
-     * @return Map of agent name to AgentConfig
-     */
+    /// Loads specific agents by name.
+    /// @param agentNames List of agent names to load
+    /// @return Map of agent name to AgentConfig
     public Map<String, AgentConfig> loadAgents(List<String> agentNames) throws IOException {
         Map<String, AgentConfig> allAgents = loadAllAgents();
         Map<String, AgentConfig> selectedAgents = new HashMap<>();
@@ -110,9 +100,7 @@ public class AgentConfigLoader {
         return selectedAgents;
     }
     
-    /**
-     * Lists all available agent names from all configured directories.
-     */
+    /// Lists all available agent names from all configured directories.
     public List<String> listAvailableAgents() throws IOException {
         Set<String> agentNames = new TreeSet<>();
         
@@ -141,9 +129,7 @@ public class AgentConfigLoader {
         return filename;
     }
     
-    /**
-     * Gets the list of configured agent directories.
-     */
+    /// Gets the list of configured agent directories.
     public List<Path> getAgentDirectories() {
         return Collections.unmodifiableList(agentDirectories);
     }

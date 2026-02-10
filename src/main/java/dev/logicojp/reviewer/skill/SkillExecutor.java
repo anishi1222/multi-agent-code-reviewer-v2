@@ -12,9 +12,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Executes skills using the Copilot SDK.
- */
+/// Executes skills using the Copilot SDK.
 public class SkillExecutor {
 
     private static final Logger logger = LoggerFactory.getLogger(SkillExecutor.class);
@@ -44,16 +42,12 @@ public class SkillExecutor {
         this.executor = executor;
     }
 
-    /**
-     * Executes a skill with the given parameters.
-     */
+    /// Executes a skill with the given parameters.
     public CompletableFuture<SkillResult> execute(SkillDefinition skill, Map<String, String> parameters) {
         return execute(skill, parameters, null);
     }
 
-    /**
-     * Executes a skill with the given parameters and system prompt.
-     */
+    /// Executes a skill with the given parameters and system prompt.
     public CompletableFuture<SkillResult> execute(SkillDefinition skill,
                                                   Map<String, String> parameters,
                                                   String systemPrompt) {

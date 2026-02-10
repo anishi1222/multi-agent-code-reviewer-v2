@@ -9,7 +9,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("ModelConfig")
 class ModelConfigTest {
 
-    private static final String DEFAULT_MODEL = "claude-sonnet-4";
 
     @Nested
     @DisplayName("コンストラクタ")
@@ -20,9 +19,10 @@ class ModelConfigTest {
         void noArgConstructorSetsDefaults() {
             ModelConfig config = new ModelConfig();
 
-            assertThat(config.reviewModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.reportModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.summaryModel()).isEqualTo(DEFAULT_MODEL);
+            assertThat(config.reviewModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.reportModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.summaryModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.defaultModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
             assertThat(config.reasoningEffort()).isEqualTo(ModelConfig.DEFAULT_REASONING_EFFORT);
         }
 
@@ -65,9 +65,9 @@ class ModelConfigTest {
         void nullFieldsAreConvertedToDefaults() {
             ModelConfig config = new ModelConfig(null, null, null, null);
 
-            assertThat(config.reviewModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.reportModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.summaryModel()).isEqualTo(DEFAULT_MODEL);
+            assertThat(config.reviewModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.reportModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.summaryModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
             assertThat(config.reasoningEffort()).isEqualTo(ModelConfig.DEFAULT_REASONING_EFFORT);
         }
 
@@ -76,9 +76,9 @@ class ModelConfigTest {
         void blankFieldsAreConvertedToDefaults() {
             ModelConfig config = new ModelConfig("  ", "\t", "\n", "  ");
 
-            assertThat(config.reviewModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.reportModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.summaryModel()).isEqualTo(DEFAULT_MODEL);
+            assertThat(config.reviewModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.reportModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.summaryModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
             assertThat(config.reasoningEffort()).isEqualTo(ModelConfig.DEFAULT_REASONING_EFFORT);
         }
 
@@ -87,9 +87,9 @@ class ModelConfigTest {
         void emptyFieldsAreConvertedToDefaults() {
             ModelConfig config = new ModelConfig("", "", "", "");
 
-            assertThat(config.reviewModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.reportModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.summaryModel()).isEqualTo(DEFAULT_MODEL);
+            assertThat(config.reviewModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.reportModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.summaryModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
             assertThat(config.reasoningEffort()).isEqualTo(ModelConfig.DEFAULT_REASONING_EFFORT);
         }
     }
@@ -173,9 +173,9 @@ class ModelConfigTest {
         void defaultBuilderBuildsWithDefaults() {
             ModelConfig config = ModelConfig.builder().build();
 
-            assertThat(config.reviewModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.reportModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.summaryModel()).isEqualTo(DEFAULT_MODEL);
+            assertThat(config.reviewModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.reportModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.summaryModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
             assertThat(config.reasoningEffort()).isEqualTo(ModelConfig.DEFAULT_REASONING_EFFORT);
         }
 
@@ -187,8 +187,8 @@ class ModelConfigTest {
                 .build();
 
             assertThat(config.reviewModel()).isEqualTo("custom-review");
-            assertThat(config.reportModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.summaryModel()).isEqualTo(DEFAULT_MODEL);
+            assertThat(config.reportModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.summaryModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
         }
 
         @Test
@@ -198,9 +198,9 @@ class ModelConfigTest {
                 .reportModel("custom-report")
                 .build();
 
-            assertThat(config.reviewModel()).isEqualTo(DEFAULT_MODEL);
+            assertThat(config.reviewModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
             assertThat(config.reportModel()).isEqualTo("custom-report");
-            assertThat(config.summaryModel()).isEqualTo(DEFAULT_MODEL);
+            assertThat(config.summaryModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
         }
 
         @Test
@@ -210,8 +210,8 @@ class ModelConfigTest {
                 .summaryModel("custom-summary")
                 .build();
 
-            assertThat(config.reviewModel()).isEqualTo(DEFAULT_MODEL);
-            assertThat(config.reportModel()).isEqualTo(DEFAULT_MODEL);
+            assertThat(config.reviewModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.reportModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
             assertThat(config.summaryModel()).isEqualTo("custom-summary");
         }
 
@@ -252,12 +252,57 @@ class ModelConfigTest {
         }
     }
 
+
+    @Nested
+    @DisplayName("defaultModel")
+    class DefaultModelTests {
+
+        @Test
+        @DisplayName("defaultModelがYAMLで設定された場合、未指定のモデルはdefaultModelにフォールバックする")
+        void defaultModelFallsBackForUnsetModels() {
+            ModelConfig config = new ModelConfig(null, null, null, null, "custom-fallback");
+
+            assertThat(config.defaultModel()).isEqualTo("custom-fallback");
+            assertThat(config.reviewModel()).isEqualTo("custom-fallback");
+            assertThat(config.reportModel()).isEqualTo("custom-fallback");
+            assertThat(config.summaryModel()).isEqualTo("custom-fallback");
+        }
+
+        @Test
+        @DisplayName("defaultModelが未設定の場合はDEFAULT_MODELにフォールバックする")
+        void nullDefaultModelFallsBackToConstant() {
+            ModelConfig config = new ModelConfig(null, null, null, null, null);
+
+            assertThat(config.defaultModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+            assertThat(config.reviewModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+        }
+
+        @Test
+        @DisplayName("個別モデルが設定されている場合はdefaultModelより優先される")
+        void individualModelsOverrideDefaultModel() {
+            ModelConfig config = new ModelConfig("review-x", null, null, null, "custom-fallback");
+
+            assertThat(config.reviewModel()).isEqualTo("review-x");
+            assertThat(config.reportModel()).isEqualTo("custom-fallback");
+            assertThat(config.summaryModel()).isEqualTo("custom-fallback");
+        }
+
+        @Test
+        @DisplayName("引数なしコンストラクタのdefaultModelはDEFAULT_MODELと等しい")
+        void noArgConstructorDefaultModel() {
+            ModelConfig config = new ModelConfig();
+
+            assertThat(config.defaultModel()).isEqualTo(ModelConfig.DEFAULT_MODEL);
+        }
+    }
+
+
     @Nested
     @DisplayName("toString")
     class ToStringTests {
 
         @Test
-        @DisplayName("toStringはモデル名とreasoningEffortを含む")
+        @DisplayName("toStringはモデル名とreasoningEffortとdefaultModelを含む")
         void toStringContainsModelNamesAndEffort() {
             ModelConfig config = new ModelConfig("r-model", "p-model", "s-model", "medium");
 
@@ -267,6 +312,7 @@ class ModelConfigTest {
             assertThat(result).contains("p-model");
             assertThat(result).contains("s-model");
             assertThat(result).contains("medium");
+            assertThat(result).contains(ModelConfig.DEFAULT_MODEL);
         }
     }
 }

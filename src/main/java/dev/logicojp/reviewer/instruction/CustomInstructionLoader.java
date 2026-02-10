@@ -12,31 +12,29 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-/**
- * Loads custom instructions from repository or local directory.
- * 
- * Supports the following instruction file locations (in priority order):
- * - .github/copilot-instructions.md
- * - .github/instructions/*.instructions.md (GitHub Copilot per-scope format with YAML frontmatter)
- * - .copilot/instructions.md
- * - copilot-instructions.md (root)
- * - INSTRUCTIONS.md (root)
- * - .instructions.md (root)
- * 
- * Per-scope instruction files (.github/instructions/*.instructions.md) support YAML frontmatter:
- * <pre>
- * ---
- * applyTo: '**&#47;*.java'
- * description: 'Java coding standards'
- * ---
- * Follow these coding standards...
- * </pre>
- */
+/// Loads custom instructions from repository or local directory.
+///
+/// Supports the following instruction file locations (in priority order):
+/// - .github/copilot-instructions.md
+/// - .github/instructions/*.instructions.md (GitHub Copilot per-scope format with YAML frontmatter)
+/// - .copilot/instructions.md
+/// - copilot-instructions.md (root)
+/// - INSTRUCTIONS.md (root)
+/// - .instructions.md (root)
+///
+/// Per-scope instruction files (.github/instructions/*.instructions.md) support YAML frontmatter:
+/// ```
+/// ---
+/// applyTo: '**/*.java'
+/// description: 'Java coding standards'
+/// ---
+/// Follow these coding standards...
+/// ```
 public class CustomInstructionLoader {
 
     private static final Logger logger = LoggerFactory.getLogger(CustomInstructionLoader.class);
 
-    /** Instruction file paths to check, in priority order */
+    /// Instruction file paths to check, in priority order
     private static final List<String> INSTRUCTION_PATHS = List.of(
         ".github/copilot-instructions.md",
         ".copilot/instructions.md",
@@ -45,10 +43,10 @@ public class CustomInstructionLoader {
         ".instructions.md"
     );
 
-    /** Directory for GitHub Copilot per-scope instruction files */
+    /// Directory for GitHub Copilot per-scope instruction files
     private static final String INSTRUCTIONS_DIRECTORY = ".github/instructions";
 
-    /** File extension for per-scope instruction files */
+    /// File extension for per-scope instruction files
     private static final String INSTRUCTIONS_EXTENSION = ".instructions.md";
 
     private final List<Path> additionalInstructionPaths;
@@ -63,11 +61,9 @@ public class CustomInstructionLoader {
             : new ArrayList<>();
     }
 
-    /**
-     * Loads custom instructions from a local directory.
-     * @param directory The directory to search for instruction files
-     * @return List of custom instructions found (empty if none found)
-     */
+    /// Loads custom instructions from a local directory.
+    /// @param directory The directory to search for instruction files
+    /// @return List of custom instructions found (empty if none found)
     public List<CustomInstruction> loadFromLocalDirectory(Path directory) {
         if (directory == null || !Files.isDirectory(directory)) {
             return List.of();
@@ -100,14 +96,12 @@ public class CustomInstructionLoader {
         return List.copyOf(instructions);
     }
 
-    /**
-     * Loads custom instructions for the given review target.
-     * For local targets, loads from the directory.
-     * For GitHub targets, this returns empty (GitHub instructions should be fetched via MCP).
-     * 
-     * @param target The review target
-     * @return List of custom instructions found
-     */
+    /// Loads custom instructions for the given review target.
+    /// For local targets, loads from the directory.
+    /// For GitHub targets, this returns empty (GitHub instructions should be fetched via MCP).
+    ///
+    /// @param target The review target
+    /// @return List of custom instructions found
     public List<CustomInstruction> loadForTarget(ReviewTarget target) {
         if (target.isLocal()) {
             return target.getLocalPath()
@@ -119,11 +113,9 @@ public class CustomInstructionLoader {
         return List.of();
     }
 
-    /**
-     * Loads per-scope instruction files from the .github/instructions/ directory.
-     * Files must have the .instructions.md extension and may contain YAML frontmatter
-     * with applyTo and description fields.
-     */
+    /// Loads per-scope instruction files from the .github/instructions/ directory.
+    /// Files must have the .instructions.md extension and may contain YAML frontmatter
+    /// with applyTo and description fields.
     List<CustomInstruction> loadFromInstructionsDirectory(Path baseDirectory) {
         Path instructionsDir = baseDirectory.resolve(INSTRUCTIONS_DIRECTORY);
         if (!Files.isDirectory(instructionsDir)) {
@@ -163,9 +155,7 @@ public class CustomInstructionLoader {
         return instructions;
     }
 
-    /**
-     * Loads a single instruction file.
-     */
+    /// Loads a single instruction file.
     private java.util.Optional<CustomInstruction> loadInstructionFile(Path path) {
         if (!Files.exists(path) || !Files.isRegularFile(path)) {
             return java.util.Optional.empty();
@@ -192,23 +182,19 @@ public class CustomInstructionLoader {
         }
     }
 
-    /**
-     * Parsed result of a frontmatter-enabled instruction file.
-     * 
-     * @param content The instruction content (without frontmatter)
-     * @param applyTo The glob pattern from frontmatter (nullable)
-     * @param description The description from frontmatter (nullable)
-     */
+    /// Parsed result of a frontmatter-enabled instruction file.
+    ///
+    /// @param content The instruction content (without frontmatter)
+    /// @param applyTo The glob pattern from frontmatter (nullable)
+    /// @param description The description from frontmatter (nullable)
     record ParsedInstruction(String content, String applyTo, String description) {}
 
-    /**
-     * Parses YAML frontmatter from an instruction file content.
-     * Frontmatter is delimited by --- lines at the start of the file.
-     * Supports applyTo and description fields.
-     * 
-     * @param rawContent The raw file content
-     * @return ParsedInstruction with separated content and metadata
-     */
+    /// Parses YAML frontmatter from an instruction file content.
+    /// Frontmatter is delimited by --- lines at the start of the file.
+    /// Supports applyTo and description fields.
+    ///
+    /// @param rawContent The raw file content
+    /// @return ParsedInstruction with separated content and metadata
     static ParsedInstruction parseFrontmatter(String rawContent) {
         if (rawContent == null || !rawContent.startsWith("---")) {
             return new ParsedInstruction(rawContent, null, null);
@@ -235,10 +221,8 @@ public class CustomInstructionLoader {
         );
     }
 
-    /**
-     * Extracts a value for the given key from YAML frontmatter text.
-     * Supports both quoted ('value' or "value") and unquoted values.
-     */
+    /// Extracts a value for the given key from YAML frontmatter text.
+    /// Supports both quoted ('value' or "value") and unquoted values.
     private static String extractFrontmatterValue(String frontmatter, String key) {
         for (String line : frontmatter.split("\n")) {
             line = line.trim();

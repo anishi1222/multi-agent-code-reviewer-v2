@@ -16,9 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Service for executing code reviews with multiple agents.
- */
+/// Service for executing code reviews with multiple agents.
 @Singleton
 public class ReviewService {
     
@@ -27,26 +25,27 @@ public class ReviewService {
     private final CopilotService copilotService;
     private final GithubMcpConfig githubMcpConfig;
     private final ExecutionConfig executionConfig;
+    private final TemplateService templateService;
     
     @Inject
     public ReviewService(CopilotService copilotService,
                          GithubMcpConfig githubMcpConfig,
-                         ExecutionConfig executionConfig) {
+                         ExecutionConfig executionConfig,
+                         TemplateService templateService) {
         this.copilotService = copilotService;
         this.githubMcpConfig = githubMcpConfig;
         this.executionConfig = executionConfig;
+        this.templateService = templateService;
     }
     
-    /**
-     * Executes reviews with all specified agents in parallel.
-     * @param agentConfigs Map of agent configurations
-     * @param target Target to review (GitHub repository or local directory)
-     * @param githubToken GitHub authentication token (required for GitHub targets)
-     * @param parallelism Number of parallel agents (overrides config)
-     * @param customInstructions List of custom instructions to apply (may be empty)
-     * @param reasoningEffort Reasoning effort level for reasoning models (optional)
-     * @return List of review results from all agents
-     */
+    /// Executes reviews with all specified agents in parallel.
+    /// @param agentConfigs Map of agent configurations
+    /// @param target Target to review (GitHub repository or local directory)
+    /// @param githubToken GitHub authentication token (required for GitHub targets)
+    /// @param parallelism Number of parallel agents (overrides config)
+    /// @param customInstructions List of custom instructions to apply (may be empty)
+    /// @param reasoningEffort Reasoning effort level for reasoning models (optional)
+    /// @return List of review results from all agents
     public List<ReviewResult> executeReviews(
             Map<String, AgentConfig> agentConfigs,
             ReviewTarget target,
@@ -75,15 +74,22 @@ public class ReviewService {
             parallelism,
             executionConfig.orchestratorTimeoutMinutes(),
             executionConfig.agentTimeoutMinutes(),
+            executionConfig.idleTimeoutMinutes(),
             executionConfig.skillTimeoutMinutes(),
             executionConfig.summaryTimeoutMinutes(),
             executionConfig.ghAuthTimeoutSeconds(),
             executionConfig.maxRetries()
         );
         
+        // Load output constraints from external template
+        String outputConstraints = templateService.getOutputConstraints();
+        if (outputConstraints != null && !outputConstraints.isBlank()) {
+            logger.info("Loaded output constraints from template ({} chars)", outputConstraints.length());
+        }
+        
         ReviewOrchestrator orchestrator = new ReviewOrchestrator(
             copilotService.getClient(), githubToken, githubMcpConfig, overriddenConfig,
-            effectiveInstructions, reasoningEffort);
+            effectiveInstructions, reasoningEffort, outputConstraints);
         
         try {
             return orchestrator.executeReviews(agentConfigs, target);

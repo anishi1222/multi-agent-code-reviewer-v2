@@ -14,9 +14,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
-/**
- * Unit tests for CustomInstructionLoader.
- */
+/// Unit tests for CustomInstructionLoader.
 class CustomInstructionLoaderTest {
 
     @TempDir

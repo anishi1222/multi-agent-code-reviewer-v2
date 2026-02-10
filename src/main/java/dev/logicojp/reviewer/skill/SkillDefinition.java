@@ -3,10 +3,8 @@ package dev.logicojp.reviewer.skill;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Defines a skill that an agent can perform.
- * Skills are discrete capabilities that can be invoked by name.
- */
+/// Defines a skill that an agent can perform.
+/// Skills are discrete capabilities that can be invoked by name.
 public record SkillDefinition(
     String id,
     String name,
@@ -33,16 +31,12 @@ public record SkillDefinition(
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
     }
 
-    /**
-     * Creates a skill with minimal required fields.
-     */
+    /// Creates a skill with minimal required fields.
     public static SkillDefinition of(String id, String name, String description, String prompt) {
         return new SkillDefinition(id, name, description, prompt, List.of(), Map.of());
     }
 
-    /**
-     * Builds the prompt with parameter substitution.
-     */
+    /// Builds the prompt with parameter substitution.
     public String buildPrompt(Map<String, String> parameterValues) {
         String result = prompt;
         for (SkillParameter param : parameters) {
@@ -54,9 +48,7 @@ public record SkillDefinition(
         return result;
     }
 
-    /**
-     * Validates that all required parameters are provided.
-     */
+    /// Validates that all required parameters are provided.
     public void validateParameters(Map<String, String> parameterValues) {
         for (SkillParameter param : parameters) {
             if (param.required() && !parameterValues.containsKey(param.name())) {
