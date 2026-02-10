@@ -1,6 +1,6 @@
 # Multi-Agent Code Reviewer
 
-A parallel code review application using multiple AI agents with GitHub Copilot SDK for Java.
+A parallel code review application using multiple AI agents with GitHub Copilot SDK for Java!
 
 ![alt text](image.png)
 
