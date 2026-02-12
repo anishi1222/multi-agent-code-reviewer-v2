@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.micronaut.platform</groupId>
         <artifactId>micronaut-parent</artifactId>
-        <version>4.10.7</version>
+        <version>4.10.8</version>
     </parent>
 
     <groupId>dev.logicojp</groupId>
@@ -21,7 +21,7 @@
     <properties>
         <jdk.version>25</jdk.version>
         <release.version>25</release.version>
-        <micronaut.version>4.10.7</micronaut.version>
+        <micronaut.version>4.10.8</micronaut.version>
         <micronaut.runtime>netty</micronaut.runtime>
         <exec.mainClass>dev.logicojp.reviewer.ReviewApp</exec.mainClass>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -65,12 +65,12 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.5.27</version>
+            <version>1.5.29</version>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-core</artifactId>
-            <version>1.5.27</version>
+            <version>1.5.29</version>
         </dependency>
 
         <!-- GraalVM Native Image Support -->
@@ -132,9 +132,20 @@
                         </path>
                     </annotationProcessorPaths>
                     <compilerArgs>
+                        <arg>--enable-preview</arg>
                         <arg>-Amicronaut.processing.group=dev.logicojp</arg>
                         <arg>-Amicronaut.processing.module=multi-agent-reviewer</arg>
                     </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <!-- Surefire for JUnit 5 test discovery/reporting -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <argLine>--enable-preview</argLine>
                 </configuration>
             </plugin>
 
@@ -164,6 +175,10 @@
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/LICENSE*</exclude>
+                                        <exclude>META-INF/NOTICE*</exclude>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
@@ -195,13 +210,6 @@
                         <configuration>
                             <mainClass>dev.logicojp.reviewer.ReviewApp</mainClass>
                             <imageName>review</imageName>
-                            <buildArgs combine.children="append">
-                                <buildArg>--no-fallback</buildArg>
-                                <buildArg>-O1</buildArg>
-                                <buildArg>--enable-url-protocols=https</buildArg>
-                                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
-                                <buildArg>--initialize-at-build-time=org.junit.platform.commons.logging.LoggerFactory$DelegatingLogger</buildArg>
-                            </buildArgs>
                         </configuration>
                     </plugin>
                 </plugins>

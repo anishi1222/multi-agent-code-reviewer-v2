@@ -37,7 +37,10 @@ public class SkillService {
         this.copilotService = copilotService;
         this.githubMcpConfig = githubMcpConfig;
         this.executionConfig = executionConfig;
-        this.executorService = Executors.newFixedThreadPool(executionConfig.parallelism());
+        this.executorService = Executors.newFixedThreadPool(
+            executionConfig.parallelism(),
+            Thread.ofVirtual().name("skill-worker-", 0).factory()
+        );
     }
 
     /// Registers all skills from an agent configuration.

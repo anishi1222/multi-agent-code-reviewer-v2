@@ -37,8 +37,8 @@ public class ReportGenerator {
         ensureOutputDirectory();
         
         AgentConfig config = result.agentConfig();
-        String filename = String.format("%s_%s.md", 
-            config.name(), 
+        String filename = "%s_%s.md".formatted(
+            config.name(),
             LocalDate.now().format(FILE_DATE_FORMATTER));
         Path reportPath = outputDirectory.resolve(filename);
         
@@ -79,12 +79,9 @@ public class ReportGenerator {
         }
         
         // Build content section
-        String content;
-        if (result.isSuccess()) {
-            content = result.content();
-        } else {
-            content = "⚠️ **レビュー失敗**\n\nエラー: " + result.errorMessage();
-        }
+        String content = result.isSuccess()
+            ? result.content()
+            : "⚠️ **レビュー失敗**\n\nエラー: " + result.errorMessage();
         
         // Apply template
         var placeholders = Map.of(

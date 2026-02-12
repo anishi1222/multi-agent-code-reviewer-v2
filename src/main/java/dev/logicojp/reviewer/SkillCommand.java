@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 @Singleton
@@ -92,9 +93,7 @@ public class SkillCommand {
     }
 
     private void parseArgs(String[] args) {
-        if (args == null) {
-            args = new String[0];
-        }
+        args = Objects.requireNonNullElse(args, new String[0]);
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
             switch (arg) {

@@ -4,24 +4,13 @@ import io.micronaut.context.annotation.ConfigurationProperties;
 
 /// Configuration for the review orchestrator.
 @ConfigurationProperties("reviewer.orchestrator")
-public class OrchestratorConfig {
+public record OrchestratorConfig(
+    int defaultParallelism,
+    long timeoutMinutes
+) {
 
-    private int defaultParallelism = 4;
-    private long timeoutMinutes = 10;
-
-    public int getDefaultParallelism() {
-        return defaultParallelism;
-    }
-
-    public void setDefaultParallelism(int defaultParallelism) {
-        this.defaultParallelism = defaultParallelism;
-    }
-
-    public long getTimeoutMinutes() {
-        return timeoutMinutes;
-    }
-
-    public void setTimeoutMinutes(long timeoutMinutes) {
-        this.timeoutMinutes = timeoutMinutes;
+    public OrchestratorConfig {
+        defaultParallelism = (defaultParallelism <= 0) ? 4 : defaultParallelism;
+        timeoutMinutes = (timeoutMinutes <= 0) ? 10 : timeoutMinutes;
     }
 }

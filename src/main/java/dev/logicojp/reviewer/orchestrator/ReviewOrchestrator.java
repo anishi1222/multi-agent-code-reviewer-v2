@@ -4,7 +4,6 @@ import dev.logicojp.reviewer.agent.AgentConfig;
 import dev.logicojp.reviewer.agent.ReviewAgent;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.GithubMcpConfig;
-import dev.logicojp.reviewer.config.OrchestratorConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.report.ReviewResult;
 import dev.logicojp.reviewer.target.ReviewTarget;
@@ -12,8 +11,18 @@ import com.github.copilot.sdk.CopilotClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /// Orchestrates parallel execution of multiple review agents.
 public class ReviewOrchestrator {
@@ -29,6 +38,7 @@ public class ReviewOrchestrator {
     private final List<CustomInstruction> customInstructions;
     private final String reasoningEffort;
     private final String outputConstraints;
+    private final boolean structuredConcurrencyEnabled;
 
     public ReviewOrchestrator(CopilotClient client,
                               String githubToken,
@@ -48,6 +58,7 @@ public class ReviewOrchestrator {
         this.customInstructions = customInstructions != null ? List.copyOf(customInstructions) : List.of();
         this.reasoningEffort = reasoningEffort;
         this.outputConstraints = outputConstraints;
+        this.structuredConcurrencyEnabled = isStructuredConcurrencyEnabled();
         
         logger.info("Parallelism set to {}", executionConfig.parallelism());
         if (!this.customInstructions.isEmpty()) {
@@ -62,15 +73,19 @@ public class ReviewOrchestrator {
     public List<ReviewResult> executeReviews(Map<String, AgentConfig> agents, ReviewTarget target) {
         logger.info("Starting parallel review for {} agents on target: {}", 
             agents.size(), target.displayName());
+
+        if (structuredConcurrencyEnabled) {
+            return executeReviewsStructured(agents, target);
+        }
         
-        List<CompletableFuture<ReviewResult>> futures = new ArrayList<>();
+        List<CompletableFuture<ReviewResult>> futures = new ArrayList<>(agents.size());
         long timeoutMinutes = executionConfig.orchestratorTimeoutMinutes();
         // Per-agent timeout accounts for retries: each attempt gets the full agent timeout
-        long perAgentTimeoutMinutes = executionConfig.agentTimeoutMinutes() 
-            * (executionConfig.maxRetries() + 1);
+        long perAgentTimeoutMinutes = executionConfig.agentTimeoutMinutes()
+            * (executionConfig.maxRetries() + 1L);
         
-        for (AgentConfig config : agents.values()) {
-            ReviewAgent agent = new ReviewAgent(config, client, githubToken, githubMcpConfig,
+        for (var config : agents.values()) {
+            var agent = new ReviewAgent(config, client, githubToken, githubMcpConfig,
                 executionConfig.agentTimeoutMinutes(), executionConfig.idleTimeoutMinutes(),
                 customInstructions, reasoningEffort,
                 executionConfig.maxRetries(), outputConstraints);
@@ -119,7 +134,7 @@ public class ReviewOrchestrator {
         }
         
         // Collect results
-        List<ReviewResult> results = new ArrayList<>();
+        List<ReviewResult> results = new ArrayList<>(futures.size());
         for (CompletableFuture<ReviewResult> future : futures) {
             try {
                 results.add(future.getNow(null));
@@ -138,6 +153,104 @@ public class ReviewOrchestrator {
         
         return results;
     }
+
+    private List<ReviewResult> executeReviewsStructured(Map<String, AgentConfig> agents, ReviewTarget target) {
+        long timeoutMinutes = executionConfig.orchestratorTimeoutMinutes();
+        long perAgentTimeoutMinutes = executionConfig.agentTimeoutMinutes()
+            * (executionConfig.maxRetries() + 1L);
+
+        List<StructuredTaskScope.Subtask<ReviewResult>> tasks = new ArrayList<>(agents.size());
+        try (var scope = StructuredTaskScope.<ReviewResult>open()) {
+            for (var config : agents.values()) {
+                var agent = new ReviewAgent(config, client, githubToken, githubMcpConfig,
+                    executionConfig.agentTimeoutMinutes(), executionConfig.idleTimeoutMinutes(),
+                    customInstructions, reasoningEffort,
+                    executionConfig.maxRetries(), outputConstraints);
+                tasks.add(scope.fork(() -> {
+                    try {
+                        concurrencyLimit.acquire();
+                        try {
+                            return agent.review(target);
+                        } finally {
+                            concurrencyLimit.release();
+                        }
+                    } catch (InterruptedException _) {
+                        Thread.currentThread().interrupt();
+                        return ReviewResult.builder()
+                            .agentConfig(config)
+                            .repository(target.displayName())
+                            .success(false)
+                            .errorMessage("Review interrupted while waiting for concurrency permit")
+                            .build();
+                    } catch (Exception e) {
+                        return ReviewResult.builder()
+                            .agentConfig(config)
+                            .repository(target.displayName())
+                            .success(false)
+                            .errorMessage("Review failed: " + e.getMessage())
+                            .build();
+                    }
+                }));
+            }
+
+            var joinFuture = CompletableFuture.runAsync(() -> {
+                try {
+                    scope.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
+                }
+            });
+
+            try {
+                joinFuture.get(timeoutMinutes + 1, TimeUnit.MINUTES);
+            } catch (TimeoutException e) {
+                logger.error("Structured concurrency timed out after {} minutes", timeoutMinutes, e);
+                scope.close();
+            } catch (ExecutionException e) {
+                logger.error("Structured concurrency join failed", e);
+            }
+
+            List<ReviewResult> results = new ArrayList<>(tasks.size());
+            for (var task : tasks) {
+                results.add(summarizeTaskResult(task, target, perAgentTimeoutMinutes));
+            }
+
+            results.removeIf(Objects::isNull);
+            logger.info("Completed {} reviews (success: {}, failed: {})",
+                results.size(),
+                results.stream().filter(ReviewResult::isSuccess).count(),
+                results.stream().filter(r -> !r.isSuccess()).count());
+            return results;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Structured concurrency interrupted", e);
+            return List.of();
+        }
+    }
+
+    private ReviewResult summarizeTaskResult(StructuredTaskScope.Subtask<ReviewResult> task,
+                                             ReviewTarget target,
+                                             long perAgentTimeoutMinutes) {
+        return switch (task.state()) {
+            case SUCCESS -> task.get();
+            case FAILED -> {
+                Throwable cause = task.exception();
+                yield ReviewResult.builder()
+                    .agentConfig(null)
+                    .repository(target.displayName())
+                    .success(false)
+                    .errorMessage("Review failed: " + (cause != null ? cause.getMessage() : "unknown"))
+                    .build();
+            }
+            case UNAVAILABLE -> ReviewResult.builder()
+                .agentConfig(null)
+                .repository(target.displayName())
+                .success(false)
+                .errorMessage("Review cancelled after " + perAgentTimeoutMinutes + " minutes")
+                .build();
+        };
+    }
     
     /// Shuts down the executor service.
     public void shutdown() {
@@ -151,5 +264,13 @@ public class ReviewOrchestrator {
             executorService.shutdownNow();
             Thread.currentThread().interrupt();
         }
+    }
+
+    private boolean isStructuredConcurrencyEnabled() {
+        String env = System.getenv("REVIEWER_STRUCTURED_CONCURRENCY");
+        if (env != null && !env.isBlank()) {
+            return Boolean.parseBoolean(env);
+        }
+        return Boolean.getBoolean("reviewer.structuredConcurrency");
     }
 }

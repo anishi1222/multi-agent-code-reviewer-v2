@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /// Command to list all available review agents.
 @Singleton
@@ -60,9 +61,7 @@ public class ListAgentsCommand {
     }
 
     private void parseArgs(String[] args) {
-        if (args == null) {
-            args = new String[0];
-        }
+        args = Objects.requireNonNullElse(args, new String[0]);
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
             switch (arg) {

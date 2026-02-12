@@ -10,10 +10,13 @@ import jakarta.inject.Singleton;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 /// Multi-Agent Code Reviewer CLI Application.
 @Singleton
 public class ReviewApp {
+    private static final Set<String> SUBCOMMANDS = Set.of("run", "list", "skill");
+
     private final ReviewCommand reviewCommand;
     private final ListAgentsCommand listAgentsCommand;
     private final SkillCommand skillCommand;
@@ -28,8 +31,8 @@ public class ReviewApp {
     }
 
     public static void main(String[] args) {
-        try (ApplicationContext context = ApplicationContext.run()) {
-            ReviewApp app = context.getBean(ReviewApp.class);
+        try (var context = ApplicationContext.run()) {
+            var app = context.getBean(ReviewApp.class);
             int exitCode = app.execute(args);
             System.exit(exitCode);
         }
@@ -61,7 +64,7 @@ public class ReviewApp {
             return ExitCodes.OK;
         }
 
-        String[] filteredArgs = remaining.toArray(new String[0]);
+        String[] filteredArgs = remaining.toArray(String[]::new);
         if (filteredArgs.length == 0) {
             CliUsage.printGeneral(System.out);
             return ExitCodes.USAGE;
@@ -70,7 +73,7 @@ public class ReviewApp {
         // Treat --help / -h as general help only when no subcommand is provided.
         boolean hasHelpFlag = CliParsing.hasHelpFlag(filteredArgs);
         boolean hasSubcommand = Arrays.stream(filteredArgs)
-            .anyMatch(arg -> "run".equals(arg) || "list".equals(arg) || "skill".equals(arg));
+            .anyMatch(SUBCOMMANDS::contains);
         if (hasHelpFlag && !hasSubcommand) {
             CliUsage.printGeneral(System.out);
             return ExitCodes.OK;

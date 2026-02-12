@@ -92,8 +92,8 @@ public record ModelConfig(
 
     @Override
     public String toString() {
-        return String.format("ModelConfig{review='%s', report='%s', summary='%s', reasoningEffort='%s', default='%s'}",
-            reviewModel, reportModel, summaryModel, reasoningEffort, defaultModel);
+        return "ModelConfig{review='%s', report='%s', summary='%s', reasoningEffort='%s', default='%s'}"
+            .formatted(reviewModel, reportModel, summaryModel, reasoningEffort, defaultModel);
     }
 
     /// Creates a builder for ModelConfig.

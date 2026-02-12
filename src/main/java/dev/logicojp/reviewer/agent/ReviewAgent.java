@@ -352,58 +352,56 @@ public class ReviewAgent {
         });
 
         // Activity-based idle timeout: checks periodically if no events have arrived
-        var scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            var t = new Thread(r, "idle-timeout-" + config.name());
-            t.setDaemon(true);
-            return t;
-        });
-        // Check every 1/4 of idle timeout interval for responsiveness
-        long checkInterval = Math.max(idleTimeoutMs / 4, 5000);
-        scheduler.scheduleAtFixedRate(() -> {
-            if (future.isDone()) return;
-            long elapsed = System.currentTimeMillis() - lastActivityTime.get();
-            if (elapsed >= idleTimeoutMs) {
-                logger.warn("Agent {}: idle timeout — no events for {} ms ({} messages, {} tool calls)",
-                    config.name(), elapsed, messageCount.get(), toolCallCount.get());
-                // Complete with accumulated content if available, otherwise timeout
+        try (var scheduler = Executors.newSingleThreadScheduledExecutor(
+            Thread.ofVirtual().name("idle-timeout-" + config.name(), 0).factory()
+        )) {
+            // Check every 1/4 of idle timeout interval for responsiveness
+            long checkInterval = Math.max(idleTimeoutMs / 4, 5000);
+            scheduler.scheduleAtFixedRate(() -> {
+                if (future.isDone()) return;
+                long elapsed = System.currentTimeMillis() - lastActivityTime.get();
+                if (elapsed >= idleTimeoutMs) {
+                    logger.warn("Agent {}: idle timeout — no events for {} ms ({} messages, {} tool calls)",
+                        config.name(), elapsed, messageCount.get(), toolCallCount.get());
+                    // Complete with accumulated content if available, otherwise timeout
+                    String content = accumulatedContent.toString();
+                    if (!content.isBlank()) {
+                        future.complete(content);
+                    } else {
+                        future.completeExceptionally(new TimeoutException(
+                            "No activity for " + elapsed + "ms (idle timeout: " + idleTimeoutMs + "ms)"));
+                    }
+                }
+            }, checkInterval, checkInterval, TimeUnit.MILLISECONDS);
+
+            try {
+                // Send asynchronously — no internal SDK timeout!
+                logger.debug("Agent {}: sending prompt asynchronously (idle timeout: {} min, max: {} min)",
+                    config.name(), idleTimeoutMinutes, timeoutMinutes);
+                session.send(new MessageOptions().setPrompt(prompt));
+
+                // Wait with maximum wall-clock safety net
+                String result = future.get(maxTimeoutMs, TimeUnit.MILLISECONDS);
+                logger.info("Agent {}: completed ({} chars, {} messages, {} tool calls)",
+                    config.name(),
+                    result != null ? result.length() : 0,
+                    messageCount.get(), toolCallCount.get());
+                return result;
+            } catch (TimeoutException e) {
+                // Max wall-clock timeout hit — try accumulated content before failing
                 String content = accumulatedContent.toString();
                 if (!content.isBlank()) {
-                    future.complete(content);
-                } else {
-                    future.completeExceptionally(new TimeoutException(
-                        "No activity for " + elapsed + "ms (idle timeout: " + idleTimeoutMs + "ms)"));
+                    logger.warn("Agent {}: max timeout reached, returning accumulated content ({} chars)",
+                        config.name(), content.length());
+                    return content;
                 }
+                throw e;
+            } finally {
+                allEventsSubscription.close();
+                messageSubscription.close();
+                idleSubscription.close();
+                errorSubscription.close();
             }
-        }, checkInterval, checkInterval, TimeUnit.MILLISECONDS);
-
-        try {
-            // Send asynchronously — no internal SDK timeout!
-            logger.debug("Agent {}: sending prompt asynchronously (idle timeout: {} min, max: {} min)",
-                config.name(), idleTimeoutMinutes, timeoutMinutes);
-            session.send(new MessageOptions().setPrompt(prompt));
-
-            // Wait with maximum wall-clock safety net
-            String result = future.get(maxTimeoutMs, TimeUnit.MILLISECONDS);
-            logger.info("Agent {}: completed ({} chars, {} messages, {} tool calls)",
-                config.name(),
-                result != null ? result.length() : 0,
-                messageCount.get(), toolCallCount.get());
-            return result;
-        } catch (TimeoutException e) {
-            // Max wall-clock timeout hit — try accumulated content before failing
-            String content = accumulatedContent.toString();
-            if (!content.isBlank()) {
-                logger.warn("Agent {}: max timeout reached, returning accumulated content ({} chars)",
-                    config.name(), content.length());
-                return content;
-            }
-            throw e;
-        } finally {
-            scheduler.shutdown();
-            allEventsSubscription.close();
-            messageSubscription.close();
-            idleSubscription.close();
-            errorSubscription.close();
         }
     }
 

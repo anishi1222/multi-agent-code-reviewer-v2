@@ -8,9 +8,12 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /// Executes skills using the Copilot SDK.
 public class SkillExecutor {
@@ -23,6 +26,7 @@ public class SkillExecutor {
     private final String defaultModel;
     private final long timeoutMinutes;
     private final Executor executor;
+    private final boolean structuredConcurrencyEnabled;
 
     public SkillExecutor(CopilotClient client, String githubToken,
                          GithubMcpConfig githubMcpConfig, String defaultModel,
@@ -40,6 +44,7 @@ public class SkillExecutor {
         this.defaultModel = defaultModel;
         this.timeoutMinutes = timeoutMinutes;
         this.executor = executor;
+        this.structuredConcurrencyEnabled = isStructuredConcurrencyEnabledForSkills();
     }
 
     /// Executes a skill with the given parameters.
@@ -58,10 +63,47 @@ public class SkillExecutor {
                                       Map<String, String> parameters,
                                       String systemPrompt) {
         try {
+            if (structuredConcurrencyEnabled) {
+                return executeWithStructuredConcurrency(skill, parameters, systemPrompt);
+            }
             return executeSync(skill, parameters, systemPrompt);
         } catch (Exception e) {
             logger.error("Skill execution failed for {}: {}", skill.id(), e.getMessage(), e);
             return SkillResult.failure(skill.id(), e.getMessage());
+        }
+    }
+
+    private SkillResult executeWithStructuredConcurrency(SkillDefinition skill,
+                                                         Map<String, String> parameters,
+                                                         String systemPrompt) throws Exception {
+        try (var scope = StructuredTaskScope.<SkillResult>open()) {
+            var task = scope.fork(() -> executeSync(skill, parameters, systemPrompt));
+            var joinFuture = CompletableFuture.runAsync(() -> {
+                try {
+                    scope.join();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
+                }
+            });
+            try {
+                joinFuture.get(timeoutMinutes, TimeUnit.MINUTES);
+            } catch (TimeoutException e) {
+                scope.close();
+                return SkillResult.failure(skill.id(),
+                    "Skill timed out after " + timeoutMinutes + " minutes");
+            } catch (ExecutionException e) {
+                return SkillResult.failure(skill.id(),
+                    "Skill failed: " + e.getCause().getMessage());
+            }
+
+            return switch (task.state()) {
+                case SUCCESS -> task.get();
+                case FAILED -> SkillResult.failure(skill.id(),
+                    "Skill failed: " + (task.exception() != null ? task.exception().getMessage() : "unknown"));
+                case UNAVAILABLE -> SkillResult.failure(skill.id(),
+                    "Skill cancelled after " + timeoutMinutes + " minutes");
+            };
         }
     }
 
@@ -116,5 +158,20 @@ public class SkillExecutor {
         } finally {
             session.close();
         }
+    }
+
+    private boolean isStructuredConcurrencyEnabledForSkills() {
+        String env = System.getenv("REVIEWER_STRUCTURED_CONCURRENCY_SKILLS");
+        if (env != null && !env.isBlank()) {
+            return Boolean.parseBoolean(env);
+        }
+        if (System.getProperties().containsKey("reviewer.structuredConcurrency.skills")) {
+            return Boolean.getBoolean("reviewer.structuredConcurrency.skills");
+        }
+        env = System.getenv("REVIEWER_STRUCTURED_CONCURRENCY");
+        if (env != null && !env.isBlank()) {
+            return Boolean.parseBoolean(env);
+        }
+        return Boolean.getBoolean("reviewer.structuredConcurrency");
     }
 }

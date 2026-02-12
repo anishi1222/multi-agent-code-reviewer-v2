@@ -54,29 +54,31 @@ mvn clean package -Pnative
 
 ## 使い方
 
+> 注意: 本プロジェクトは Java のプレビュー機能を利用しています。JVM で実行する場合は `--enable-preview` を付けてください。
+
 ### 基本的な使用方法
 
 ```bash
 # 全エージェントでレビュー実行（GitHubリポジトリ）
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --repo owner/repository \
   --all
 
 # ローカルディレクトリのレビュー
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --local ./my-project \
   --all
 
 # 特定のエージェントのみ実行
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --repo owner/repository \
   --agents security,performance
 
 # LLMモデルを明示的に指定
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --repo owner/repository \
   --all \
@@ -84,14 +86,14 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   --summary-model claude-sonnet-4
 
 # カスタムインストラクションを指定してレビュー
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --local ./my-project \
   --all \
   --instructions ./my-instructions.md
 
 # 利用可能なエージェント一覧
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   list
 ```
 
@@ -126,6 +128,22 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 
 ```bash
 export GITHUB_TOKEN=your_github_token
+```
+
+### 機能フラグ（Structured Concurrency）
+
+構造化並列を有効化するには、環境変数またはJVMプロパティを使用します。
+
+```bash
+# 全体を対象に構造化並列を有効化
+export REVIEWER_STRUCTURED_CONCURRENCY=true
+
+# スキル実行のみ構造化並列を有効化
+export REVIEWER_STRUCTURED_CONCURRENCY_SKILLS=true
+
+# JVMプロパティ（代替）
+java -Dreviewer.structuredConcurrency=true -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar run --repo owner/repo --all
+java -Dreviewer.structuredConcurrency.skills=true -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar skill --list
 ```
 
 ### ローカルディレクトリレビュー

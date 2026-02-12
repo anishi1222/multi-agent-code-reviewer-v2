@@ -54,29 +54,31 @@ mvn clean package -Pnative
 
 ## Usage
 
+> Note: This project uses Java preview features. Run the JVM JAR with `--enable-preview`.
+
 ### Basic Usage
 
 ```bash
 # Run review with all agents (GitHub repository)
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --repo owner/repository \
   --all
 
 # Review a local directory
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --local ./my-project \
   --all
 
 # Run only specific agents
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --repo owner/repository \
   --agents security,performance
 
 # Explicitly specify LLM models
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --repo owner/repository \
   --all \
@@ -84,14 +86,14 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   --summary-model claude-sonnet-4
 
 # Review with custom instructions
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
   --local ./my-project \
   --all \
   --instructions ./my-instructions.md
 
 # List available agents
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   list
 ```
 
@@ -126,6 +128,22 @@ Displays a list of available agents. Additional directories can be specified wit
 
 ```bash
 export GITHUB_TOKEN=your_github_token
+```
+
+### Feature Flags (Structured Concurrency)
+
+Enable structured concurrency globally or for skills only using env vars or JVM properties:
+
+```bash
+# Global structured concurrency
+export REVIEWER_STRUCTURED_CONCURRENCY=true
+
+# Skills-only structured concurrency
+export REVIEWER_STRUCTURED_CONCURRENCY_SKILLS=true
+
+# JVM properties (alternative)
+java -Dreviewer.structuredConcurrency=true -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar run --repo owner/repo --all
+java -Dreviewer.structuredConcurrency.skills=true -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar skill --list
 ```
 
 ### Local Directory Review

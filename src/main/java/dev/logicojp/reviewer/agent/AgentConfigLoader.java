@@ -76,7 +76,7 @@ public class AgentConfigLoader {
     private void loadAgentsFromDirectory(Path directory, Map<String, AgentConfig> agents,
                                          List<SkillDefinition> globalSkills) throws IOException {
         try (Stream<Path> paths = Files.list(directory)) {
-            List<Path> files = paths
+            var files = paths
                 .filter(this::isAgentFile)
                 .toList();
             
@@ -85,8 +85,8 @@ public class AgentConfigLoader {
                     AgentConfig config = markdownParser.parse(file);
                     if (config != null) {
                         // Collect skills for this agent from .github/skills/
-                    List<SkillDefinition> agentSkills = collectSkillsForAgent(
-                        config.name(), globalSkills);
+                        List<SkillDefinition> agentSkills = collectSkillsForAgent(
+                            config.name(), globalSkills);
                         if (!agentSkills.isEmpty()) {
                             config = config.withSkills(agentSkills);
                             logger.info("Loaded {} skills for agent: {}", agentSkills.size(), config.name());

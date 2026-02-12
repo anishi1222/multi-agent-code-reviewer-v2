@@ -54,7 +54,7 @@ public class SummaryGenerator {
     public Path generateSummary(List<ReviewResult> results, String repository) throws Exception {
         ensureOutputDirectory();
         
-        String filename = String.format("executive_summary_%s.md", 
+        String filename = "executive_summary_%s.md".formatted(
             LocalDate.now().format(FILE_DATE_FORMATTER));
         Path summaryPath = outputDirectory.resolve(filename);
         
@@ -190,7 +190,7 @@ public class SummaryGenerator {
         // Build individual report links using template
         var reportLinksBuilder = new StringBuilder();
         for (ReviewResult result : results) {
-            String filename = String.format("%s_%s.md", 
+            String filename = "%s_%s.md".formatted(
                 result.agentConfig().name(),
                 LocalDate.now().format(FILE_DATE_FORMATTER));
             var linkPlaceholders = Map.of(

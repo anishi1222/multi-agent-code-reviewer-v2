@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.cli;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public final class CliParsing {
     public record OptionValue(String value, int newIndex) {
@@ -14,10 +15,8 @@ public final class CliParsing {
     }
 
     public static boolean hasHelpFlag(String[] args) {
-        if (args == null) {
-            return false;
-        }
-        for (String arg : args) {
+        String[] safeArgs = Objects.requireNonNullElse(args, new String[0]);
+        for (String arg : safeArgs) {
             if ("-h".equals(arg) || "--help".equals(arg)) {
                 return true;
             }
