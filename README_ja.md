@@ -291,7 +291,6 @@ GitHub Copilot Custom Agent の書式に従い、セクション名はすべて�
 | `## Instruction` | レビュー依頼プロンプト |
 | `## Focus Areas` | レビュー観点のリスト |
 | `## Output Format` | 出力フォーマット |
-| `## Skills` | スキル定義 |
 
 `Instruction` では `${repository}`, `${displayName}`, `${focusAreas}` のプレースホルダーが利用できます。
 
@@ -394,38 +393,53 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--model` | - | 使用するLLMモデル | default-model |
 | `--agents-dir` | - | エージェント定義ディレクトリ | - |
 
-### スキル定義（.agent.md形式）
+### スキル定義（`SKILL.md` 形式）
 
-エージェント定義ファイル（`.agent.md`）内に `## Skills` セクションを追加します：
+スキルは `.github/skills/<スキル名>/` ディレクトリに配置された個別の `SKILL.md` ファイルとして定義します。各スキルは YAML フロントマターとマークダウン本文で構成されます。
+
+```
+.github/skills/
+├── sql-injection-check/
+│   └── SKILL.md
+├── secret-scan/
+│   └── SKILL.md
+├── complexity-analysis/
+│   └── SKILL.md
+└── ...
+```
+
+#### SKILL.md の書式
 
 ```markdown
-## Skills
+---
+name: secret-scan
+description: コード内のハードコードされた機密情報を検出します。APIキー、トークン、パスワード、秘密鍵、クラウド認証情報を対象にします。
+metadata:
+  agent: security
+---
 
-### sql-injection-check
-- **Name**: SQLインジェクション検査
-- **Description**: 指定されたファイルまたはリポジトリ内のSQLインジェクション脆弱性を検査します
-- **Parameters**:
-  - `target` (required): 検査対象のファイルパスまたはリポジトリ
-- **Prompt**: |
-  以下のコードをSQLインジェクション脆弱性の観点から分析してください。
-  
-  **対象**: ${target}
-  
-  特に以下のパターンを確認してください：
-  - 文字列連結によるSQL文の構築
-  - パラメータ化されていないクエリ
-  - ユーザー入力の直接的なSQL文への埋め込み
+# 機密情報スキャン
 
-### secret-scan
-- **Name**: 機密情報スキャン
-- **Description**: コード内のハードコードされた機密情報を検出します
-- **Parameters**:
-  - `repository` (required): 対象リポジトリ
-- **Prompt**: |
-  以下のコードを機密情報漏洩の観点から分析してください。
-  
-  **対象リポジトリ**: ${repository}
+以下のコードを機密情報漏洩の観点から分析してください。
+
+**対象リポジトリ**: ${repository}
+
+以下のパターンを検索してください：
+- APIキー、トークン
+- パスワード
+- 秘密鍵
+- データベース接続文字列
+- AWS/Azure/GCPの認証情報
+
+発見した機密情報と適切な管理方法を報告してください。
 ```
+
+| フィールド | 説明 |
+|-----------|------|
+| `name` | スキル名（省略時はディレクトリ名がデフォルト） |
+| `description` | スキルの説明 |
+| `metadata.agent` | スキルを紐付けるエージェント（例: `security`, `code-quality`）。省略時は全エージェントで利用可能 |
+| 本文 | プロンプトテンプレート。`${paramName}` プレースホルダーが実行時に置換される |
 
 ## GraalVM Native Image
 

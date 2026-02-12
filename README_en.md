@@ -291,7 +291,6 @@ Following the GitHub Copilot Custom Agent format, all section names are in Engli
 | `## Instruction` | Review instruction prompt |
 | `## Focus Areas` | List of review focus areas |
 | `## Output Format` | Output format specification |
-| `## Skills` | Skill definitions |
 
 In `Instruction`, you can use placeholders: `${repository}`, `${displayName}`, `${focusAreas}`.
 
@@ -394,38 +393,53 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--model` | - | LLM model to use | default-model |
 | `--agents-dir` | - | Agent definitions directory | - |
 
-### Skill Definition (`.agent.md` format)
+### Skill Definition (`SKILL.md` format)
 
-Add a `## Skills` section to your agent definition file (`.agent.md`):
+Skills are defined as standalone `SKILL.md` files placed in `.github/skills/<skill-name>/` directories. Each skill is a separate directory containing a `SKILL.md` file with YAML frontmatter and a Markdown body.
+
+```
+.github/skills/
+├── sql-injection-check/
+│   └── SKILL.md
+├── secret-scan/
+│   └── SKILL.md
+├── complexity-analysis/
+│   └── SKILL.md
+└── ...
+```
+
+#### SKILL.md Format
 
 ```markdown
-## Skills
+---
+name: secret-scan
+description: Detects hardcoded secrets in code such as API keys, tokens, passwords, private keys, and cloud credentials.
+metadata:
+  agent: security
+---
 
-### sql-injection-check
-- **Name**: SQL Injection Check
-- **Description**: Checks for SQL injection vulnerabilities in specified file or repository
-- **Parameters**:
-  - `target` (required): Target file path or repository
-- **Prompt**: |
-  Analyze the following code for SQL injection vulnerabilities.
-  
-  **Target**: ${target}
-  
-  Look for these patterns:
-  - SQL statements built with string concatenation
-  - Non-parameterized queries
-  - Direct embedding of user input in SQL statements
+# Secret Scan
 
-### secret-scan
-- **Name**: Secret Scan
-- **Description**: Detects hardcoded secrets in code
-- **Parameters**:
-  - `repository` (required): Target repository
-- **Prompt**: |
-  Analyze the following code for secret leakage.
-  
-  **Target Repository**: ${repository}
+Analyze the following code for secret leakage.
+
+**Target Repository**: ${repository}
+
+Look for these patterns:
+- API keys, tokens
+- Passwords
+- Private keys
+- Database connection strings
+- AWS/Azure/GCP credentials
+
+Report discovered secrets and recommend proper management approaches.
 ```
+
+| Field | Description |
+|-------|-------------|
+| `name` | Skill name (defaults to directory name if omitted) |
+| `description` | Skill description |
+| `metadata.agent` | Agent to bind this skill to (e.g. `security`, `code-quality`). If omitted, available to all agents |
+| Body | The prompt template. Supports `${paramName}` placeholders substituted at runtime |
 
 ## GraalVM Native Image
 
