@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.agent;
 
+import dev.logicojp.reviewer.config.SkillConfig;
 import dev.logicojp.reviewer.skill.SkillDefinition;
 import dev.logicojp.reviewer.skill.SkillMarkdownParser;
 import org.slf4j.Logger;
@@ -18,29 +19,33 @@ import java.util.stream.Stream;
 /// - agents/ directory
 /// - .github/agents/ directory
 ///
-/// Skills are loaded from .github/skills/ following the Agent Skills spec (SKILL.md per directory).
+/// Skills are loaded from the configured skills directory following the Agent Skills spec.
 public class AgentConfigLoader {
     
     private static final Logger logger = LoggerFactory.getLogger(AgentConfigLoader.class);
-
-    /// Standard skills directory per Agent Skills spec
-    private static final String GITHUB_SKILLS_DIR = ".github/skills";
     
     private final List<Path> agentDirectories;
     private final AgentMarkdownParser markdownParser;
     private final SkillMarkdownParser skillParser;
+    private final String skillsDirectory;
     
-    /// Creates a loader with a single agents directory.
+    /// Creates a loader with a single agents directory and default skill settings.
     public AgentConfigLoader(Path agentsDirectory) {
         this(List.of(agentsDirectory));
     }
     
-    /// Creates a loader with multiple agent directories.
+    /// Creates a loader with multiple agent directories and default skill settings.
     /// Directories are searched in order; later directories override earlier ones.
     public AgentConfigLoader(List<Path> agentDirectories) {
+        this(agentDirectories, new SkillConfig(null, null));
+    }
+
+    /// Creates a loader with multiple agent directories and skill configuration.
+    public AgentConfigLoader(List<Path> agentDirectories, SkillConfig skillConfig) {
         this.agentDirectories = new ArrayList<>(agentDirectories);
         this.markdownParser = new AgentMarkdownParser();
-        this.skillParser = new SkillMarkdownParser();
+        this.skillParser = new SkillMarkdownParser(skillConfig.filename());
+        this.skillsDirectory = skillConfig.directory();
     }
     
     /// Loads all agent configurations from all configured directories.
@@ -116,11 +121,11 @@ public class AgentConfigLoader {
         return skills;
     }
 
-    /// Loads skills from .github/skills/ following the Agent Skills specification.
-    /// Each skill is a directory containing a SKILL.md file.
+    /// Loads skills from the configured skills directory following the Agent Skills specification.
+    /// Each skill is a directory containing a skill file.
     private List<SkillDefinition> loadGlobalSkills() {
-        // Resolve .github/skills/ relative to the working directory
-        Path skillsRoot = Path.of(GITHUB_SKILLS_DIR);
+        // Resolve skills directory relative to the working directory
+        Path skillsRoot = Path.of(skillsDirectory);
         if (!Files.isDirectory(skillsRoot)) {
             logger.debug("Global skills directory does not exist: {}", skillsRoot);
             return List.of();

@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.service;
 
 import dev.logicojp.reviewer.agent.AgentConfig;
 import dev.logicojp.reviewer.agent.AgentConfigLoader;
+import dev.logicojp.reviewer.config.SkillConfig;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,12 @@ import java.util.Map;
 public class AgentService {
     
     private static final Logger logger = LoggerFactory.getLogger(AgentService.class);
+
+    private final SkillConfig skillConfig;
+
+    public AgentService(SkillConfig skillConfig) {
+        this.skillConfig = skillConfig;
+    }
     
     /// Builds the list of agent directories to search.
     /// @param additionalDirs Additional directories specified via CLI
@@ -52,19 +59,19 @@ public class AgentService {
     
     /// Loads all agents from the specified directories.
     public Map<String, AgentConfig> loadAllAgents(List<Path> agentDirs) throws IOException {
-        AgentConfigLoader loader = new AgentConfigLoader(agentDirs);
+        AgentConfigLoader loader = new AgentConfigLoader(agentDirs, skillConfig);
         return loader.loadAllAgents();
     }
     
     /// Loads specific agents by name from the specified directories.
     public Map<String, AgentConfig> loadAgents(List<Path> agentDirs, List<String> agentNames) throws IOException {
-        AgentConfigLoader loader = new AgentConfigLoader(agentDirs);
+        AgentConfigLoader loader = new AgentConfigLoader(agentDirs, skillConfig);
         return loader.loadAgents(agentNames);
     }
     
     /// Lists all available agent names from the specified directories.
     public List<String> listAvailableAgents(List<Path> agentDirs) throws IOException {
-        AgentConfigLoader loader = new AgentConfigLoader(agentDirs);
+        AgentConfigLoader loader = new AgentConfigLoader(agentDirs, skillConfig);
         return loader.listAvailableAgents();
     }
 }

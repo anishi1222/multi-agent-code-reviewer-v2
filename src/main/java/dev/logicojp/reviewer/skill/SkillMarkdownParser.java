@@ -25,26 +25,46 @@ public class SkillMarkdownParser {
 
     private static final Logger logger = LoggerFactory.getLogger(SkillMarkdownParser.class);
 
-    /// Standard filename for Agent Skills spec
-    static final String SKILL_MD = "SKILL.md";
+    /// Default filename for Agent Skills spec
+    static final String DEFAULT_SKILL_FILENAME = "SKILL.md";
+
+    /// Configured skill filename
+    private final String skillFilename;
 
     private static final Pattern FRONTMATTER_PATTERN = Pattern.compile(
         "^---\\s*\\n(.*?)\\n---\\s*\\n(.*)$",
         Pattern.DOTALL
     );
 
-    /// Parses a SKILL.md file and returns a SkillDefinition.
+    /// Creates a parser with the default skill filename (SKILL.md).
+    public SkillMarkdownParser() {
+        this(DEFAULT_SKILL_FILENAME);
+    }
+
+    /// Creates a parser with a custom skill filename.
+    /// @param skillFilename The filename to use for skill files (e.g. "SKILL.md")
+    public SkillMarkdownParser(String skillFilename) {
+        this.skillFilename = (skillFilename == null || skillFilename.isBlank())
+            ? DEFAULT_SKILL_FILENAME : skillFilename;
+    }
+
+    /// Returns the configured skill filename.
+    public String getSkillFilename() {
+        return skillFilename;
+    }
+
+    /// Parses a skill file and returns a SkillDefinition.
     ///
     /// The skill ID is derived from the parent directory name.
     ///
-    /// @param skillFile Path to the SKILL.md file
+    /// @param skillFile Path to the skill file
     /// @return SkillDefinition parsed from the file
-    /// @throws IllegalArgumentException if the file is not a SKILL.md file
+    /// @throws IllegalArgumentException if the file does not match the configured skill filename
     public SkillDefinition parse(Path skillFile) throws IOException {
         String filename = skillFile.getFileName().toString();
-        if (!filename.equals(SKILL_MD)) {
+        if (!filename.equals(skillFilename)) {
             throw new IllegalArgumentException(
-                "Unsupported skill file format: " + filename + ". Only SKILL.md is supported.");
+                "Unsupported skill file format: " + filename + ". Only " + skillFilename + " is supported.");
         }
 
         String content = Files.readString(skillFile);
@@ -81,17 +101,17 @@ public class SkillMarkdownParser {
         return new SkillDefinition(id, name, description, body, List.of(), metadataMap);
     }
 
-    /// Checks whether the given path is a SKILL.md file.
+    /// Checks whether the given path matches the configured skill filename.
     public boolean isSkillFile(Path path) {
         if (path == null) return false;
-        return path.getFileName().toString().equals(SKILL_MD);
+        return path.getFileName().toString().equals(skillFilename);
     }
 
     /// Discovers all skill directories under the given skills root.
-    /// Each skill directory must contain a SKILL.md file.
+    /// Each skill directory must contain a file matching the configured skill filename.
     ///
     /// @param skillsRoot The root directory to scan (e.g. .github/skills/)
-    /// @return List of paths to SKILL.md files found
+    /// @return List of paths to skill files found
     public List<Path> discoverSkills(Path skillsRoot) {
         if (skillsRoot == null || !Files.isDirectory(skillsRoot)) {
             return List.of();
@@ -100,7 +120,7 @@ public class SkillMarkdownParser {
         try (Stream<Path> dirs = Files.list(skillsRoot)) {
             return dirs
                 .filter(Files::isDirectory)
-                .map(dir -> dir.resolve(SKILL_MD))
+                .map(dir -> dir.resolve(skillFilename))
                 .filter(Files::isRegularFile)
                 .sorted()
                 .collect(Collectors.toList());

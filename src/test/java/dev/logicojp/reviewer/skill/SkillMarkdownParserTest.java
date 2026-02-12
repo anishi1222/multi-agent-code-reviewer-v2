@@ -268,6 +268,107 @@ class SkillMarkdownParserTest {
     }
 
     @Nested
+    @DisplayName("カスタムファイル名の設定")
+    class CustomFilename {
+
+        @Test
+        @DisplayName("カスタムファイル名でパーサーを作成できる")
+        void createsParserWithCustomFilename() {
+            SkillMarkdownParser customParser = new SkillMarkdownParser("CUSTOM.md");
+            assertThat(customParser.getSkillFilename()).isEqualTo("CUSTOM.md");
+        }
+
+        @Test
+        @DisplayName("デフォルトコンストラクタはSKILL.mdをファイル名として使用する")
+        void defaultConstructorUsesSkillMd() {
+            SkillMarkdownParser defaultParser = new SkillMarkdownParser();
+            assertThat(defaultParser.getSkillFilename()).isEqualTo("SKILL.md");
+        }
+
+        @Test
+        @DisplayName("nullの場合はデフォルトファイル名を使用する")
+        void nullFallsBackToDefault() {
+            SkillMarkdownParser nullParser = new SkillMarkdownParser(null);
+            assertThat(nullParser.getSkillFilename()).isEqualTo("SKILL.md");
+        }
+
+        @Test
+        @DisplayName("空文字の場合はデフォルトファイル名を使用する")
+        void blankFallsBackToDefault() {
+            SkillMarkdownParser blankParser = new SkillMarkdownParser("  ");
+            assertThat(blankParser.getSkillFilename()).isEqualTo("SKILL.md");
+        }
+
+        @Test
+        @DisplayName("カスタムファイル名でスキルファイルを認識する")
+        void recognizesCustomFilename(@TempDir Path tempDir) {
+            SkillMarkdownParser customParser = new SkillMarkdownParser("CUSTOM.md");
+            Path customFile = tempDir.resolve("CUSTOM.md");
+            Path skillFile = tempDir.resolve("SKILL.md");
+
+            assertThat(customParser.isSkillFile(customFile)).isTrue();
+            assertThat(customParser.isSkillFile(skillFile)).isFalse();
+        }
+
+        @Test
+        @DisplayName("カスタムファイル名でスキルを発見する")
+        void discoversCustomFilename(@TempDir Path tempDir) throws IOException {
+            SkillMarkdownParser customParser = new SkillMarkdownParser("CUSTOM.md");
+
+            Path skillDir = tempDir.resolve("my-skill");
+            Files.createDirectories(skillDir);
+            Files.writeString(skillDir.resolve("CUSTOM.md"), """
+                ---
+                name: my-skill
+                description: Custom skill file
+                ---
+                
+                Custom instructions.
+                """);
+
+            // SKILL.md should be ignored by this parser
+            Path otherDir = tempDir.resolve("other-skill");
+            Files.createDirectories(otherDir);
+            Files.writeString(otherDir.resolve("SKILL.md"), """
+                ---
+                name: other-skill
+                description: Standard skill file
+                ---
+                
+                Standard instructions.
+                """);
+
+            List<Path> discovered = customParser.discoverSkills(tempDir);
+
+            assertThat(discovered).hasSize(1);
+            assertThat(discovered.getFirst().getFileName().toString()).isEqualTo("CUSTOM.md");
+        }
+
+        @Test
+        @DisplayName("カスタムファイル名でスキルをパースする")
+        void parsesCustomFilename(@TempDir Path tempDir) throws IOException {
+            SkillMarkdownParser customParser = new SkillMarkdownParser("CUSTOM.md");
+
+            Path skillDir = tempDir.resolve("my-skill");
+            Files.createDirectories(skillDir);
+            Files.writeString(skillDir.resolve("CUSTOM.md"), """
+                ---
+                name: my-skill
+                description: Custom format skill
+                ---
+                
+                Custom instructions here.
+                """);
+
+            SkillDefinition skill = customParser.parse(skillDir.resolve("CUSTOM.md"));
+
+            assertThat(skill.id()).isEqualTo("my-skill");
+            assertThat(skill.name()).isEqualTo("my-skill");
+            assertThat(skill.description()).isEqualTo("Custom format skill");
+        }
+    }
+
+    @Nested
     @DisplayName("discoverSkills - スキルディレクトリの探索")
     class DiscoverSkills {
 

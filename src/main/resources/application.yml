@@ -22,6 +22,9 @@ reviewer:
     fallback-summary: fallback-summary.md
     local-review-content: local-review-content.md
     output-constraints: output-constraints.md
+  skills:
+    filename: SKILL.md
+    directory: .github/skills
   mcp:
     github:
       type: http
