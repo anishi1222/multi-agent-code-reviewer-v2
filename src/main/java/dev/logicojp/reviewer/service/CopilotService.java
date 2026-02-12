@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -77,23 +76,13 @@ public class CopilotService {
     }
 
     private long resolveStartTimeoutSeconds() {
-        String value = System.getenv(START_TIMEOUT_ENV);
-        if (value == null || value.isBlank()) {
-            return DEFAULT_START_TIMEOUT_SECONDS;
-        }
-        try {
-            long parsed = Long.parseLong(value.trim());
-            return parsed >= 0 ? parsed : DEFAULT_START_TIMEOUT_SECONDS;
-        } catch (NumberFormatException e) {
-            logger.warn("Invalid {} value: {}. Using default.", START_TIMEOUT_ENV, value);
-            return DEFAULT_START_TIMEOUT_SECONDS;
-        }
+        return resolveEnvTimeout(START_TIMEOUT_ENV, DEFAULT_START_TIMEOUT_SECONDS);
     }
 
     private String resolveCliPath() throws ExecutionException {
         String explicit = System.getenv(CLI_PATH_ENV);
         if (explicit != null && !explicit.isBlank()) {
-            Path explicitPath = Paths.get(explicit.trim());
+            Path explicitPath = Path.of(explicit.trim());
             if (Files.isExecutable(explicitPath)) {
                 return explicitPath.toAbsolutePath().toString();
             }
@@ -112,7 +101,7 @@ public class CopilotService {
             if (entry == null || entry.isBlank()) {
                 continue;
             }
-            Path base = Paths.get(entry.trim());
+            Path base = Path.of(entry.trim());
             for (String name : CLI_CANDIDATES) {
                 candidates.add(base.resolve(name));
             }
@@ -175,30 +164,26 @@ public class CopilotService {
     }
 
     private long resolveCliHealthcheckSeconds() {
-        String value = System.getenv(CLI_HEALTHCHECK_ENV);
-        if (value == null || value.isBlank()) {
-            return DEFAULT_CLI_HEALTHCHECK_SECONDS;
-        }
-        try {
-            long parsed = Long.parseLong(value.trim());
-            return parsed >= 0 ? parsed : DEFAULT_CLI_HEALTHCHECK_SECONDS;
-        } catch (NumberFormatException e) {
-            logger.warn("Invalid {} value: {}. Using default.", CLI_HEALTHCHECK_ENV, value);
-            return DEFAULT_CLI_HEALTHCHECK_SECONDS;
-        }
+        return resolveEnvTimeout(CLI_HEALTHCHECK_ENV, DEFAULT_CLI_HEALTHCHECK_SECONDS);
     }
 
     private long resolveCliAuthcheckSeconds() {
-        String value = System.getenv(CLI_AUTH_CHECK_ENV);
+        return resolveEnvTimeout(CLI_AUTH_CHECK_ENV, DEFAULT_CLI_AUTHCHECK_SECONDS);
+    }
+
+    /// Resolves a timeout value from an environment variable.
+    /// Returns the default if the env var is missing, blank, negative, or not a valid number.
+    private long resolveEnvTimeout(String envVar, long defaultValue) {
+        String value = System.getenv(envVar);
         if (value == null || value.isBlank()) {
-            return DEFAULT_CLI_AUTHCHECK_SECONDS;
+            return defaultValue;
         }
         try {
             long parsed = Long.parseLong(value.trim());
-            return parsed >= 0 ? parsed : DEFAULT_CLI_AUTHCHECK_SECONDS;
-        } catch (NumberFormatException e) {
-            logger.warn("Invalid {} value: {}. Using default.", CLI_AUTH_CHECK_ENV, value);
-            return DEFAULT_CLI_AUTHCHECK_SECONDS;
+            return parsed >= 0 ? parsed : defaultValue;
+        } catch (NumberFormatException _) {
+            logger.warn("Invalid {} value: {}. Using default.", envVar, value);
+            return defaultValue;
         }
     }
 

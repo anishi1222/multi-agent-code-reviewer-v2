@@ -4,9 +4,7 @@ import dev.logicojp.reviewer.agent.AgentConfig;
 
 import java.time.LocalDateTime;
 
-/**
- * Holds the result of a review performed by an agent.
- */
+/// Holds the result of a review performed by an agent.
 public record ReviewResult(
     AgentConfig agentConfig,
     String repository,
@@ -20,26 +18,7 @@ public record ReviewResult(
         timestamp = (timestamp == null) ? LocalDateTime.now() : timestamp;
     }
 
-    public AgentConfig getAgentConfig() {
-        return agentConfig;
-    }
-
-    public String getRepository() {
-        return repository;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
-    }
-
+    /// Alias for the record accessor `success()`, kept for readability.
     public boolean isSuccess() {
         return success;
     }

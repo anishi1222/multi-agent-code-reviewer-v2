@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.StringJoiner;
 import java.util.regex.Pattern;
 
 /// Configuration model for a review agent.
@@ -87,38 +88,6 @@ public record AgentConfig(
         skills = skills == null ? List.of() : List.copyOf(skills);
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public String getModel() {
-        return model;
-    }
-
-    public String getSystemPrompt() {
-        return systemPrompt;
-    }
-
-    public String getInstruction() {
-        return instruction;
-    }
-
-    public String getOutputFormat() {
-        return outputFormat;
-    }
-
-    public List<String> getFocusAreas() {
-        return focusAreas;
-    }
-
-    public List<SkillDefinition> getSkills() {
-        return skills;
-    }
-
     public AgentConfig withModel(String overrideModel) {
         return new AgentConfig(
             name,
@@ -146,28 +115,11 @@ public record AgentConfig(
     }
 
     public void validateRequired() {
-        StringBuilder missing = new StringBuilder();
-        if (name == null || name.isBlank()) {
-            missing.append("name");
-        }
-        if (systemPrompt == null || systemPrompt.isBlank()) {
-            if (missing.length() > 0) {
-                missing.append(", ");
-            }
-            missing.append("systemPrompt");
-        }
-        if (instruction == null || instruction.isBlank()) {
-            if (missing.length() > 0) {
-                missing.append(", ");
-            }
-            missing.append("instruction");
-        }
-        if (outputFormat == null || outputFormat.isBlank()) {
-            if (missing.length() > 0) {
-                missing.append(", ");
-            }
-            missing.append("outputFormat");
-        }
+        var missing = new StringJoiner(", ");
+        if (name == null || name.isBlank()) missing.add("name");
+        if (systemPrompt == null || systemPrompt.isBlank()) missing.add("systemPrompt");
+        if (instruction == null || instruction.isBlank()) missing.add("instruction");
+        if (outputFormat == null || outputFormat.isBlank()) missing.add("outputFormat");
         if (missing.length() > 0) {
             throw new IllegalArgumentException("Missing required agent fields: " + missing);
         }

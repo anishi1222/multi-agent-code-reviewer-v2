@@ -10,13 +10,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.StringJoiner;
 
-/**
- * Generates markdown report files for individual agent reviews.
- */
+/// Generates markdown report files for individual agent reviews.
 public class ReportGenerator {
     
     private static final Logger logger = LoggerFactory.getLogger(ReportGenerator.class);
@@ -31,17 +30,15 @@ public class ReportGenerator {
         this.templateService = templateService;
     }
     
-    /**
-     * Generates a markdown report file for the given review result.
-     * @param result The review result to generate a report for
-     * @return Path to the generated report file
-     */
+    /// Generates a markdown report file for the given review result.
+    /// @param result The review result to generate a report for
+    /// @return Path to the generated report file
     public Path generateReport(ReviewResult result) throws IOException {
         ensureOutputDirectory();
         
-        AgentConfig config = result.getAgentConfig();
+        AgentConfig config = result.agentConfig();
         String filename = String.format("%s_%s.md", 
-            config.getName(), 
+            config.name(), 
             LocalDate.now().format(FILE_DATE_FORMATTER));
         Path reportPath = outputDirectory.resolve(filename);
         
@@ -52,11 +49,9 @@ public class ReportGenerator {
         return reportPath;
     }
     
-    /**
-     * Generates reports for all review results.
-     * @param results List of review results
-     * @return List of paths to generated report files
-     */
+    /// Generates reports for all review results.
+    /// @param results List of review results
+    /// @return List of paths to generated report files
     public List<Path> generateReports(List<ReviewResult> results) throws IOException {
         ensureOutputDirectory();
         
@@ -66,38 +61,38 @@ public class ReportGenerator {
                     return generateReport(result);
                 } catch (IOException e) {
                     logger.error("Failed to generate report for {}: {}", 
-                        result.getAgentConfig().getName(), e.getMessage());
+                        result.agentConfig().name(), e.getMessage());
                     return null;
                 }
             })
-            .filter(path -> path != null)
+            .filter(Objects::nonNull)
             .toList();
     }
     
     private String buildReportContent(ReviewResult result) {
-        AgentConfig config = result.getAgentConfig();
+        AgentConfig config = result.agentConfig();
         
         // Build focus areas list
-        StringBuilder focusAreasBuilder = new StringBuilder();
-        for (String area : config.getFocusAreas()) {
-            focusAreasBuilder.append("- ").append(area).append("\n");
+        var focusAreasJoiner = new StringJoiner("\n", "", "\n");
+        for (String area : config.focusAreas()) {
+            focusAreasJoiner.add("- " + area);
         }
         
         // Build content section
         String content;
         if (result.isSuccess()) {
-            content = result.getContent();
+            content = result.content();
         } else {
-            content = "⚠️ **レビュー失敗**\n\nエラー: " + result.getErrorMessage();
+            content = "⚠️ **レビュー失敗**\n\nエラー: " + result.errorMessage();
         }
         
         // Apply template
-        Map<String, String> placeholders = new HashMap<>();
-        placeholders.put("displayName", config.getDisplayName());
-        placeholders.put("date", LocalDate.now().format(DATE_FORMATTER));
-        placeholders.put("repository", result.getRepository());
-        placeholders.put("focusAreas", focusAreasBuilder.toString());
-        placeholders.put("content", content);
+        var placeholders = Map.of(
+            "displayName", config.displayName(),
+            "date", LocalDate.now().format(DATE_FORMATTER),
+            "repository", result.repository(),
+            "focusAreas", focusAreasJoiner.toString(),
+            "content", content);
         
         return templateService.getReportTemplate(placeholders);
     }

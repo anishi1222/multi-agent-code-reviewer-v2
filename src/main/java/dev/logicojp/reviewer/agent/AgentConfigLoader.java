@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /// Loads agent configurations from external files.
@@ -79,7 +78,7 @@ public class AgentConfigLoader {
         try (Stream<Path> paths = Files.list(directory)) {
             List<Path> files = paths
                 .filter(this::isAgentFile)
-                .collect(Collectors.toList());
+                .toList();
             
             for (Path file : files) {
                 try {
@@ -87,14 +86,14 @@ public class AgentConfigLoader {
                     if (config != null) {
                         // Collect skills for this agent from .github/skills/
                     List<SkillDefinition> agentSkills = collectSkillsForAgent(
-                        config.getName(), globalSkills);
+                        config.name(), globalSkills);
                         if (!agentSkills.isEmpty()) {
                             config = config.withSkills(agentSkills);
-                            logger.info("Loaded {} skills for agent: {}", agentSkills.size(), config.getName());
+                            logger.info("Loaded {} skills for agent: {}", agentSkills.size(), config.name());
                         }
                         config.validateRequired();
-                        agents.put(config.getName(), config);
-                        logger.info("Loaded agent: {} from {}", config.getName(), file.getFileName());
+                        agents.put(config.name(), config);
+                        logger.info("Loaded agent: {} from {}", config.name(), file.getFileName());
                     }
                 } catch (Exception e) {
                     logger.error("Failed to load agent from {}: {}", file, e.getMessage());

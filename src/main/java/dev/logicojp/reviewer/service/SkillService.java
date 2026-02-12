@@ -42,12 +42,12 @@ public class SkillService {
 
     /// Registers all skills from an agent configuration.
     public void registerAgentSkills(AgentConfig agentConfig) {
-        if (agentConfig.getSkills() != null) {
-            for (SkillDefinition skill : agentConfig.getSkills()) {
+        if (agentConfig.skills() != null) {
+            for (SkillDefinition skill : agentConfig.skills()) {
                 skillRegistry.register(skill);
             }
             logger.info("Registered {} skills from agent: {}",
-                agentConfig.getSkills().size(), agentConfig.getName());
+                agentConfig.skills().size(), agentConfig.name());
         }
     }
 

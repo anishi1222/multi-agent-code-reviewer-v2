@@ -61,7 +61,7 @@ public class ReviewOrchestrator {
     /// @return List of ReviewResults from all agents
     public List<ReviewResult> executeReviews(Map<String, AgentConfig> agents, ReviewTarget target) {
         logger.info("Starting parallel review for {} agents on target: {}", 
-            agents.size(), target.getDisplayName());
+            agents.size(), target.displayName());
         
         List<CompletableFuture<ReviewResult>> futures = new ArrayList<>();
         long timeoutMinutes = executionConfig.orchestratorTimeoutMinutes();
@@ -87,7 +87,7 @@ public class ReviewOrchestrator {
                         Thread.currentThread().interrupt();
                         return ReviewResult.builder()
                             .agentConfig(config)
-                            .repository(target.getDisplayName())
+                            .repository(target.displayName())
                             .success(false)
                             .errorMessage("Review interrupted while waiting for concurrency permit")
                             .build();
@@ -96,10 +96,10 @@ public class ReviewOrchestrator {
                 .orTimeout(perAgentTimeoutMinutes, TimeUnit.MINUTES)
                 .exceptionally(ex -> {
                     logger.error("Agent {} failed with timeout or error: {}", 
-                        config.getName(), ex.getMessage());
+                        config.name(), ex.getMessage());
                     return ReviewResult.builder()
                         .agentConfig(config)
-                        .repository(target.getDisplayName())
+                        .repository(target.displayName())
                         .success(false)
                         .errorMessage("Review timed out or failed: " + ex.getMessage())
                         .build();

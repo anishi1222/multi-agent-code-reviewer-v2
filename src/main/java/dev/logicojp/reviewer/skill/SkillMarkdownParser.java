@@ -9,7 +9,6 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /// Parses Agent Skills specification files (SKILL.md).
@@ -123,7 +122,7 @@ public class SkillMarkdownParser {
                 .map(dir -> dir.resolve(skillFilename))
                 .filter(Files::isRegularFile)
                 .sorted()
-                .collect(Collectors.toList());
+                .toList();
         } catch (IOException e) {
             logger.error("Failed to discover skills in {}: {}", skillsRoot, e.getMessage());
             return List.of();

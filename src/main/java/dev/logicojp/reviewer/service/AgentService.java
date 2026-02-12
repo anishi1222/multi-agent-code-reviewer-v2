@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +33,8 @@ public class AgentService {
         List<Path> dirs = new ArrayList<>();
         
         // Default directories
-        Path defaultAgentsDir = Paths.get("./agents");
-        Path githubAgentsDir = Paths.get("./.github/agents");
+        Path defaultAgentsDir = Path.of("./agents");
+        Path githubAgentsDir = Path.of("./.github/agents");
         
         if (Files.exists(defaultAgentsDir)) {
             dirs.add(defaultAgentsDir);

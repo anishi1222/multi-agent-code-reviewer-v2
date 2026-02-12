@@ -379,7 +379,7 @@ public class ReviewCommand {
             if (!noSummary) {
                 System.out.println("\nGenerating executive summary...");
                 Path summaryPath = reportService.generateSummary(
-                    results, target.getDisplayName(), outputDirectory,
+                    results, target.displayName(), outputDirectory,
                     modelConfig.summaryModel(), modelConfig.reasoningEffort());
                 System.out.println("  ✓ " + summaryPath.getFileName());
             }
@@ -465,7 +465,7 @@ public class ReviewCommand {
         System.out.println("║           Multi-Agent Code Reviewer                       ║");
         System.out.println("╚════════════════════════════════════════════════════════════╝");
         System.out.println();
-        System.out.println("Target: " + target.getDisplayName() +
+        System.out.println("Target: " + target.displayName() +
             (target.isLocal() ? " (local)" : " (GitHub)"));
         System.out.println("Agents: " + agentConfigs.keySet());
         System.out.println("Output: " + outputDirectory.toAbsolutePath());

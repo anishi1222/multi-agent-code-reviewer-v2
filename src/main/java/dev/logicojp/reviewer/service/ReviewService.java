@@ -55,7 +55,7 @@ public class ReviewService {
             String reasoningEffort) {
         
         logger.info("Executing reviews for {} agents on target: {}", 
-            agentConfigs.size(), target.getDisplayName());
+            agentConfigs.size(), target.displayName());
         
         // Load custom instructions from target if none provided
         List<CustomInstruction> effectiveInstructions = customInstructions;

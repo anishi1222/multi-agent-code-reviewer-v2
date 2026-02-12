@@ -78,7 +78,7 @@ public class ReviewAgent {
                 if (lastResult.isSuccess()) {
                     if (attempt > 1) {
                         logger.info("Agent {} succeeded on attempt {}/{}", 
-                            config.getName(), attempt, totalAttempts);
+                            config.name(), attempt, totalAttempts);
                     }
                     return lastResult;
                 }
@@ -86,16 +86,16 @@ public class ReviewAgent {
                 // Review returned failure (e.g. empty content) — retry if attempts remain
                 if (attempt < totalAttempts) {
                     logger.warn("Agent {} failed on attempt {}/{}: {}. Retrying...", 
-                        config.getName(), attempt, totalAttempts, lastResult.getErrorMessage());
+                        config.name(), attempt, totalAttempts, lastResult.errorMessage());
                 } else {
                     logger.error("Agent {} failed on final attempt {}/{}: {}", 
-                        config.getName(), attempt, totalAttempts, lastResult.getErrorMessage());
+                        config.name(), attempt, totalAttempts, lastResult.errorMessage());
                 }
                 
             } catch (Exception e) {
                 lastResult = ReviewResult.builder()
                     .agentConfig(config)
-                    .repository(target.getDisplayName())
+                    .repository(target.displayName())
                     .success(false)
                     .errorMessage(e.getMessage())
                     .timestamp(LocalDateTime.now())
@@ -103,10 +103,10 @@ public class ReviewAgent {
                 
                 if (attempt < totalAttempts) {
                     logger.warn("Agent {} threw exception on attempt {}/{}: {}. Retrying...", 
-                        config.getName(), attempt, totalAttempts, e.getMessage());
+                        config.name(), attempt, totalAttempts, e.getMessage());
                 } else {
                     logger.error("Agent {} threw exception on final attempt {}/{}: {}", 
-                        config.getName(), attempt, totalAttempts, e.getMessage(), e);
+                        config.name(), attempt, totalAttempts, e.getMessage(), e);
                 }
             }
         }
@@ -116,7 +116,7 @@ public class ReviewAgent {
     
     private ReviewResult executeReview(ReviewTarget target) throws Exception {
         logger.info("Starting review with agent: {} for target: {}", 
-            config.getName(), target.getDisplayName());
+            config.name(), target.displayName());
         
         // Java 21+: Pattern matching for switch with record patterns
         return switch (target) {
@@ -133,16 +133,16 @@ public class ReviewAgent {
         // Create session with agent configuration
         String systemPrompt = buildSystemPromptWithCustomInstruction();
         var sessionConfig = new SessionConfig()
-            .setModel(config.getModel())
+            .setModel(config.model())
             .setSystemMessage(new SystemMessageConfig()
                 .setMode(SystemMessageMode.APPEND)
                 .setContent(systemPrompt))
             .setMcpServers(Map.of("github", githubMcp));
 
         // Explicitly set reasoning effort for reasoning models (e.g. Claude Opus)
-        String effort = resolveReasoningEffort(config.getModel(), reasoningEffort);
+        String effort = resolveReasoningEffort(config.model(), reasoningEffort);
         if (effort != null) {
-            logger.info("Setting reasoning effort '{}' for model: {}", effort, config.getModel());
+            logger.info("Setting reasoning effort '{}' for model: {}", effort, config.model());
             sessionConfig.setReasoningEffort(effort);
         }
 
@@ -166,7 +166,7 @@ public class ReviewAgent {
             }
             
             logger.info("Review completed for agent: {} (content length: {} chars)", 
-                config.getName(), content.length());
+                config.name(), content.length());
             
             return ReviewResult.builder()
                 .agentConfig(config)
@@ -195,15 +195,15 @@ public class ReviewAgent {
         // Create session without MCP servers (no external tools needed for local review)
         String systemPrompt = buildSystemPromptWithCustomInstruction();
         var sessionConfig = new SessionConfig()
-            .setModel(config.getModel())
+            .setModel(config.model())
             .setSystemMessage(new SystemMessageConfig()
                 .setMode(SystemMessageMode.APPEND)
                 .setContent(systemPrompt));
 
         // Explicitly set reasoning effort for reasoning models (e.g. Claude Opus)
-        String effort = resolveReasoningEffort(config.getModel(), reasoningEffort);
+        String effort = resolveReasoningEffort(config.model(), reasoningEffort);
         if (effort != null) {
-            logger.info("Setting reasoning effort '{}' for model: {}", effort, config.getModel());
+            logger.info("Setting reasoning effort '{}' for model: {}", effort, config.model());
             sessionConfig.setReasoningEffort(effort);
         }
 
@@ -211,7 +211,7 @@ public class ReviewAgent {
         
         try {
             // Build the instruction with embedded source code
-            String instruction = config.buildLocalInstruction(target.getDisplayName(), sourceContent);
+            String instruction = config.buildLocalInstruction(target.displayName(), sourceContent);
             
             // Send instruction and collect content with activity-based idle timeout
             String content = sendAndCollectContent(session, instruction);
@@ -219,7 +219,7 @@ public class ReviewAgent {
             if (content == null || content.isBlank()) {
                 return ReviewResult.builder()
                     .agentConfig(config)
-                    .repository(target.getDisplayName())
+                    .repository(target.displayName())
                     .success(false)
                     .errorMessage("Agent returned empty review content")
                     .timestamp(LocalDateTime.now())
@@ -227,11 +227,11 @@ public class ReviewAgent {
             }
             
             logger.info("Local review completed for agent: {} (content length: {} chars)", 
-                config.getName(), content.length());
+                config.name(), content.length());
             
             return ReviewResult.builder()
                 .agentConfig(config)
-                .repository(target.getDisplayName())
+                .repository(target.displayName())
                 .content(content)
                 .success(true)
                 .timestamp(LocalDateTime.now())
@@ -271,16 +271,16 @@ public class ReviewAgent {
         }
 
         // Fallback: In-session follow-up prompt — MCP context is already loaded
-        logger.info("Agent {}: primary send returned empty content. Sending follow-up prompt...", config.getName());
+        logger.info("Agent {}: primary send returned empty content. Sending follow-up prompt...", config.name());
         content = sendWithActivityTimeout(session,
             "Please provide the complete review results in the specified output format.",
             idleTimeoutMs, maxTimeoutMs);
         if (content != null && !content.isBlank()) {
-            logger.info("Agent {}: follow-up prompt produced content ({} chars)", config.getName(), content.length());
+            logger.info("Agent {}: follow-up prompt produced content ({} chars)", config.name(), content.length());
             return ContentSanitizer.sanitize(content);
         }
 
-        logger.warn("Agent {}: no content after follow-up", config.getName());
+        logger.warn("Agent {}: no content after follow-up", config.name());
         return null;
     }
 
@@ -305,7 +305,7 @@ public class ReviewAgent {
         // Listen for ALL events to reset idle timer
         var allEventsSubscription = session.on(event -> {
             lastActivityTime.set(System.currentTimeMillis());
-            logger.trace("Agent {}: event received — {}", config.getName(), event.getType());
+            logger.trace("Agent {}: event received — {}", config.name(), event.getType());
         });
 
         // Track content from AssistantMessageEvents across multi-turn interactions.
@@ -353,7 +353,7 @@ public class ReviewAgent {
 
         // Activity-based idle timeout: checks periodically if no events have arrived
         var scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            var t = new Thread(r, "idle-timeout-" + config.getName());
+            var t = new Thread(r, "idle-timeout-" + config.name());
             t.setDaemon(true);
             return t;
         });
@@ -364,7 +364,7 @@ public class ReviewAgent {
             long elapsed = System.currentTimeMillis() - lastActivityTime.get();
             if (elapsed >= idleTimeoutMs) {
                 logger.warn("Agent {}: idle timeout — no events for {} ms ({} messages, {} tool calls)",
-                    config.getName(), elapsed, messageCount.get(), toolCallCount.get());
+                    config.name(), elapsed, messageCount.get(), toolCallCount.get());
                 // Complete with accumulated content if available, otherwise timeout
                 String content = accumulatedContent.toString();
                 if (!content.isBlank()) {
@@ -379,13 +379,13 @@ public class ReviewAgent {
         try {
             // Send asynchronously — no internal SDK timeout!
             logger.debug("Agent {}: sending prompt asynchronously (idle timeout: {} min, max: {} min)",
-                config.getName(), idleTimeoutMinutes, timeoutMinutes);
+                config.name(), idleTimeoutMinutes, timeoutMinutes);
             session.send(new MessageOptions().setPrompt(prompt));
 
             // Wait with maximum wall-clock safety net
             String result = future.get(maxTimeoutMs, TimeUnit.MILLISECONDS);
             logger.info("Agent {}: completed ({} chars, {} messages, {} tool calls)",
-                config.getName(),
+                config.name(),
                 result != null ? result.length() : 0,
                 messageCount.get(), toolCallCount.get());
             return result;
@@ -394,7 +394,7 @@ public class ReviewAgent {
             String content = accumulatedContent.toString();
             if (!content.isBlank()) {
                 logger.warn("Agent {}: max timeout reached, returning accumulated content ({} chars)",
-                    config.getName(), content.length());
+                    config.name(), content.length());
                 return content;
             }
             throw e;
@@ -428,7 +428,7 @@ public class ReviewAgent {
                     sb.append("\n\n");
                     sb.append(instruction.toPromptSection());
                     logger.debug("Applied custom instruction from {} to agent: {}", 
-                        instruction.sourcePath(), config.getName());
+                        instruction.sourcePath(), config.name());
                 }
             }
         }

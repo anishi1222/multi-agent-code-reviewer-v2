@@ -104,7 +104,7 @@ public class CustomInstructionLoader {
     /// @return List of custom instructions found
     public List<CustomInstruction> loadForTarget(ReviewTarget target) {
         if (target.isLocal()) {
-            return target.getLocalPath()
+            return target.localPath()
                 .map(this::loadFromLocalDirectory)
                 .orElse(List.of());
         }

@@ -441,14 +441,14 @@ class AgentConfigTest {
                 "## format", List.of("area"), List.of(skill)
             );
             
-            assertThat(config.getName()).isEqualTo("my-name");
-            assertThat(config.getDisplayName()).isEqualTo("My Display");
-            assertThat(config.getModel()).isEqualTo("my-model");
-            assertThat(config.getSystemPrompt()).isEqualTo("system");
-            assertThat(config.getInstruction()).isEqualTo("review");
-            assertThat(config.getOutputFormat()).isEqualTo("## format");
-            assertThat(config.getFocusAreas()).containsExactly("area");
-            assertThat(config.getSkills()).hasSize(1);
+            assertThat(config.name()).isEqualTo("my-name");
+            assertThat(config.displayName()).isEqualTo("My Display");
+            assertThat(config.model()).isEqualTo("my-model");
+            assertThat(config.systemPrompt()).isEqualTo("system");
+            assertThat(config.instruction()).isEqualTo("review");
+            assertThat(config.outputFormat()).isEqualTo("## format");
+            assertThat(config.focusAreas()).containsExactly("area");
+            assertThat(config.skills()).hasSize(1);
         }
     }
 
