@@ -506,7 +506,8 @@ mvn clean package -Pnative -DskipTests
 ```mermaid
 flowchart TB
     %% ── CLI ──
-    ReviewApp["ReviewApp\n(エントリポイント)"]
+    ReviewApp["ReviewApp
+    (エントリポイント)"]
     ReviewApp --> ReviewCommand
     ReviewApp --> ListAgentsCommand
     ReviewApp --> SkillCommand
@@ -516,7 +517,8 @@ flowchart TB
         direction TB
         ReviewCommand --> ReviewService
         ReviewService --> CustomInstructionLoader[CustomInstructionLoader]
-        ReviewService --> ReviewOrchestrator["ReviewOrchestrator\n仮想スレッド / Structured Concurrency"]
+        ReviewService --> ReviewOrchestrator["ReviewOrchestrator
+        仮想スレッド / Structured Concurrency"]
 
         ReviewOrchestrator --> Security[Security]
         ReviewOrchestrator --> CodeQuality[Code Quality]
@@ -539,7 +541,8 @@ flowchart TB
         direction TB
         SkillCommand --> SkillService
         SkillService --> SkillRegistry
-        SkillService --> SkillExecutor["SkillExecutor\nStructured Concurrency"]
+        SkillService --> SkillExecutor["SkillExecutor
+        Structured Concurrency"]
     end
 
     %% ── レビュー対象 ──
@@ -560,7 +563,8 @@ flowchart TB
     %% ── 外部サービス ──
     subgraph External["外部サービス"]
         direction LR
-        CopilotAPI["GitHub Copilot API\n(LLM)"]
+        CopilotAPI["GitHub Copilot API
+        (LLM)"]
         GitHubMCP["GitHub MCP Server"]
     end
 
