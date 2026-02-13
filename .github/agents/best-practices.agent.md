@@ -1,7 +1,7 @@
 ---
 name: best-practices
 description: "ベストプラクティスレビュー"
-model: GPT-5.2-Codex
+model: GPT-5.3-Codex
 ---
 
 # ベストプラクティスレビューエージェント
