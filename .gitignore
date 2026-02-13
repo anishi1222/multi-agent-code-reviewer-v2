@@ -37,4 +37,4 @@ logs/
 Thumbs.db
 
 # Reports (generated output)
-report/
+/report/
