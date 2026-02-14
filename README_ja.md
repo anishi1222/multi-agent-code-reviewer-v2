@@ -106,7 +106,7 @@ java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--local` | `-l` | 対象ローカルディレクトリ（`--repo`と排他） | - |
 | `--agents` | `-a` | 実行するエージェント（カンマ区切り） | - |
 | `--all` | - | 全エージェント実行 | false |
-| `--output` | `-o` | 出力ディレクトリ | `./report` |
+| `--output` | `-o` | 出力ベースディレクトリ | `./reports` |
 | `--agents-dir` | - | 追加のエージェント定義ディレクトリ | - |
 | `--token` | - | GitHub トークン | `$GITHUB_TOKEN` |
 | `--parallelism` | - | 並列実行数 | 4 |
@@ -251,14 +251,32 @@ agent: 'agent'
 
 ### 出力例
 
+レポートは出力ベースディレクトリの下に、レビュー対象のサブディレクトリを作成して出力されます。
+
+**GitHubリポジトリの場合**（`--repo owner/repository`）:
 ```
-./report/
-├── security_260204.md
-├── code-quality_260204.md
-├── performance_260204.md
-├── best-practices_260204.md
-└── executive_summary_260204.md
+./reports/
+└── owner/
+    └── repository/
+        ├── security_2026-02-14.md
+        ├── code-quality_2026-02-14.md
+        ├── performance_2026-02-14.md
+        ├── best-practices_2026-02-14.md
+        └── executive_summary_2026-02-14.md
 ```
+
+**ローカルディレクトリの場合**（`--local /path/to/my-project`）:
+```
+./reports/
+└── my-project/
+    ├── security_2026-02-14.md
+    ├── code-quality_2026-02-14.md
+    ├── performance_2026-02-14.md
+    ├── best-practices_2026-02-14.md
+    └── executive_summary_2026-02-14.md
+```
+
+`-o` / `--output` オプションで出力ベースディレクトリを変更できます（デフォルト: `./reports`）。
 
 ## 設定ファイル
 

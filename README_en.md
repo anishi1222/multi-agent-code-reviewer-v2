@@ -106,7 +106,7 @@ java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--local` | `-l` | Target local directory (exclusive with `--repo`) | - |
 | `--agents` | `-a` | Agents to run (comma-separated) | - |
 | `--all` | - | Run all agents | false |
-| `--output` | `-o` | Output directory | `./report` |
+| `--output` | `-o` | Output base directory | `./reports` |
 | `--agents-dir` | - | Additional agent definition directory | - |
 | `--token` | - | GitHub token | `$GITHUB_TOKEN` |
 | `--parallelism` | - | Number of parallel executions | 4 |
@@ -251,14 +251,32 @@ Use `--no-prompts` to disable loading prompt files.
 
 ### Output Example
 
+Reports are generated under the output base directory in a subdirectory corresponding to the review target.
+
+**GitHub repository** (`--repo owner/repository`):
 ```
-./report/
-├── security_260204.md
-├── code-quality_260204.md
-├── performance_260204.md
-├── best-practices_260204.md
-└── executive_summary_260204.md
+./reports/
+└── owner/
+    └── repository/
+        ├── security_2026-02-14.md
+        ├── code-quality_2026-02-14.md
+        ├── performance_2026-02-14.md
+        ├── best-practices_2026-02-14.md
+        └── executive_summary_2026-02-14.md
 ```
+
+**Local directory** (`--local /path/to/my-project`):
+```
+./reports/
+└── my-project/
+    ├── security_2026-02-14.md
+    ├── code-quality_2026-02-14.md
+    ├── performance_2026-02-14.md
+    ├── best-practices_2026-02-14.md
+    └── executive_summary_2026-02-14.md
+```
+
+Use `-o` / `--output` to change the output base directory (default: `./reports`).
 
 ## Configuration
 

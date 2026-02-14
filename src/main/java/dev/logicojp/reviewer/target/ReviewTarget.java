@@ -66,4 +66,17 @@ public sealed interface ReviewTarget permits ReviewTarget.LocalTarget, ReviewTar
             case GitHubTarget(_) -> Optional.empty();
         };
     }
+
+    /// Returns the sub-path to use within the output directory for this target.
+    /// For GitHub targets, returns "owner/repo" (e.g. "anishi1222/multi-agent-code-reviewer-java").
+    /// For local targets, returns the directory name.
+    default Path repositorySubPath() {
+        return switch (this) {
+            case GitHubTarget(String repository) -> Path.of(repository);
+            case LocalTarget(Path directory) -> {
+                Path fileName = directory.getFileName();
+                yield fileName != null ? Path.of(fileName.toString()) : Path.of(directory.toString());
+            }
+        };
+    }
 }

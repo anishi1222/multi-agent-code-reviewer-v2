@@ -42,7 +42,7 @@ public final class CliUsage {
                             -a, --agents <a,b,c>        Comma-separated agent names
 
                         Other options:
-                            -o, --output <path>         Output directory (default: ./report)
+                            -o, --output <path>         Output directory (default: ./reports)
                             --agents-dir <path...>      Additional agent definition directories
                             --token <token>             GitHub token (default: GITHUB_TOKEN)
                             --parallelism <n>           Number of agents to run in parallel

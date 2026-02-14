@@ -502,6 +502,90 @@
       ]
     },
     {
+      "type": "com.github.copilot.sdk.events.SubagentCompletedEvent",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "setData",
+          "parameterTypes": [
+            "com.github.copilot.sdk.events.SubagentCompletedEvent$SubagentCompletedData"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.github.copilot.sdk.events.SubagentCompletedEvent$SubagentCompletedData",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "setAgentName",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "setToolCallId",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.github.copilot.sdk.events.SubagentStartedEvent",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "setData",
+          "parameterTypes": [
+            "com.github.copilot.sdk.events.SubagentStartedEvent$SubagentStartedData"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "com.github.copilot.sdk.events.SubagentStartedEvent$SubagentStartedData",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "setAgentDescription",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "setAgentDisplayName",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "setAgentName",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "setToolCallId",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
       "type": "com.github.copilot.sdk.events.ToolExecutionCompleteEvent",
       "methods": [
         {

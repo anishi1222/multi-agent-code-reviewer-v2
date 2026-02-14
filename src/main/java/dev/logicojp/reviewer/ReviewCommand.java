@@ -136,7 +136,7 @@ public class ReviewCommand {
         exitCode = ExitCodes.OK;
         targetSelection = null;
         agentSelection = null;
-        outputDirectory = Path.of("./report");
+        outputDirectory = Path.of("./reports");
         additionalAgentDirs = new ArrayList<>();
         githubToken = System.getenv("GITHUB_TOKEN");
         parallelism = executionConfig.parallelism();
@@ -354,6 +354,9 @@ public class ReviewCommand {
                 entry.setValue(entry.getValue().withModel(reviewModel));
             }
         }
+
+        // Resolve output directory with repository sub-path
+        outputDirectory = outputDirectory.resolve(target.repositorySubPath());
 
         printBanner(agentConfigs, agentDirs, modelConfig, target);
 
