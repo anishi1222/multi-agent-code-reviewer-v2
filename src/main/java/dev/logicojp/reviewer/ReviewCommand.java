@@ -441,9 +441,7 @@ public class ReviewCommand {
 
         // Also try to load from target directory (for local targets)
         if (target.isLocal()) {
-            boolean shouldLoadPrompts = !options.noPrompts();
-            CustomInstructionLoader localLoader = new CustomInstructionLoader(null, shouldLoadPrompts);
-            List<CustomInstruction> targetInstructions = localLoader.loadForTarget(target);
+            List<CustomInstruction> targetInstructions = instructionLoader.loadForTarget(target);
             for (CustomInstruction instruction : targetInstructions) {
                 instructions.add(instruction);
                 System.out.println("  ✓ Loaded instructions from target: " + instruction.sourcePath());

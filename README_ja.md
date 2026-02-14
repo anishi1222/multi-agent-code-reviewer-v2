@@ -328,6 +328,51 @@ reviewer:
     reasoning-effort: high           # 推論モデルのエフォートレベル (low/medium/high)
 ```
 
+### 外部設定ファイルによる上書き
+
+fat JAR や Native Image で実行する場合、リビルドせずに内蔵の `application.yml` を上書きできます。
+
+**作業ディレクトリに `application.yml` を配置する方法:**
+
+```bash
+# Fat JAR
+cp application.yml ./
+java -jar multi-agent-code-reviewer.jar
+
+# Native Image
+cp application.yml ./
+./multi-agent-code-reviewer
+```
+
+**システムプロパティで明示的にパスを指定する方法:**
+
+```bash
+# Fat JAR
+java -Dmicronaut.config.files=/path/to/application.yml -jar multi-agent-code-reviewer.jar
+
+# Native Image
+./multi-agent-code-reviewer -Dmicronaut.config.files=/path/to/application.yml
+```
+
+**環境変数で個別プロパティを上書きする方法:**
+
+```bash
+export REVIEWER_MODELS_DEFAULT_MODEL=gpt-4
+export REVIEWER_EXECUTION_PARALLELISM=8
+java -jar multi-agent-code-reviewer.jar
+```
+
+> **注意:** 外部の `application.yml` には上書きしたいプロパティだけを記述すれば十分です。ファイル全体をコピーする必要はありません。
+
+設定は以下の優先順位で解決されます（上が最優先）：
+
+1. CLIオプション（`--review-model`、`--parallelism` 等）
+2. システムプロパティ（`-Dreviewer.models.default-model=...`）
+3. 環境変数（`REVIEWER_MODELS_DEFAULT_MODEL=...`）
+4. 外部 `application.yml`（作業ディレクトリ or `-Dmicronaut.config.files`）
+5. 内蔵 `application.yml`（JAR / Native Image 内）
+6. レコードコンストラクタのハードコードされたデフォルト値
+
 ### モデル設定の優先順位
 
 モデルは以下の優先順位で決定されます：

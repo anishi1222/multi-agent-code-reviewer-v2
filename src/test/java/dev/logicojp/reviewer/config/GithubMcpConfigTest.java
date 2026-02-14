@@ -120,5 +120,42 @@ class GithubMcpConfigTest {
             assertThat(map).containsEntry("tools", List.of("tool1", "tool2"));
             assertThat(map).containsEntry("headers", Map.of("X-Header", "value"));
         }
+
+        @Test
+        @DisplayName("toMapは不変Mapを返す")
+        void toMapReturnsImmutableMap() {
+            var mcpConfig = new GithubMcpConfig.McpServerConfig(
+                "http", "https://api.example.com/",
+                List.of("*"), Map.of());
+            Map<String, Object> map = mcpConfig.toMap();
+            assertThat(map).isUnmodifiable();
+        }
+
+        @Test
+        @DisplayName("toStringでAuthorizationヘッダーがマスクされる")
+        void toStringMasksAuthorizationHeader() {
+            var mcpConfig = new GithubMcpConfig.McpServerConfig(
+                "http", "https://api.example.com/",
+                List.of("*"),
+                Map.of("Authorization", "Bearer ghp_secret123", "X-Custom", "visible"));
+            String str = mcpConfig.toString();
+
+            assertThat(str).contains("Bearer ***");
+            assertThat(str).doesNotContain("ghp_secret123");
+            assertThat(str).contains("visible");
+        }
+
+        @Test
+        @DisplayName("toStringでAuthorizationヘッダーなしの場合はそのまま出力される")
+        void toStringWithoutAuthorizationHeader() {
+            var mcpConfig = new GithubMcpConfig.McpServerConfig(
+                "http", "https://api.example.com/",
+                List.of("*"),
+                Map.of("X-Custom", "value"));
+            String str = mcpConfig.toString();
+
+            assertThat(str).contains("X-Custom");
+            assertThat(str).doesNotContain("Bearer ***");
+        }
     }
 }

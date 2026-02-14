@@ -1,9 +1,8 @@
 package dev.logicojp.reviewer.service;
 
 import dev.logicojp.reviewer.config.ExecutionConfig;
-import dev.logicojp.reviewer.report.ReportGenerator;
+import dev.logicojp.reviewer.report.ReportGeneratorFactory;
 import dev.logicojp.reviewer.report.ReviewResult;
-import dev.logicojp.reviewer.report.SummaryGenerator;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
@@ -21,16 +20,16 @@ public class ReportService {
     
     private final CopilotService copilotService;
     private final ExecutionConfig executionConfig;
-    private final TemplateService templateService;
+    private final ReportGeneratorFactory reportGeneratorFactory;
     
     @Inject
     public ReportService(
             CopilotService copilotService, 
             ExecutionConfig executionConfig,
-            TemplateService templateService) {
+            ReportGeneratorFactory reportGeneratorFactory) {
         this.copilotService = copilotService;
         this.executionConfig = executionConfig;
-        this.templateService = templateService;
+        this.reportGeneratorFactory = reportGeneratorFactory;
     }
     
     /// Generates individual reports for each review result.
@@ -41,7 +40,7 @@ public class ReportService {
             throws IOException {
         logger.info("Generating {} individual reports", results.size());
         
-        ReportGenerator generator = new ReportGenerator(outputDirectory, templateService);
+        var generator = reportGeneratorFactory.createReportGenerator(outputDirectory);
         return generator.generateReports(results);
     }
     
@@ -61,13 +60,12 @@ public class ReportService {
         
         logger.info("Generating executive summary using model: {}", summaryModel);
         
-        SummaryGenerator generator = new SummaryGenerator(
+        var generator = reportGeneratorFactory.createSummaryGenerator(
             outputDirectory, 
             copilotService.getClient(), 
             summaryModel,
             reasoningEffort,
-            executionConfig.summaryTimeoutMinutes(),
-            templateService);
+            executionConfig.summaryTimeoutMinutes());
         
         return generator.generateSummary(results, repository);
     }

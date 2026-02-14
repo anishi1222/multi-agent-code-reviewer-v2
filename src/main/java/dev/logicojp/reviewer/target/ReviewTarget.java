@@ -70,9 +70,17 @@ public sealed interface ReviewTarget permits ReviewTarget.LocalTarget, ReviewTar
     /// Returns the sub-path to use within the output directory for this target.
     /// For GitHub targets, returns "owner/repo" (e.g. "anishi1222/multi-agent-code-reviewer-java").
     /// For local targets, returns the directory name.
+    /// @throws IllegalArgumentException if the repository name contains path traversal characters
     default Path repositorySubPath() {
         return switch (this) {
-            case GitHubTarget(String repository) -> Path.of(repository);
+            case GitHubTarget(String repository) -> {
+                if (repository.contains("..") || repository.startsWith("/")) {
+                    throw new IllegalArgumentException(
+                        "Invalid repository format: " + repository
+                        + ". Expected 'owner/repo' format.");
+                }
+                yield Path.of(repository);
+            }
             case LocalTarget(Path directory) -> {
                 Path fileName = directory.getFileName();
                 yield fileName != null ? Path.of(fileName.toString()) : Path.of(directory.toString());

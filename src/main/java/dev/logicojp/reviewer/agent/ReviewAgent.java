@@ -30,10 +30,14 @@ public class ReviewAgent {
     
     private final AgentConfig config;
     private final ReviewContext ctx;
+    private final ScheduledExecutorService idleTimeoutScheduler;
 
     public ReviewAgent(AgentConfig config, ReviewContext ctx) {
         this.config = config;
         this.ctx = ctx;
+        this.idleTimeoutScheduler = Executors.newSingleThreadScheduledExecutor(
+            Thread.ofVirtual().name("idle-timeout-" + config.name(), 0).factory()
+        );
     }
     
     /// Executes the review synchronously on the calling thread with retry support.
@@ -44,7 +48,8 @@ public class ReviewAgent {
         int totalAttempts = ctx.maxRetries() + 1;
         ReviewResult lastResult = null;
         
-        for (int attempt = 1; attempt <= totalAttempts; attempt++) {
+        try {
+            for (int attempt = 1; attempt <= totalAttempts; attempt++) {
             try {
                 lastResult = executeReview(target);
                 
@@ -83,6 +88,9 @@ public class ReviewAgent {
                 }
             }
         }
+        } finally {
+            idleTimeoutScheduler.shutdown();
+        }
         
         return lastResult;
     }
@@ -107,7 +115,7 @@ public class ReviewAgent {
             }
             case ReviewTarget.GitHubTarget(String repository) -> {
                 instruction = config.buildInstruction(repository);
-                mcpServers = Map.of("github", ctx.githubMcpConfig().toMcpServer(ctx.githubToken()));
+                mcpServers = ctx.cachedMcpServers();
             }
         }
 
@@ -279,12 +287,10 @@ public class ReviewAgent {
         });
 
         // Activity-based idle timeout: checks periodically if no events have arrived
-        try (var scheduler = Executors.newSingleThreadScheduledExecutor(
-            Thread.ofVirtual().name("idle-timeout-" + config.name(), 0).factory()
-        )) {
+        {
             // Check every 1/4 of idle timeout interval for responsiveness
             long checkInterval = Math.max(idleTimeoutMs / 4, 5000);
-            scheduler.scheduleAtFixedRate(() -> {
+            var scheduledTask = idleTimeoutScheduler.scheduleAtFixedRate(() -> {
                 if (future.isDone()) return;
                 long elapsed = System.currentTimeMillis() - lastActivityTime.get();
                 if (elapsed >= idleTimeoutMs) {
@@ -324,6 +330,7 @@ public class ReviewAgent {
                 }
                 throw e;
             } finally {
+                scheduledTask.cancel(false);
                 allEventsSubscription.close();
                 messageSubscription.close();
                 idleSubscription.close();

@@ -2,7 +2,6 @@ package dev.logicojp.reviewer.util;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -10,8 +9,10 @@ import java.util.concurrent.TimeoutException;
 /// Utility for working with {@link StructuredTaskScope} in preview JDK releases.
 ///
 /// Workaround: {@code StructuredTaskScope.join()} does not support timeout natively.
-/// Wrapping in {@code CompletableFuture.runAsync()} to enforce a wall-clock deadline.
-/// TODO: Replace with {@code scope.joinUntil(Instant)} when available in a future JDK release.
+/// Uses a virtual thread to call {@code scope.join()} and enforces a wall-clock deadline
+/// via {@code CompletableFuture.get(timeout, unit)}.
+/// TODO(JDK 25+): Replace with {@code scope.joinUntil(Instant)} when StructuredTaskScope
+/// exits preview and supports deadline-based join.
 public final class StructuredConcurrencyUtils {
 
     private StructuredConcurrencyUtils() {
@@ -28,14 +29,16 @@ public final class StructuredConcurrencyUtils {
     public static <T> void joinWithTimeout(StructuredTaskScope<T, ?> scope,
                                        long timeout, TimeUnit unit)
             throws InterruptedException, TimeoutException, ExecutionException {
-        var joinFuture = CompletableFuture.runAsync(() -> {
+        var future = new CompletableFuture<Void>();
+        Thread.ofVirtual().name("scope-join").start(() -> {
             try {
                 scope.join();
+                future.complete(null);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
+                future.completeExceptionally(e);
             }
-        }, Executors.newVirtualThreadPerTaskExecutor());
-        joinFuture.get(timeout, unit);
+        });
+        future.get(timeout, unit);
     }
 }

@@ -5,6 +5,7 @@ import dev.logicojp.reviewer.instruction.CustomInstruction;
 import com.github.copilot.sdk.CopilotClient;
 
 import java.util.List;
+import java.util.Map;
 
 /// Shared, immutable context for executing review agents.
 ///
@@ -21,6 +22,7 @@ import java.util.List;
 /// @param reasoningEffort     Reasoning effort level for reasoning models (nullable)
 /// @param maxRetries          Maximum number of retries on failure
 /// @param outputConstraints   Output constraints template content (nullable)
+/// @param cachedMcpServers    Pre-built MCP server configuration map (nullable, cached for reuse)
 public record ReviewContext(
     CopilotClient client,
     String githubToken,
@@ -30,8 +32,27 @@ public record ReviewContext(
     List<CustomInstruction> customInstructions,
     String reasoningEffort,
     int maxRetries,
-    String outputConstraints
+    String outputConstraints,
+    Map<String, Object> cachedMcpServers
 ) {
+
+    public ReviewContext(
+        CopilotClient client,
+        String githubToken,
+        GithubMcpConfig githubMcpConfig,
+        long timeoutMinutes,
+        long idleTimeoutMinutes,
+        List<CustomInstruction> customInstructions,
+        String reasoningEffort,
+        int maxRetries,
+        String outputConstraints
+    ) {
+        this(client, githubToken, githubMcpConfig, timeoutMinutes, idleTimeoutMinutes,
+            customInstructions, reasoningEffort, maxRetries, outputConstraints,
+            (githubToken != null && !githubToken.isBlank() && githubMcpConfig != null)
+                ? Map.of("github", githubMcpConfig.toMcpServer(githubToken))
+                : null);
+    }
 
     public ReviewContext {
         customInstructions = customInstructions != null ? List.copyOf(customInstructions) : List.of();

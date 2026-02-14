@@ -42,8 +42,8 @@ public class ReviewOrchestrator {
     private final String reasoningEffort;
     private final String outputConstraints;
     private final boolean structuredConcurrencyEnabled;
-    /// Lazily initialized — not created when Structured Concurrency mode is active.
-    private volatile ExecutorService executorService;
+    /// Initialized in constructor — null when Structured Concurrency mode is active.
+    private final ExecutorService executorService;
 
     public ReviewOrchestrator(CopilotClient client,
                               String githubToken,
@@ -62,6 +62,9 @@ public class ReviewOrchestrator {
         this.reasoningEffort = reasoningEffort;
         this.outputConstraints = outputConstraints;
         this.structuredConcurrencyEnabled = FeatureFlags.isStructuredConcurrencyEnabled();
+        this.executorService = this.structuredConcurrencyEnabled
+            ? null
+            : Executors.newVirtualThreadPerTaskExecutor();
         
         logger.info("Parallelism set to {}", executionConfig.parallelism());
         if (!this.customInstructions.isEmpty()) {
@@ -94,11 +97,13 @@ public class ReviewOrchestrator {
 
     /// Collects results, filters nulls, and logs completion summary.
     private List<ReviewResult> collectAndLogResults(List<ReviewResult> results) {
-        results.removeIf(Objects::isNull);
-        long successCount = results.stream().filter(ReviewResult::isSuccess).count();
+        List<ReviewResult> filtered = results.stream()
+            .filter(Objects::nonNull)
+            .toList();
+        long successCount = filtered.stream().filter(ReviewResult::isSuccess).count();
         logger.info("Completed {} reviews (success: {}, failed: {})",
-            results.size(), successCount, results.size() - successCount);
-        return results;
+            filtered.size(), successCount, filtered.size() - successCount);
+        return filtered;
     }
 
     /// Executes reviews for all provided agents in parallel.
@@ -119,7 +124,7 @@ public class ReviewOrchestrator {
         long perAgentTimeoutMinutes = executionConfig.agentTimeoutMinutes()
             * (executionConfig.maxRetries() + 1L);
 
-        ExecutorService executor = getOrCreateExecutorService();
+        ExecutorService executor = executorService;
         
         for (var config : agents.values()) {
             CompletableFuture<ReviewResult> future = CompletableFuture
@@ -228,19 +233,5 @@ public class ReviewOrchestrator {
     /// Shuts down the executor service.
     public void shutdown() {
         ExecutorUtils.shutdownGracefully(executorService, 60);
-    }
-
-    private ExecutorService getOrCreateExecutorService() {
-        ExecutorService es = executorService;
-        if (es == null) {
-            synchronized (this) {
-                es = executorService;
-                if (es == null) {
-                    es = Executors.newVirtualThreadPerTaskExecutor();
-                    executorService = es;
-                }
-            }
-        }
-        return es;
     }
 }

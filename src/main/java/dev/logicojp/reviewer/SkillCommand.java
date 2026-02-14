@@ -217,6 +217,6 @@ public class SkillCommand {
                 }
             }
         }
-        return params;
+        return Map.copyOf(params);
     }
 }

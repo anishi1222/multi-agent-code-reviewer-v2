@@ -104,7 +104,7 @@ public final class CliParsing {
                     Arrays.fill(chars, '\0');
                     return token;
                 }
-                return new String(System.in.readAllBytes(), StandardCharsets.UTF_8).trim();
+                return new String(System.in.readNBytes(4096), StandardCharsets.UTF_8).trim();
             } catch (IOException e) {
                 throw new CliValidationException("Failed to read token from stdin: " + e.getMessage(), false);
             }

@@ -46,14 +46,20 @@ public final class ContentSanitizer {
 
         String result = content;
 
-        // Remove CoT / thinking blocks
-        result = THINKING_BLOCK_PATTERN.matcher(result).replaceAll("");
+        // Remove CoT / thinking blocks (skip if no match to avoid unnecessary String creation)
+        if (THINKING_BLOCK_PATTERN.matcher(result).find()) {
+            result = THINKING_BLOCK_PATTERN.matcher(result).replaceAll("");
+        }
 
         // Remove <details> blocks that wrap reasoning
-        result = DETAILS_THINKING_PATTERN.matcher(result).replaceAll("");
+        if (DETAILS_THINKING_PATTERN.matcher(result).find()) {
+            result = DETAILS_THINKING_PATTERN.matcher(result).replaceAll("");
+        }
 
         // Collapse excessive blank lines
-        result = EXCESSIVE_BLANK_LINES.matcher(result).replaceAll("\n\n");
+        if (EXCESSIVE_BLANK_LINES.matcher(result).find()) {
+            result = EXCESSIVE_BLANK_LINES.matcher(result).replaceAll("\n\n");
+        }
 
         return result.strip();
     }

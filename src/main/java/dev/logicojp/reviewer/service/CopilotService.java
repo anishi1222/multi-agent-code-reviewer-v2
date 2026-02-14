@@ -84,7 +84,7 @@ public class CopilotService {
         return resolveEnvTimeout(START_TIMEOUT_ENV, DEFAULT_START_TIMEOUT_SECONDS);
     }
 
-    private String resolveCliPath() throws ExecutionException {
+    private String resolveCliPath() {
         String explicit = resolveExplicitCliPath();
         if (explicit != null) {
             return explicit;
@@ -93,7 +93,7 @@ public class CopilotService {
     }
 
     /// Resolves CLI path from the COPILOT_CLI_PATH environment variable.
-    private String resolveExplicitCliPath() throws ExecutionException {
+    private String resolveExplicitCliPath() {
         String explicit = System.getenv(CLI_PATH_ENV);
         if (explicit == null || explicit.isBlank()) {
             return null;
@@ -105,23 +105,23 @@ public class CopilotService {
             boolean validName = Arrays.stream(CLI_CANDIDATES)
                 .anyMatch(fileName::equals);
             if (!validName) {
-                throw new ExecutionException("CLI path " + explicitPath
+                throw new CopilotCliException("CLI path " + explicitPath
                     + " does not match expected Copilot CLI binary names ("
                     + String.join(", ", CLI_CANDIDATES) + "). "
-                    + "Only 'github-copilot' or 'copilot' binaries are allowed.", null);
+                    + "Only 'github-copilot' or 'copilot' binaries are allowed.");
             }
             return explicitPath.toString();
         }
-        throw new ExecutionException("Copilot CLI not found at " + explicitPath
-            + ". Verify " + CLI_PATH_ENV + " or install GitHub Copilot CLI.", null);
+        throw new CopilotCliException("Copilot CLI not found at " + explicitPath
+            + ". Verify " + CLI_PATH_ENV + " or install GitHub Copilot CLI.");
     }
 
     /// Resolves CLI path by scanning the system PATH directories.
-    private String resolveCliPathFromSystemPath() throws ExecutionException {
+    private String resolveCliPathFromSystemPath() {
         String pathEnv = System.getenv(PATH_ENV);
         if (pathEnv == null || pathEnv.isBlank()) {
-            throw new ExecutionException("PATH is not set. Install GitHub Copilot CLI and/or set "
-                + CLI_PATH_ENV + " to its executable path.", null);
+            throw new CopilotCliException("PATH is not set. Install GitHub Copilot CLI and/or set "
+                + CLI_PATH_ENV + " to its executable path.");
         }
 
         List<Path> candidates = new ArrayList<>();
@@ -141,11 +141,11 @@ public class CopilotService {
             }
         }
 
-        throw new ExecutionException("GitHub Copilot CLI not found in PATH. Install it and ensure "
-            + "`github-copilot` or `copilot` is available, or set " + CLI_PATH_ENV + ".", null);
+        throw new CopilotCliException("GitHub Copilot CLI not found in PATH. Install it and ensure "
+            + "`github-copilot` or `copilot` is available, or set " + CLI_PATH_ENV + ".");
     }
 
-    private void verifyCliHealthy(String cliPath, boolean tokenProvided) throws ExecutionException, InterruptedException {
+    private void verifyCliHealthy(String cliPath, boolean tokenProvided) throws InterruptedException {
         if (cliPath == null || cliPath.isBlank()) {
             return;
         }
@@ -166,7 +166,7 @@ public class CopilotService {
 
     private void runCliCommand(List<String> command, long timeoutSeconds,
                                String timeoutMessage, String exitMessage, String ioMessage)
-        throws ExecutionException, InterruptedException {
+        throws InterruptedException {
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.redirectErrorStream(true);
         try {
@@ -184,21 +184,21 @@ public class CopilotService {
             if (!finished) {
                 process.destroyForcibly();
                 drainFuture.cancel(true);
-                throw new ExecutionException(timeoutMessage + timeoutSeconds + "s. "
-                    + "Ensure the CLI is installed and authenticated.", null);
+                throw new CopilotCliException(timeoutMessage + timeoutSeconds + "s. "
+                    + "Ensure the CLI is installed and authenticated.");
             }
             drainFuture.join();
             if (process.exitValue() != 0) {
                 String baseMessage = exitMessage + process.exitValue() + ". ";
                 if (command.size() >= 3 && "auth".equals(command.get(1)) && "status".equals(command.get(2))) {
-                    throw new ExecutionException(baseMessage
-                        + "Run `github-copilot auth login` to authenticate.", null);
+                    throw new CopilotCliException(baseMessage
+                        + "Run `github-copilot auth login` to authenticate.");
                 }
-                throw new ExecutionException(baseMessage
-                    + "Ensure the CLI is installed and authenticated.", null);
+                throw new CopilotCliException(baseMessage
+                    + "Ensure the CLI is installed and authenticated.");
             }
         } catch (IOException e) {
-            throw new ExecutionException(ioMessage + e.getMessage(), e);
+            throw new CopilotCliException(ioMessage + e.getMessage(), e);
         }
     }
 
@@ -249,7 +249,8 @@ public class CopilotService {
     }
     
     /// Checks if the service is initialized.
-    public boolean isInitialized() {
+    /// Uses synchronized to maintain consistency with initialize/getClient/shutdown.
+    public synchronized boolean isInitialized() {
         return initialized;
     }
     

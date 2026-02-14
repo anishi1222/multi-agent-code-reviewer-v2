@@ -1154,6 +1154,15 @@
       ]
     },
     {
+      "type": "dev.logicojp.reviewer.instruction.$CustomInstructionLoader$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "dev.logicojp.reviewer.orchestrator.$ReviewOrchestratorFactory$Definition",
       "methods": [
         {
@@ -1209,6 +1218,15 @@
     },
     {
       "type": "dev.logicojp.reviewer.service.$TemplateService$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.util.$GitHubTokenResolver$Definition",
       "methods": [
         {
           "name": "<init>",

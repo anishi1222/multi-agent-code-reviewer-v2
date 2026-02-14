@@ -72,27 +72,15 @@ public record AgentConfig(
 
     public AgentConfig withModel(String overrideModel) {
         return new AgentConfig(
-            name,
-            displayName,
-            overrideModel,
-            systemPrompt,
-            instruction,
-            outputFormat,
-            focusAreas,
-            skills
+            this.name, this.displayName, overrideModel, this.systemPrompt,
+            this.instruction, this.outputFormat, this.focusAreas, this.skills
         );
     }
 
     public AgentConfig withSkills(List<SkillDefinition> newSkills) {
         return new AgentConfig(
-            name,
-            displayName,
-            model,
-            systemPrompt,
-            instruction,
-            outputFormat,
-            focusAreas,
-            newSkills
+            this.name, this.displayName, this.model, this.systemPrompt,
+            this.instruction, this.outputFormat, this.focusAreas, newSkills
         );
     }
 
@@ -130,11 +118,7 @@ public record AgentConfig(
         }
 
         if (outputFormat != null && !outputFormat.isBlank()) {
-            String outputText = outputFormat.trim();
-            if (!outputText.startsWith("##")) {
-                sb.append("## Output Format\n\n");
-            }
-            sb.append(outputText).append("\n");
+            sb.append(outputFormat.trim()).append("\n");
         }
 
         return sb.toString();
@@ -144,13 +128,7 @@ public record AgentConfig(
         if (instruction == null || instruction.isBlank()) {
             throw new IllegalStateException("Instruction is not configured for agent: " + name);
         }
-
-        String focusAreaText = formatFocusAreas();
-        return instruction
-            .replace("${repository}", repository)
-            .replace("${displayName}", displayName != null ? displayName : name)
-            .replace("${name}", name)
-            .replace("${focusAreas}", focusAreaText);
+        return applyPlaceholders(repository);
     }
 
     /// Builds the instruction for a local directory review.
@@ -163,14 +141,7 @@ public record AgentConfig(
             throw new IllegalStateException("Instruction is not configured for agent: " + name);
         }
 
-        String focusAreaText = formatFocusAreas();
-        
-        // Replace placeholders
-        String basePrompt = instruction
-            .replace("${repository}", targetName)
-            .replace("${displayName}", displayName != null ? displayName : name)
-            .replace("${name}", name)
-            .replace("${focusAreas}", focusAreaText);
+        String basePrompt = applyPlaceholders(targetName);
         
         // Use StringBuilder to avoid large intermediate string copies
         return new StringBuilder(basePrompt.length() + sourceContent.length() + 64)
@@ -179,6 +150,17 @@ public record AgentConfig(
             .append(sourceContent)
             .append("\n")
             .toString();
+    }
+
+    /// Applies placeholder substitution to the instruction template.
+    /// Centralizes ${repository}, ${displayName}, ${name}, ${focusAreas} replacement.
+    private String applyPlaceholders(String targetName) {
+        String focusAreaText = formatFocusAreas();
+        return instruction
+            .replace("${repository}", targetName)
+            .replace("${displayName}", displayName != null ? displayName : name)
+            .replace("${name}", name)
+            .replace("${focusAreas}", focusAreaText);
     }
 
     private String formatFocusAreas() {

@@ -123,6 +123,24 @@ class ReviewTargetTest {
             ReviewTarget target = ReviewTarget.local(Path.of("/home/user/my-project"));
             assertThat(target.repositorySubPath()).isEqualTo(Path.of("my-project"));
         }
+
+        @Test
+        @DisplayName("パストラバーサル文字を含むリポジトリ名は拒否される")
+        void rejectsPathTraversal() {
+            ReviewTarget target = ReviewTarget.gitHub("../../tmp/malicious");
+            assertThatThrownBy(target::repositorySubPath)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid repository format");
+        }
+
+        @Test
+        @DisplayName("絶対パスで始まるリポジトリ名は拒否される")
+        void rejectsAbsolutePath() {
+            ReviewTarget target = ReviewTarget.gitHub("/etc/passwd");
+            assertThatThrownBy(target::repositorySubPath)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid repository format");
+        }
     }
 
     @Nested

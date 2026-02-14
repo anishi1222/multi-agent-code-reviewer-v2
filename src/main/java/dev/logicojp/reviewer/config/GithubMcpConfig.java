@@ -33,13 +33,23 @@ public record GithubMcpConfig(
     /// Provides compile-time safety within the application; converted to
     /// {@code Map<String, Object>} only at the SDK boundary.
     public record McpServerConfig(String type, String url, List<String> tools, Map<String, String> headers) {
+        /// Converts to an immutable Map for SDK compatibility.
         public Map<String, Object> toMap() {
-            Map<String, Object> server = new HashMap<>();
-            server.put("type", type);
-            server.put("url", url);
-            server.put("tools", tools);
-            server.put("headers", headers);
-            return server;
+            return Map.of(
+                "type", type,
+                "url", url,
+                "tools", tools,
+                "headers", headers
+            );
+        }
+
+        @Override
+        public String toString() {
+            // Mask Authorization header values to prevent token leakage in logs
+            Map<String, String> maskedHeaders = new HashMap<>(headers);
+            maskedHeaders.computeIfPresent("Authorization", (_, _) -> "Bearer ***");
+            return "McpServerConfig{type='%s', url='%s', tools=%s, headers=%s}"
+                .formatted(type, url, tools, maskedHeaders);
         }
     }
 

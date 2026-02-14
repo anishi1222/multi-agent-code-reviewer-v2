@@ -328,6 +328,51 @@ reviewer:
     reasoning-effort: high           # Reasoning effort level (low/medium/high)
 ```
 
+### External Configuration Override
+
+When running as a fat JAR or Native Image, you can override the built-in `application.yml` without rebuilding.
+
+**Place `application.yml` in the working directory:**
+
+```bash
+# Fat JAR
+cp application.yml ./
+java -jar multi-agent-code-reviewer.jar
+
+# Native Image
+cp application.yml ./
+./multi-agent-code-reviewer
+```
+
+**Or specify an explicit path via system property:**
+
+```bash
+# Fat JAR
+java -Dmicronaut.config.files=/path/to/application.yml -jar multi-agent-code-reviewer.jar
+
+# Native Image
+./multi-agent-code-reviewer -Dmicronaut.config.files=/path/to/application.yml
+```
+
+**Or override individual properties via environment variables:**
+
+```bash
+export REVIEWER_MODELS_DEFAULT_MODEL=gpt-4
+export REVIEWER_EXECUTION_PARALLELISM=8
+java -jar multi-agent-code-reviewer.jar
+```
+
+> **Note:** The external `application.yml` only needs to contain the properties you want to override — you do not need to copy the entire file.
+
+Configuration is resolved in the following priority order (highest first):
+
+1. CLI options (`--review-model`, `--parallelism`, etc.)
+2. System properties (`-Dreviewer.models.default-model=...`)
+3. Environment variables (`REVIEWER_MODELS_DEFAULT_MODEL=...`)
+4. External `application.yml` (working directory or `-Dmicronaut.config.files`)
+5. Built-in `application.yml` (inside the JAR / Native Image)
+6. Hardcoded defaults in record constructors
+
 ### Model Configuration Priority
 
 Models are resolved in the following priority order:

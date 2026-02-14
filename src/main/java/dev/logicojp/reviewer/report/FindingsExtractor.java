@@ -4,7 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -127,11 +129,15 @@ public final class FindingsExtractor {
     private static String formatSummary(List<Finding> findings) {
         var sb = new StringBuilder();
 
-        // Group by priority in severity order
+        // Group findings by priority in a single pass
+        Map<String, List<Finding>> grouped = new LinkedHashMap<>();
+        for (Finding f : findings) {
+            grouped.computeIfAbsent(f.priority(), _ -> new ArrayList<>()).add(f);
+        }
+
+        // Output in severity order
         for (String priority : List.of("Critical", "High", "Medium", "Low", "Unknown")) {
-            List<Finding> group = findings.stream()
-                .filter(f -> f.priority().equalsIgnoreCase(priority))
-                .toList();
+            List<Finding> group = grouped.getOrDefault(priority, List.of());
 
             if (group.isEmpty()) {
                 continue;

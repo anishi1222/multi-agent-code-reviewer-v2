@@ -10,7 +10,12 @@
     <!-- Application loggers -->
     <logger name="dev.logicojp.reviewer" level="INFO"/>
 
-    <!-- Third-party loggers -->
+    <!--
+        Third-party loggers: managed here in logback.xml rather than in
+        Micronaut's application.yml because the CLI verbose flag toggles
+        log levels at runtime via the Logback API directly
+        (see ReviewApp.enableVerboseLogging).
+    -->
     <logger name="com.github.copilot.sdk" level="WARN"/>
     <logger name="org.yaml.snakeyaml" level="WARN"/>
     

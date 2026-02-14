@@ -121,7 +121,7 @@ public class LocalFileProvider {
         }
 
         List<LocalFile> files = new ArrayList<>();
-        long[] totalSize = {0};
+        long totalSize = 0;
 
         try {
             List<Path> candidates = new ArrayList<>();
@@ -155,15 +155,15 @@ public class LocalFileProvider {
                         logger.debug("Skipping large file ({} bytes): {}", size, path);
                         continue;
                     }
-                    if (totalSize[0] + size > MAX_TOTAL_SIZE) {
-                        logger.warn("Total content size limit reached ({} bytes). Stopping collection.", totalSize[0]);
+                    if (totalSize + size > MAX_TOTAL_SIZE) {
+                        logger.warn("Total content size limit reached ({} bytes). Stopping collection.", totalSize);
                         break;
                     }
 
                     String content = Files.readString(path, StandardCharsets.UTF_8);
                     String relativePath = baseDirectory.relativize(path).toString().replace('\\', '/');
                     files.add(new LocalFile(relativePath, content, size));
-                    totalSize[0] += size;
+                    totalSize += size;
 
                 } catch (IOException e) {
                     logger.debug("Failed to read file {}: {}", path, e.getMessage());
@@ -173,7 +173,7 @@ public class LocalFileProvider {
             throw new UncheckedIOException("Failed to walk directory: " + baseDirectory, e);
         }
 
-        logger.info("Collected {} source files ({} bytes) from: {}", files.size(), totalSize[0], baseDirectory);
+        logger.info("Collected {} source files ({} bytes) from: {}", files.size(), totalSize, baseDirectory);
         return List.copyOf(files);
     }
 
@@ -244,7 +244,15 @@ public class LocalFileProvider {
 
     /// Checks if the file's real path is within the base directory.
     /// Prevents symlink-based path traversal attacks.
+    /// Uses fast-path normalized check first; falls back to toRealPath() only
+    /// when the path might contain symlinks.
     private boolean isWithinBaseDirectory(Path path) {
+        // Fast path: normalized absolute path check (no syscall)
+        Path normalized = path.toAbsolutePath().normalize();
+        if (!normalized.startsWith(baseDirectory)) {
+            return false;
+        }
+        // Slow path: only resolve real path for symlink safety
         try {
             Path realPath = path.toRealPath();
             return realPath.startsWith(realBaseDirectory);
