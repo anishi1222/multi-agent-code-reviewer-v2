@@ -27,6 +27,22 @@ A parallel code review application using multiple AI agents with GitHub Copilot 
 - GitHub Copilot CLI 0.0.407 or later
 - GitHub token (for repository access)
 
+## Supply Chain Policy
+
+This repository enforces dependency and build hygiene in both Maven and GitHub Actions.
+
+- Maven validate/build fails when checksum verification fails for Central artifacts.
+- SNAPSHOT dependencies/plugins are blocked by Maven Enforcer.
+- PR dependency review fails on vulnerability severity `moderate` or higher.
+- PR dependency review denies these licenses: `GPL-2.0`, `GPL-3.0`, `AGPL-3.0`, `LGPL-2.1`, `LGPL-3.0`.
+- CI workflow runs `validate`, `compile`, and `test` as required checks.
+
+Recommended branch protection required checks:
+
+- `Supply Chain Guard`
+- `Build and Test`
+- `Dependency Review`
+
 ### Installing GraalVM
 
 Using SDKMAN:

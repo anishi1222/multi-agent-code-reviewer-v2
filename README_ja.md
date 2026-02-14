@@ -27,6 +27,22 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 - GitHub Copilot CLI 0.0.407 以上
 - GitHub トークン（リポジトリアクセス用）
 
+## サプライチェーンポリシー
+
+このリポジトリでは、Maven と GitHub Actions の両方で依存関係とビルドの健全性を強制しています。
+
+- Maven Central の成果物でチェックサム検証に失敗した場合、`validate/build` は失敗します。
+- Maven Enforcer により `SNAPSHOT` 依存関係/プラグインを禁止しています。
+- PR の Dependency Review は、脆弱性が `moderate` 以上で失敗します。
+- PR の Dependency Review は、`GPL-2.0` / `GPL-3.0` / `AGPL-3.0` / `LGPL-2.1` / `LGPL-3.0` ライセンスを拒否します。
+- CI ワークフローで `validate` / `compile` / `test` を必須チェックとして実行します。
+
+推奨されるブランチ保護の Required checks:
+
+- `Supply Chain Guard`
+- `Build and Test`
+- `Dependency Review`
+
 ### GraalVM の インストール
 
 SDKMAN を使用する場合:
