@@ -106,24 +106,23 @@ class AgentConfigTest {
     class OutputFormatNormalization {
 
         @Test
-        @DisplayName("outputFormatがnullの場合はデフォルトフォーマットが使用される")
-        void nullOutputFormatGetsDefault() {
+        @DisplayName("outputFormatがnullの場合はnullが設定される（外部テンプレートから読み込まれる）")
+        void nullOutputFormatGetsNull() {
             AgentConfig config = new AgentConfig(
                 VALID_NAME, "Display", "model", VALID_SYSTEM_PROMPT, VALID_INSTRUCTION,
                 null, List.of("area"), List.of()
             );
-            assertThat(config.outputFormat()).contains("Priority");
-            assertThat(config.outputFormat()).contains("指摘の概要");
+            assertThat(config.outputFormat()).isNull();
         }
 
         @Test
-        @DisplayName("outputFormatが空白の場合はデフォルトフォーマットが使用される")
-        void blankOutputFormatGetsDefault() {
+        @DisplayName("outputFormatが空白の場合はnullが設定される（外部テンプレートから読み込まれる）")
+        void blankOutputFormatGetsNull() {
             AgentConfig config = new AgentConfig(
                 VALID_NAME, "Display", "model", VALID_SYSTEM_PROMPT, VALID_INSTRUCTION,
                 "  ", List.of("area"), List.of()
             );
-            assertThat(config.outputFormat()).contains("Priority");
+            assertThat(config.outputFormat()).isNull();
         }
 
         @Test

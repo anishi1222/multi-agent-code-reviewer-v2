@@ -3,6 +3,9 @@ package dev.logicojp.reviewer;
 import dev.logicojp.reviewer.cli.CliParsing;
 import dev.logicojp.reviewer.cli.CliUsage;
 import dev.logicojp.reviewer.cli.ExitCodes;
+import dev.logicojp.reviewer.cli.ListAgentsCommand;
+import dev.logicojp.reviewer.cli.ReviewCommand;
+import dev.logicojp.reviewer.cli.SkillCommand;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
 import io.micronaut.context.ApplicationContext;
@@ -119,8 +122,8 @@ public class ReviewApp {
                 .setLevel(Level.DEBUG);
             context.getLogger("dev.logicojp")
                 .setLevel(Level.DEBUG);
-        } catch (Exception e) {
-            System.err.println("Failed to enable verbose logging: " + e.getMessage());
+        } catch (ClassCastException e) {
+            System.err.println("Failed to enable verbose logging (Logback not available): " + e.getMessage());
         }
     }
 }

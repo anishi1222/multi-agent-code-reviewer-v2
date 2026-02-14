@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.instruction;
 
 import dev.logicojp.reviewer.target.ReviewTarget;
 import dev.logicojp.reviewer.util.FrontmatterParser;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,6 +69,7 @@ public class CustomInstructionLoader {
     private final PromptLoader promptLoader;
     private final boolean loadPrompts;
 
+    @Inject
     public CustomInstructionLoader() {
         this(null, true);
     }
@@ -78,8 +80,8 @@ public class CustomInstructionLoader {
 
     public CustomInstructionLoader(List<Path> additionalInstructionPaths, boolean loadPrompts) {
         this.additionalInstructionPaths = additionalInstructionPaths != null 
-            ? new ArrayList<>(additionalInstructionPaths) 
-            : new ArrayList<>();
+            ? List.copyOf(additionalInstructionPaths) 
+            : List.of();
         this.promptLoader = new PromptLoader();
         this.loadPrompts = loadPrompts;
     }

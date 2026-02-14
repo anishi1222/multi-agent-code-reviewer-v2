@@ -1100,6 +1100,33 @@
       ]
     },
     {
+      "type": "dev.logicojp.reviewer.cli.$ListAgentsCommand$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$ReviewCommand$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$SkillCommand$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "dev.logicojp.reviewer.config.$ExecutionConfig$Definition",
       "methods": [
         {
@@ -1110,6 +1137,15 @@
     },
     {
       "type": "dev.logicojp.reviewer.config.$GithubMcpConfig$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.config.$LocalFileConfig$Definition",
       "methods": [
         {
           "name": "<init>",
@@ -1146,6 +1182,24 @@
     },
     {
       "type": "dev.logicojp.reviewer.config.$TemplateConfig$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.config.$TemplateConfig$FallbackTemplates$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.config.$TemplateConfig$SummaryTemplates$Definition",
       "methods": [
         {
           "name": "<init>",

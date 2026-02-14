@@ -20,7 +20,7 @@ class ReportGeneratorFactoryTest {
     @DisplayName("createReportGeneratorはReportGeneratorインスタンスを返す")
     void createsReportGenerator() {
         var config = new TemplateConfig(tempDir.toString(),
-            null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+            null, null, null, null, null, null, null);
         var templateService = new TemplateService(config);
         var factory = new ReportGeneratorFactory(templateService);
         ReportGenerator generator = factory.createReportGenerator(Path.of("/tmp/reports"));

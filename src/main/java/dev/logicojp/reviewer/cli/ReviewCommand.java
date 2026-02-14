@@ -1,15 +1,11 @@
-package dev.logicojp.reviewer;
+package dev.logicojp.reviewer.cli;
 
 import dev.logicojp.reviewer.agent.AgentConfig;
-import dev.logicojp.reviewer.cli.CommandExecutor;
-import dev.logicojp.reviewer.cli.CliParsing;
-import dev.logicojp.reviewer.cli.CliUsage;
-import dev.logicojp.reviewer.cli.CliValidationException;
-import dev.logicojp.reviewer.cli.ExitCodes;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.ModelConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.instruction.CustomInstructionLoader;
+import dev.logicojp.reviewer.instruction.CustomInstructionSafetyValidator;
 import dev.logicojp.reviewer.instruction.InstructionSource;
 import dev.logicojp.reviewer.report.ReviewResult;
 import dev.logicojp.reviewer.service.AgentService;
@@ -182,8 +178,8 @@ public class ReviewCommand {
                 state.helpRequested = true;
                 yield i;
             }
-            case "-r", "--repo" -> readInto(args, i, "--repo", v -> state.repository = v);
-            case "-l", "--local" -> readInto(args, i, "--local", v -> state.localDirectory = Path.of(v));
+            case "-r", "--repo" -> CliParsing.readInto(args, i, "--repo", v -> state.repository = v);
+            case "-l", "--local" -> CliParsing.readInto(args, i, "--local", v -> state.localDirectory = Path.of(v));
             case "--all" -> { state.allAgents = true; yield i; }
             case "-a", "--agents" -> {
                 CliParsing.OptionValue value = CliParsing.readSingleValue(arg, args, i, "--agents");
@@ -194,18 +190,18 @@ public class ReviewCommand {
                 state.agentNames.addAll(parsed);
                 yield value.newIndex();
             }
-            case "-o", "--output" -> readInto(args, i, "--output", v -> state.outputDirectory = Path.of(v));
-            case "--agents-dir" -> readMultiInto(args, i, "--agents-dir",
+            case "-o", "--output" -> CliParsing.readInto(args, i, "--output", v -> state.outputDirectory = Path.of(v));
+            case "--agents-dir" -> CliParsing.readMultiInto(args, i, "--agents-dir",
                 v -> state.additionalAgentDirs.add(Path.of(v)));
-            case "--token" -> readInto(args, i, "--token", v -> state.githubToken = CliParsing.readTokenWithWarning(v));
-            case "--parallelism" -> readInto(args, i, "--parallelism",
+            case "--token" -> CliParsing.readInto(args, i, "--token", v -> state.githubToken = CliParsing.readTokenWithWarning(v));
+            case "--parallelism" -> CliParsing.readInto(args, i, "--parallelism",
                 v -> state.parallelism = parseInt(v, "--parallelism"));
             case "--no-summary" -> { state.noSummary = true; yield i; }
-            case "--review-model" -> readInto(args, i, "--review-model", v -> state.reviewModel = v);
-            case "--report-model" -> readInto(args, i, "--report-model", v -> state.reportModel = v);
-            case "--summary-model" -> readInto(args, i, "--summary-model", v -> state.summaryModel = v);
-            case "--model" -> readInto(args, i, "--model", v -> state.defaultModel = v);
-            case "--instructions" -> readMultiInto(args, i, "--instructions",
+            case "--review-model" -> CliParsing.readInto(args, i, "--review-model", v -> state.reviewModel = v);
+            case "--report-model" -> CliParsing.readInto(args, i, "--report-model", v -> state.reportModel = v);
+            case "--summary-model" -> CliParsing.readInto(args, i, "--summary-model", v -> state.summaryModel = v);
+            case "--model" -> CliParsing.readInto(args, i, "--model", v -> state.defaultModel = v);
+            case "--instructions" -> CliParsing.readMultiInto(args, i, "--instructions",
                 v -> state.instructionPaths.add(Path.of(v)));
             case "--no-instructions" -> { state.noInstructions = true; yield i; }
             case "--no-prompts" -> { state.noPrompts = true; yield i; }
@@ -217,24 +213,6 @@ public class ReviewCommand {
                 throw new CliValidationException("Unexpected argument: " + arg, true);
             }
         };
-    }
-
-    /// Reads a single value option and passes it to the consumer.
-    private static int readInto(String[] args, int i, String optName,
-                                java.util.function.Consumer<String> setter) {
-        CliParsing.OptionValue value = CliParsing.readSingleValue(optName, args, i, optName);
-        setter.accept(value.value());
-        return value.newIndex();
-    }
-
-    /// Reads multi-value option and passes each value to the consumer.
-    private static int readMultiInto(String[] args, int i, String optName,
-                                     java.util.function.Consumer<String> setter) {
-        CliParsing.MultiValue values = CliParsing.readMultiValues(optName, args, i, optName);
-        for (String v : values.values()) {
-            setter.accept(v);
-        }
-        return values.newIndex();
     }
 
     private static TargetSelection validateTargetSelection(String repository, Path localDirectory) {
@@ -278,10 +256,10 @@ public class ReviewCommand {
         String resolvedToken = targetAndToken.resolvedToken();
 
         ModelConfig modelConfig = buildModelConfig(options);
-        Map<String, AgentConfig> agentConfigs = loadAgentConfigs(options);
+        List<Path> agentDirs = agentService.buildAgentDirectories(options.additionalAgentDirs());
+        Map<String, AgentConfig> agentConfigs = loadAgentConfigs(options, agentDirs);
 
         if (agentConfigs.isEmpty()) {
-            List<Path> agentDirs = agentService.buildAgentDirectories(options.additionalAgentDirs());
             System.err.println("Error: No agents found. Check the agents directories:");
             for (Path dir : agentDirs) {
                 System.err.println("  - " + dir);
@@ -298,15 +276,22 @@ public class ReviewCommand {
 
         Path outputDirectory = options.outputDirectory().resolve(target.repositorySubPath());
 
-        printBanner(agentConfigs, agentService.buildAgentDirectories(options.additionalAgentDirs()),
-            modelConfig, target, outputDirectory, options.reviewModel());
+        printBanner(agentConfigs, agentDirs, modelConfig, target, outputDirectory, options.reviewModel());
 
         List<CustomInstruction> customInstructions = loadCustomInstructions(target, options);
+        ReviewExecutionContext executionContext = new ReviewExecutionContext(
+            target,
+            resolvedToken,
+            modelConfig,
+            agentConfigs,
+            options,
+            customInstructions,
+            outputDirectory
+        );
 
         copilotService.initializeOrThrow(resolvedToken);
         try {
-            return executeReviewsAndReport(agentConfigs, target, resolvedToken,
-                options, modelConfig, customInstructions, outputDirectory);
+            return executeReviewsAndReport(executionContext);
         } finally {
             copilotService.shutdown();
         }
@@ -314,6 +299,17 @@ public class ReviewCommand {
 
     /// Resolved target and token pair.
     private record TargetAndToken(ReviewTarget target, String resolvedToken) {}
+
+    /// Execution context for the review run.
+    private record ReviewExecutionContext(
+        ReviewTarget target,
+        String resolvedToken,
+        ModelConfig modelConfig,
+        Map<String, AgentConfig> agentConfigs,
+        ParsedOptions options,
+        List<CustomInstruction> customInstructions,
+        Path outputDirectory
+    ) {}
 
     /// Builds and validates the review target from parsed options.
     private TargetAndToken buildReviewTarget(ParsedOptions options) {
@@ -341,8 +337,7 @@ public class ReviewCommand {
     }
 
     /// Loads agent configurations from configured directories.
-    private Map<String, AgentConfig> loadAgentConfigs(ParsedOptions options) {
-        List<Path> agentDirs = agentService.buildAgentDirectories(options.additionalAgentDirs());
+    private Map<String, AgentConfig> loadAgentConfigs(ParsedOptions options, List<Path> agentDirs) {
         try {
             return switch (options.agents()) {
                 case AgentSelection.All() -> agentService.loadAllAgents(agentDirs);
@@ -354,20 +349,16 @@ public class ReviewCommand {
     }
 
     /// Executes reviews, generates reports and summary.
-    private int executeReviewsAndReport(Map<String, AgentConfig> agentConfigs,
-                                        ReviewTarget target, String resolvedToken,
-                                        ParsedOptions options, ModelConfig modelConfig,
-                                        List<CustomInstruction> customInstructions,
-                                        Path outputDirectory) {
+    private int executeReviewsAndReport(ReviewExecutionContext context) {
         System.out.println("Starting reviews...");
         List<ReviewResult> results = reviewService.executeReviews(
-            agentConfigs, target, resolvedToken, options.parallelism(),
-            customInstructions, modelConfig.reasoningEffort());
+            context.agentConfigs(), context.target(), context.resolvedToken(), context.options().parallelism(),
+            context.customInstructions(), context.modelConfig().reasoningEffort());
 
         System.out.println("\nGenerating reports...");
         List<Path> reports;
         try {
-            reports = reportService.generateReports(results, outputDirectory);
+            reports = reportService.generateReports(results, context.outputDirectory());
         } catch (IOException e) {
             throw new UncheckedIOException("Report generation failed", e);
         }
@@ -375,12 +366,12 @@ public class ReviewCommand {
             System.out.println("  ✓ " + report.getFileName());
         }
 
-        if (!options.noSummary()) {
+        if (!context.options().noSummary()) {
             System.out.println("\nGenerating executive summary...");
             try {
                 Path summaryPath = reportService.generateSummary(
-                    results, target.displayName(), outputDirectory,
-                    modelConfig.summaryModel(), modelConfig.reasoningEffort());
+                    results, context.target().displayName(), context.outputDirectory(),
+                    context.modelConfig().summaryModel(), context.modelConfig().reasoningEffort());
                 System.out.println("  ✓ " + summaryPath.getFileName());
             } catch (Exception e) {
                 logger.error("Summary generation failed: {}", e.getMessage(), e);
@@ -388,7 +379,7 @@ public class ReviewCommand {
             }
         }
 
-        printCompletionSummary(results, outputDirectory);
+        printCompletionSummary(results, context.outputDirectory());
         return ExitCodes.OK;
     }
 
@@ -431,10 +422,17 @@ public class ReviewCommand {
                     if (Files.exists(path) && Files.isRegularFile(path)) {
                         String content = Files.readString(path);
                         if (!content.isBlank()) {
-                            instructions.add(new CustomInstruction(
+                            CustomInstruction instruction = new CustomInstruction(
                                 path.toString(), content.trim(),
-                                InstructionSource.LOCAL_FILE, null, null));
-                            System.out.println("  ✓ Loaded instructions: " + path);
+                                InstructionSource.LOCAL_FILE, null, null);
+                            CustomInstructionSafetyValidator.ValidationResult result =
+                                CustomInstructionSafetyValidator.validate(instruction);
+                            if (result.safe()) {
+                                instructions.add(instruction);
+                                System.out.println("  ✓ Loaded instructions: " + path);
+                            } else {
+                                System.err.println("⚠  Skipped unsafe instruction: " + path + " (" + result.reason() + ")");
+                            }
                         }
                     } else {
                         logger.warn("Instruction file not found: {}", path);
@@ -449,13 +447,21 @@ public class ReviewCommand {
         if (target.isLocal()) {
             if (options.trustTarget()) {
                 // User explicitly trusts the target — load instructions
+                System.out.println("⚠  --trust enabled: loading custom instructions from the review target.");
                 CustomInstructionLoader targetLoader = options.noPrompts()
                     ? new CustomInstructionLoader(null, false)
                     : instructionLoader;
                 List<CustomInstruction> targetInstructions = targetLoader.loadForTarget(target);
                 for (CustomInstruction instruction : targetInstructions) {
-                    instructions.add(instruction);
-                    System.out.println("  ✓ Loaded instructions from target: " + instruction.sourcePath());
+                    CustomInstructionSafetyValidator.ValidationResult result =
+                        CustomInstructionSafetyValidator.validate(instruction);
+                    if (result.safe()) {
+                        instructions.add(instruction);
+                        System.out.println("  ✓ Loaded instructions from target: " + instruction.sourcePath());
+                    } else {
+                        System.err.println("⚠  Skipped unsafe instruction: "
+                            + instruction.sourcePath() + " (" + result.reason() + ")");
+                    }
                 }
             } else {
                 System.out.println("ℹ  Target instructions skipped (use --trust to load from review target).");

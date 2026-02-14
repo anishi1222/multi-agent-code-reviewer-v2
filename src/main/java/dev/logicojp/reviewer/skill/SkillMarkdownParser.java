@@ -7,7 +7,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 /// Parses Agent Skills specification files (SKILL.md).
@@ -79,9 +80,8 @@ public class SkillMarkdownParser {
         }
 
         Map<String, String> simpleFields = parsed.metadata();
-        String rawFrontmatter = FrontmatterParser.extractRawFrontmatter(content);
-        Map<String, String> metadataMap = rawFrontmatter != null
-            ? FrontmatterParser.parseNestedBlock(rawFrontmatter, "metadata")
+        Map<String, String> metadataMap = parsed.rawFrontmatter() != null
+            ? FrontmatterParser.parseNestedBlock(parsed.rawFrontmatter(), "metadata")
             : Map.of();
 
         String name = simpleFields.getOrDefault("name", id);

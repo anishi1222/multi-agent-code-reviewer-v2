@@ -22,10 +22,12 @@ public class AgentService {
     private static final Logger logger = LoggerFactory.getLogger(AgentService.class);
 
     private final SkillConfig skillConfig;
+    private final TemplateService templateService;
 
     @Inject
-    public AgentService(SkillConfig skillConfig) {
+    public AgentService(SkillConfig skillConfig, TemplateService templateService) {
         this.skillConfig = skillConfig;
+        this.templateService = templateService;
     }
     
     /// Builds the list of agent directories to search.
@@ -74,6 +76,7 @@ public class AgentService {
     }
 
     private AgentConfigLoader createLoader(List<Path> agentDirs) {
-        return new AgentConfigLoader(agentDirs, skillConfig);
+        String defaultOutputFormat = templateService.getDefaultOutputFormat();
+        return new AgentConfigLoader(agentDirs, skillConfig, defaultOutputFormat);
     }
 }

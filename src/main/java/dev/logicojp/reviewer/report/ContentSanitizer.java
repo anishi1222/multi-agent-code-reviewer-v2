@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.report;
 
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /// Sanitizes review content returned by LLM models.
@@ -30,6 +31,12 @@ public final class ContentSanitizer {
         Pattern.DOTALL | Pattern.CASE_INSENSITIVE
     );
 
+    /// Combined pattern to strip CoT-like blocks in a single pass.
+    private static final Pattern COT_BLOCK_PATTERN = Pattern.compile(
+        "(?:" + THINKING_BLOCK_PATTERN.pattern() + ")|(?:" + DETAILS_THINKING_PATTERN.pattern() + ")",
+        Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+    );
+
     /// Pattern to collapse three or more consecutive blank lines into two.
     private static final Pattern EXCESSIVE_BLANK_LINES = Pattern.compile(
         "\\n{3,}"
@@ -46,19 +53,16 @@ public final class ContentSanitizer {
 
         String result = content;
 
-        // Remove CoT / thinking blocks (skip if no match to avoid unnecessary String creation)
-        if (THINKING_BLOCK_PATTERN.matcher(result).find()) {
-            result = THINKING_BLOCK_PATTERN.matcher(result).replaceAll("");
-        }
-
-        // Remove <details> blocks that wrap reasoning
-        if (DETAILS_THINKING_PATTERN.matcher(result).find()) {
-            result = DETAILS_THINKING_PATTERN.matcher(result).replaceAll("");
+        // Remove CoT / thinking blocks in one pass
+        Matcher cotMatcher = COT_BLOCK_PATTERN.matcher(result);
+        if (cotMatcher.find()) {
+            result = cotMatcher.reset().replaceAll("");
         }
 
         // Collapse excessive blank lines
-        if (EXCESSIVE_BLANK_LINES.matcher(result).find()) {
-            result = EXCESSIVE_BLANK_LINES.matcher(result).replaceAll("\n\n");
+        Matcher blankMatcher = EXCESSIVE_BLANK_LINES.matcher(result);
+        if (blankMatcher.find()) {
+            result = blankMatcher.reset().replaceAll("\n\n");
         }
 
         return result.strip();

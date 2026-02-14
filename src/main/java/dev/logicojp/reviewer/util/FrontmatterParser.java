@@ -30,10 +30,12 @@ public final class FrontmatterParser {
 
     /// Parsed result of a frontmatter-enabled file.
     ///
-    /// @param metadata       Top-level key-value pairs from the frontmatter (quotes stripped)
-    /// @param body           The content after the closing `---` delimiter
-    /// @param hasFrontmatter Whether the front-matter delimiters were actually present
-    public record Parsed(Map<String, String> metadata, String body, boolean hasFrontmatter) {
+    /// @param metadata        Top-level key-value pairs from the frontmatter (quotes stripped)
+    /// @param body            The content after the closing `---` delimiter
+    /// @param hasFrontmatter  Whether the front-matter delimiters were actually present
+    /// @param rawFrontmatter  The raw frontmatter text between delimiters (null if no frontmatter)
+    public record Parsed(Map<String, String> metadata, String body, boolean hasFrontmatter,
+                         String rawFrontmatter) {
 
         /// Convenience accessor with a default value.
         public String getOrDefault(String key, String defaultValue) {
@@ -55,19 +57,19 @@ public final class FrontmatterParser {
     /// @return A {@link Parsed} record with separated metadata and body
     public static Parsed parse(String rawContent) {
         if (rawContent == null || !rawContent.startsWith("---")) {
-            return new Parsed(Map.of(), rawContent != null ? rawContent : "", false);
+            return new Parsed(Map.of(), rawContent != null ? rawContent : "", false, null);
         }
 
         Matcher matcher = FRONTMATTER_PATTERN.matcher(rawContent);
         if (!matcher.matches()) {
-            return new Parsed(Map.of(), rawContent, false);
+            return new Parsed(Map.of(), rawContent, false, null);
         }
 
         String frontmatter = matcher.group(1);
         String body = matcher.group(2);
 
         Map<String, String> metadata = parseFields(frontmatter);
-        return new Parsed(Map.copyOf(metadata), body, true);
+        return new Parsed(Map.copyOf(metadata), body, true, frontmatter);
     }
 
     /// Parses a nested block from frontmatter (e.g. `metadata:` section).
@@ -77,10 +79,9 @@ public final class FrontmatterParser {
     /// @return Key-value pairs from the nested block, or empty map if not found
     public static Map<String, String> parseNestedBlock(String frontmatterText, String blockKey) {
         Map<String, String> nested = new HashMap<>();
-        String[] lines = frontmatterText.split("\\n");
         boolean inBlock = false;
 
-        for (String line : lines) {
+        for (String line : frontmatterText.lines().toList()) {
             String trimmed = line.trim();
 
             if (trimmed.equals(blockKey + ":")) {
@@ -131,7 +132,7 @@ public final class FrontmatterParser {
     private static Map<String, String> parseFields(String frontmatter) {
         Map<String, String> fields = new HashMap<>();
 
-        for (String line : frontmatter.split("\\n")) {
+        for (String line : frontmatter.lines().toList()) {
             // Skip blank lines, list items, and indented lines (sub-keys)
             if (line.isBlank() || line.trim().startsWith("-")
                     || line.startsWith(" ") || line.startsWith("\t")) {

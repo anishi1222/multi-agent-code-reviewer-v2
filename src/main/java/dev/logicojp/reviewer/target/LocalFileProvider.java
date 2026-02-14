@@ -11,7 +11,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 /// Collects source files from a local directory for code review.
 ///
@@ -23,11 +27,11 @@ public class LocalFileProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(LocalFileProvider.class);
 
-    /// Maximum file size to include (256 KB)
-    private static final long MAX_FILE_SIZE = 256 * 1024;
+    /// Default maximum file size to include (256 KB) — configurable via LocalFileConfig
+    private final long maxFileSize;
 
-    /// Maximum total content size (2 MB)
-    private static final long MAX_TOTAL_SIZE = 2 * 1024 * 1024;
+    /// Default maximum total content size (2 MB) — configurable via LocalFileConfig
+    private final long maxTotalSize;
 
     /// Directories to skip during file collection
     private static final Set<String> IGNORED_DIRECTORIES = Set.of(
@@ -72,13 +76,16 @@ public class LocalFileProvider {
     /// accidental transmission of credentials to external LLM services.
     private static final Set<String> SENSITIVE_FILE_PATTERNS = Set.of(
         "application-prod", "application-staging", "application-secret",
-        "application-local", "application-dev",
+        "application-local", "application-dev", "application-ci",
         "secrets", "credentials", ".env",
         ".env.local", ".env.production", ".env.development",
+        ".env.staging", ".env.test",
         "service-account", "keystore", "truststore",
         "id_rsa", "id_ed25519", "id_ecdsa",
         ".netrc", ".npmrc", ".pypirc", ".docker/config",
-        "vault-config", "aws-credentials"
+        "vault-config", "aws-credentials",
+        "terraform.tfvars", "kubeconfig", ".kube/config",
+        "htpasswd", "shadow"
     );
 
     /// File extensions indicating potentially sensitive files (certificates, keys).
@@ -95,12 +102,22 @@ public class LocalFileProvider {
     private final Path baseDirectory;
     private final Path realBaseDirectory;
 
-    /// Creates a new LocalFileProvider for the given directory.
+    /// Creates a new LocalFileProvider for the given directory with default limits.
     /// @param baseDirectory The root directory to collect files from
     public LocalFileProvider(Path baseDirectory) {
+        this(baseDirectory, 256 * 1024, 2 * 1024 * 1024);
+    }
+
+    /// Creates a new LocalFileProvider for the given directory with configurable limits.
+    /// @param baseDirectory The root directory to collect files from
+    /// @param maxFileSize Maximum size per file in bytes
+    /// @param maxTotalSize Maximum total content size in bytes
+    public LocalFileProvider(Path baseDirectory, long maxFileSize, long maxTotalSize) {
         if (baseDirectory == null) {
             throw new IllegalArgumentException("Base directory must not be null");
         }
+        this.maxFileSize = maxFileSize;
+        this.maxTotalSize = maxTotalSize;
         this.baseDirectory = baseDirectory.toAbsolutePath().normalize();
         try {
             this.realBaseDirectory = this.baseDirectory.toRealPath();
@@ -138,7 +155,7 @@ public class LocalFileProvider {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                     if (attrs.isRegularFile() && !attrs.isSymbolicLink()
-                            && isWithinBaseDirectory(file)
+                            && isWithinBaseDirectory(file, attrs)
                             && isSourceFile(file)
                             && isNotSensitiveFile(file)) {
                         candidates.add(file);
@@ -151,11 +168,11 @@ public class LocalFileProvider {
             for (Path path : candidates) {
                 try {
                     long size = Files.size(path);
-                    if (size > MAX_FILE_SIZE) {
+                    if (size > maxFileSize) {
                         logger.debug("Skipping large file ({} bytes): {}", size, path);
                         continue;
                     }
-                    if (totalSize + size > MAX_TOTAL_SIZE) {
+                    if (totalSize + size > maxTotalSize) {
                         logger.warn("Total content size limit reached ({} bytes). Stopping collection.", totalSize);
                         break;
                     }
@@ -187,7 +204,7 @@ public class LocalFileProvider {
         }
 
         long estimatedSize = files.stream().mapToLong(LocalFile::sizeBytes).sum();
-        var sb = new StringBuilder((int) Math.min(estimatedSize + files.size() * 30L, MAX_TOTAL_SIZE + 4096));
+        var sb = new StringBuilder((int) Math.min(estimatedSize + files.size() * 30L, maxTotalSize + 4096));
         for (LocalFile file : files) {
             String lang = detectLanguage(file.relativePath());
             sb.append("### ").append(file.relativePath()).append("\n\n");
@@ -245,14 +262,18 @@ public class LocalFileProvider {
     /// Checks if the file's real path is within the base directory.
     /// Prevents symlink-based path traversal attacks.
     /// Uses fast-path normalized check first; falls back to toRealPath() only
-    /// when the path might contain symlinks.
-    private boolean isWithinBaseDirectory(Path path) {
+    /// when the path is a symlink.
+    private boolean isWithinBaseDirectory(Path path, java.nio.file.attribute.BasicFileAttributes attrs) {
         // Fast path: normalized absolute path check (no syscall)
         Path normalized = path.toAbsolutePath().normalize();
         if (!normalized.startsWith(baseDirectory)) {
             return false;
         }
-        // Slow path: only resolve real path for symlink safety
+        // Skip toRealPath() for non-symlink files — no syscall needed
+        if (!attrs.isSymbolicLink()) {
+            return true;
+        }
+        // Slow path: only resolve real path for symlinks
         try {
             Path realPath = path.toRealPath();
             return realPath.startsWith(realBaseDirectory);

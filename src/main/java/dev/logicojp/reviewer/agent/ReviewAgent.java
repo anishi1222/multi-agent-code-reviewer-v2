@@ -16,9 +16,10 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -27,17 +28,18 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ReviewAgent {
     
     private static final Logger logger = LoggerFactory.getLogger(ReviewAgent.class);
+
+    /// Follow-up prompt sent when the primary send returns empty content.
+    /// Used as an in-session retry — much faster than a full retry since MCP context is already loaded.
+    private static final String FOLLOWUP_PROMPT =
+        "Please provide the complete review results in the specified output format.";
     
     private final AgentConfig config;
     private final ReviewContext ctx;
-    private final ScheduledExecutorService idleTimeoutScheduler;
 
     public ReviewAgent(AgentConfig config, ReviewContext ctx) {
         this.config = config;
         this.ctx = ctx;
-        this.idleTimeoutScheduler = Executors.newSingleThreadScheduledExecutor(
-            Thread.ofVirtual().name("idle-timeout-" + config.name(), 0).factory()
-        );
     }
     
     /// Executes the review synchronously on the calling thread with retry support.
@@ -48,8 +50,7 @@ public class ReviewAgent {
         int totalAttempts = ctx.maxRetries() + 1;
         ReviewResult lastResult = null;
         
-        try {
-            for (int attempt = 1; attempt <= totalAttempts; attempt++) {
+        for (int attempt = 1; attempt <= totalAttempts; attempt++) {
             try {
                 lastResult = executeReview(target);
                 
@@ -88,9 +89,6 @@ public class ReviewAgent {
                 }
             }
         }
-        } finally {
-            idleTimeoutScheduler.shutdown();
-        }
         
         return lastResult;
     }
@@ -101,16 +99,21 @@ public class ReviewAgent {
         
         // Prepare target-specific instruction and optional MCP server configuration
         String instruction;
+        String localSourceContent = null;
         Map<String, Object> mcpServers;
         switch (target) {
             case ReviewTarget.LocalTarget(Path directory) -> {
-                LocalFileProvider fileProvider = new LocalFileProvider(directory);
-                var localFiles = fileProvider.collectFiles();
-                String sourceContent = fileProvider.generateReviewContent(localFiles);
-                String directorySummary = fileProvider.generateDirectorySummary(localFiles);
-                logger.info("Collected source files from local directory: {}", directory);
-                logger.debug("Directory summary:\n{}", directorySummary);
-                instruction = config.buildLocalInstruction(target.displayName(), sourceContent);
+                // Use cached source content from ReviewContext (shared across agents)
+                String sourceContent = ctx.cachedSourceContent();
+                if (sourceContent == null) {
+                    // Fallback: compute locally if not cached (shouldn't happen in normal flow)
+                    LocalFileProvider fileProvider = new LocalFileProvider(directory);
+                    var localFiles = fileProvider.collectFiles();
+                    sourceContent = fileProvider.generateReviewContent(localFiles);
+                    logger.debug("Computed source content locally for agent: {}", config.name());
+                }
+                instruction = config.buildLocalInstructionBase(target.displayName());
+                localSourceContent = sourceContent;
                 mcpServers = null;
             }
             case ReviewTarget.GitHubTarget(String repository) -> {
@@ -119,12 +122,13 @@ public class ReviewAgent {
             }
         }
 
-        return executeReviewCommon(target.displayName(), instruction, mcpServers);
+        return executeReviewCommon(target.displayName(), instruction, localSourceContent, mcpServers);
     }
 
     /// Common review execution: configures session, sends instruction, collects result.
     private ReviewResult executeReviewCommon(String displayName,
                                              String instruction,
+                                             String localSourceContent,
                                              Map<String, Object> mcpServers) throws Exception {
         String systemPrompt = buildSystemPromptWithCustomInstruction();
         var sessionConfig = new SessionConfig()
@@ -147,7 +151,7 @@ public class ReviewAgent {
             .get(ctx.timeoutMinutes(), TimeUnit.MINUTES);
 
         try {
-            String content = sendAndCollectContent(session, instruction);
+            String content = sendAndCollectContent(session, instruction, localSourceContent);
 
             if (content == null || content.isBlank()) {
                 String errorMsg = mcpServers != null
@@ -194,21 +198,40 @@ public class ReviewAgent {
     ///
     /// @param session     the active Copilot session
     /// @param instruction the review instruction to send
+    /// @param localSourceContent local source content for local-review targets (nullable)
     /// @return the review content, or null if all strategies failed
-    private String sendAndCollectContent(CopilotSession session, String instruction) throws Exception {
+    private String sendAndCollectContent(CopilotSession session,
+                                         String instruction,
+                                         String localSourceContent) throws Exception {
         long idleTimeoutMs = TimeUnit.MINUTES.toMillis(ctx.idleTimeoutMinutes());
         long maxTimeoutMs = TimeUnit.MINUTES.toMillis(ctx.timeoutMinutes());
 
-        // Primary attempt
-        String content = sendWithActivityTimeout(session, instruction, idleTimeoutMs, maxTimeoutMs);
+        String initialPrompt = instruction;
+        if (localSourceContent != null) {
+            initialPrompt = new StringBuilder(instruction.length() + 64)
+                .append(instruction)
+                .append("\n\n以下は対象ディレクトリのソースコードです。読み込んだらレビューを開始してください。")
+                .toString();
+        }
+
+        String content;
+        if (localSourceContent != null) {
+            sendWithActivityTimeout(session, initialPrompt, idleTimeoutMs, maxTimeoutMs);
+            sendWithActivityTimeout(session, localSourceContent, idleTimeoutMs, maxTimeoutMs);
+            content = sendWithActivityTimeout(session,
+                "ソースコードを読み込んだ内容に基づいて、指定された出力形式でレビュー結果を返してください。",
+                idleTimeoutMs, maxTimeoutMs);
+        } else {
+            content = sendWithActivityTimeout(session, initialPrompt, idleTimeoutMs, maxTimeoutMs);
+        }
+
         if (content != null && !content.isBlank()) {
             return ContentSanitizer.sanitize(content);
         }
 
         // Fallback: In-session follow-up prompt — MCP context is already loaded
         logger.info("Agent {}: primary send returned empty content. Sending follow-up prompt...", config.name());
-        content = sendWithActivityTimeout(session,
-            "Please provide the complete review results in the specified output format.",
+        content = sendWithActivityTimeout(session, FOLLOWUP_PROMPT,
             idleTimeoutMs, maxTimeoutMs);
         if (content != null && !content.isBlank()) {
             logger.info("Agent {}: follow-up prompt produced content ({} chars)", config.name(), content.length());
@@ -230,113 +253,171 @@ public class ReviewAgent {
     ///   Prevents runaway sessions regardless of activity.
     private String sendWithActivityTimeout(CopilotSession session, String prompt,
                                            long idleTimeoutMs, long maxTimeoutMs) throws Exception {
-        var future = new CompletableFuture<String>();
-        var accumulatedContent = new StringBuilder();
-        var lastContent = new AtomicReference<String>(null);
-        var lastActivityTime = new AtomicLong(System.currentTimeMillis());
-        var toolCallCount = new AtomicInteger(0);
-        var messageCount = new AtomicInteger(0);
+        var collector = new ContentCollector(config.name());
+        var subscriptions = registerEventListeners(session, collector);
+        var scheduledTask = scheduleIdleTimeout(collector, idleTimeoutMs);
+        try {
+            logger.debug("Agent {}: sending prompt asynchronously (idle timeout: {} min, max: {} min)",
+                config.name(), ctx.idleTimeoutMinutes(), ctx.timeoutMinutes());
+            session.send(new MessageOptions().setPrompt(prompt));
+            return collector.awaitResult(maxTimeoutMs);
+        } catch (TimeoutException e) {
+            // Max wall-clock timeout hit — try accumulated content before failing
+            String content = collector.getAccumulatedContent();
+            if (!content.isBlank()) {
+                logger.warn("Agent {}: max timeout reached, returning accumulated content ({} chars)",
+                    config.name(), content.length());
+                return content;
+            }
+            throw e;
+        } finally {
+            scheduledTask.cancel(false);
+            subscriptions.closeAll();
+        }
+    }
 
-        // Listen for ALL events to reset idle timer
-        var allEventsSubscription = session.on(event -> {
+    /// Collects content from Copilot session events.
+    /// Tracks both the last event content (preferred) and accumulated content (fallback).
+    /// Accumulation is capped at {@code MAX_ACCUMULATED_SIZE} to prevent OOM.
+    static class ContentCollector {
+        private static final int MAX_ACCUMULATED_SIZE = 4 * 1024 * 1024; // 4MB
+
+        private final CompletableFuture<String> future = new CompletableFuture<>();
+        private final StringBuilder accumulatedContent = new StringBuilder();
+        private final Object contentLock = new Object();
+        private final AtomicReference<String> lastContent = new AtomicReference<>(null);
+        private final AtomicLong lastActivityTime = new AtomicLong(System.currentTimeMillis());
+        private final AtomicInteger toolCallCount = new AtomicInteger(0);
+        private final AtomicInteger messageCount = new AtomicInteger(0);
+        private final String agentName;
+
+        ContentCollector(String agentName) {
+            this.agentName = agentName;
+        }
+
+        void onActivity() {
             lastActivityTime.set(System.currentTimeMillis());
-            logger.trace("Agent {}: event received — {}", config.name(), event.getType());
-        });
+        }
 
-        // Track content from AssistantMessageEvents across multi-turn interactions.
-        // During MCP tool calls, the model produces intermediate "thinking" messages
-        // (e.g. "Let me read the files...") between tool calls. These are NOT part of
-        // the final review output. We track each event's content in lastContent so that
-        // only the FINAL event's content is used, avoiding Chain of Thought leakage.
-        // accumulatedContent is kept as a fallback for timeout scenarios.
-        var messageSubscription = session.on(AssistantMessageEvent.class, event -> {
+        void onMessage(String content, int toolCalls) {
             messageCount.incrementAndGet();
-            var data = event.getData();
-            if (data.getContent() != null && !data.getContent().isBlank()) {
-                lastContent.set(data.getContent());
-                accumulatedContent.append(data.getContent());
+            if (content != null && !content.isBlank()) {
+                lastContent.set(content);
+                synchronized (contentLock) {
+                    if (accumulatedContent.length() + content.length() <= MAX_ACCUMULATED_SIZE) {
+                        accumulatedContent.append(content);
+                    }
+                }
             }
-            if (data.getToolRequests() != null) {
-                toolCallCount.addAndGet(data.getToolRequests().size());
+            if (toolCalls > 0) {
+                toolCallCount.addAndGet(toolCalls);
             }
-        });
+        }
 
-        // SessionIdleEvent signals the agent has finished processing.
-        // Prefer the last event's content (the final review output) over the
-        // accumulated content (which includes intermediate CoT messages).
-        var idleSubscription = session.on(SessionIdleEvent.class, _ -> {
+        void onIdle() {
             if (!future.isDone()) {
                 String last = lastContent.get();
                 if (last != null && !last.isBlank()) {
                     future.complete(last);
                 } else {
-                    // Fallback to accumulated content if the last event had no content
-                    String accumulated = accumulatedContent.toString();
+                    String accumulated;
+                    synchronized (contentLock) {
+                        accumulated = accumulatedContent.toString();
+                    }
                     future.complete(accumulated.isBlank() ? null : accumulated);
                 }
             }
-        });
+        }
 
-        // SessionErrorEvent signals an error
-        var errorSubscription = session.on(SessionErrorEvent.class, event -> {
+        void onError(String message) {
             if (!future.isDone()) {
-                var data = event.getData();
-                String msg = data != null ? data.getMessage() : "session error";
-                future.completeExceptionally(new RuntimeException("Session error: " + msg));
-            }
-        });
-
-        // Activity-based idle timeout: checks periodically if no events have arrived
-        {
-            // Check every 1/4 of idle timeout interval for responsiveness
-            long checkInterval = Math.max(idleTimeoutMs / 4, 5000);
-            var scheduledTask = idleTimeoutScheduler.scheduleAtFixedRate(() -> {
-                if (future.isDone()) return;
-                long elapsed = System.currentTimeMillis() - lastActivityTime.get();
-                if (elapsed >= idleTimeoutMs) {
-                    logger.warn("Agent {}: idle timeout — no events for {} ms ({} messages, {} tool calls)",
-                        config.name(), elapsed, messageCount.get(), toolCallCount.get());
-                    // Complete with accumulated content if available, otherwise timeout
-                    String content = accumulatedContent.toString();
-                    if (!content.isBlank()) {
-                        future.complete(content);
-                    } else {
-                        future.completeExceptionally(new TimeoutException(
-                            "No activity for " + elapsed + "ms (idle timeout: " + idleTimeoutMs + "ms)"));
-                    }
-                }
-            }, checkInterval, checkInterval, TimeUnit.MILLISECONDS);
-
-            try {
-                // Send asynchronously — no internal SDK timeout!
-                logger.debug("Agent {}: sending prompt asynchronously (idle timeout: {} min, max: {} min)",
-                    config.name(), ctx.idleTimeoutMinutes(), ctx.timeoutMinutes());
-                session.send(new MessageOptions().setPrompt(prompt));
-
-                // Wait with maximum wall-clock safety net
-                String result = future.get(maxTimeoutMs, TimeUnit.MILLISECONDS);
-                logger.info("Agent {}: completed ({} chars, {} messages, {} tool calls)",
-                    config.name(),
-                    result != null ? result.length() : 0,
-                    messageCount.get(), toolCallCount.get());
-                return result;
-            } catch (TimeoutException e) {
-                // Max wall-clock timeout hit — try accumulated content before failing
-                String content = accumulatedContent.toString();
-                if (!content.isBlank()) {
-                    logger.warn("Agent {}: max timeout reached, returning accumulated content ({} chars)",
-                        config.name(), content.length());
-                    return content;
-                }
-                throw e;
-            } finally {
-                scheduledTask.cancel(false);
-                allEventsSubscription.close();
-                messageSubscription.close();
-                idleSubscription.close();
-                errorSubscription.close();
+                future.completeExceptionally(new RuntimeException("Session error: " + message));
             }
         }
+
+        void onIdleTimeout(long elapsed, long idleTimeoutMs) {
+            if (future.isDone()) return;
+            logger.warn("Agent {}: idle timeout — no events for {} ms ({} messages, {} tool calls)",
+                agentName, elapsed, messageCount.get(), toolCallCount.get());
+            String content;
+            synchronized (contentLock) {
+                content = accumulatedContent.toString();
+            }
+            if (!content.isBlank()) {
+                future.complete(content);
+            } else {
+                future.completeExceptionally(new TimeoutException(
+                    "No activity for " + elapsed + "ms (idle timeout: " + idleTimeoutMs + "ms)"));
+            }
+        }
+
+        long getElapsedSinceLastActivity() {
+            return System.currentTimeMillis() - lastActivityTime.get();
+        }
+
+        String getAccumulatedContent() {
+            synchronized (contentLock) {
+                return accumulatedContent.toString();
+            }
+        }
+
+        String awaitResult(long maxTimeoutMs) throws Exception {
+            String result = future.get(maxTimeoutMs, TimeUnit.MILLISECONDS);
+            logger.info("Agent {}: completed ({} chars, {} messages, {} tool calls)",
+                agentName,
+                result != null ? result.length() : 0,
+                messageCount.get(), toolCallCount.get());
+            return result;
+        }
+    }
+
+    /// Holds all event subscriptions and provides bulk close.
+    private record EventSubscriptions(
+        AutoCloseable allEvents,
+        AutoCloseable messages,
+        AutoCloseable idle,
+        AutoCloseable error
+    ) {
+        void closeAll() {
+            for (AutoCloseable sub : new AutoCloseable[]{allEvents, messages, idle, error}) {
+                try { sub.close(); } catch (Exception _) {}
+            }
+        }
+    }
+
+    /// Registers event listeners on the session, wiring them to the content collector.
+    private EventSubscriptions registerEventListeners(CopilotSession session, ContentCollector collector) {
+        var allEvents = session.on(event -> {
+            collector.onActivity();
+            logger.trace("Agent {}: event received — {}", config.name(), event.getType());
+        });
+
+        var messages = session.on(AssistantMessageEvent.class, event -> {
+            var data = event.getData();
+            int toolCalls = data.getToolRequests() != null ? data.getToolRequests().size() : 0;
+            collector.onMessage(data.getContent(), toolCalls);
+        });
+
+        var idle = session.on(SessionIdleEvent.class, _ -> collector.onIdle());
+
+        var error = session.on(SessionErrorEvent.class, event -> {
+            var data = event.getData();
+            collector.onError(data != null ? data.getMessage() : "session error");
+        });
+
+        return new EventSubscriptions(allEvents, messages, idle, error);
+    }
+
+    /// Schedules periodic idle-timeout checks using the shared scheduler.
+    private java.util.concurrent.ScheduledFuture<?> scheduleIdleTimeout(
+            ContentCollector collector, long idleTimeoutMs) {
+        long checkInterval = Math.max(idleTimeoutMs / 4, 5000);
+        return ctx.sharedScheduler().scheduleAtFixedRate(() -> {
+            long elapsed = collector.getElapsedSinceLastActivity();
+            if (elapsed >= idleTimeoutMs) {
+                collector.onIdleTimeout(elapsed, idleTimeoutMs);
+            }
+        }, checkInterval, checkInterval, TimeUnit.MILLISECONDS);
     }
 
     /// Builds the system prompt including output constraints and custom instructions.

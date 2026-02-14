@@ -35,48 +35,64 @@ public class CopilotService {
     private static final String CLI_AUTH_CHECK_ENV = "COPILOT_CLI_AUTHCHECK_SECONDS";
     private static final long DEFAULT_CLI_AUTHCHECK_SECONDS = 15;
 
-    private volatile CopilotClient client;
-    private volatile boolean initialized = false;
+    private final Object lock = new Object();
+    private CopilotClient client;
+    private boolean initialized = false;
     
+    /// Initializes the Copilot client, wrapping checked exceptions as RuntimeException.
+    /// Convenience method for callers that cannot handle checked exceptions.
+    public void initializeOrThrow(String githubToken) {
+        try {
+            initialize(githubToken);
+        } catch (ExecutionException e) {
+            throw new RuntimeException("Failed to initialize Copilot service", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed to initialize Copilot service", e);
+        }
+    }
+
     /// Initializes the Copilot client.
-    public synchronized void initialize(String githubToken) throws ExecutionException, InterruptedException {
-        if (!initialized) {
-            logger.info("Initializing Copilot client...");
-            CopilotClientOptions options = new CopilotClientOptions();
-            String cliPath = resolveCliPath();
-            if (cliPath != null && !cliPath.isBlank()) {
-                options.setCliPath(cliPath);
-            }
-            boolean useToken = githubToken != null && !githubToken.isBlank() && !githubToken.equals("${GITHUB_TOKEN}");
-            verifyCliHealthy(cliPath, useToken);
-            if (useToken) {
-                options.setGithubToken(githubToken);
-                options.setUseLoggedInUser(Boolean.FALSE);
-            } else {
-                options.setUseLoggedInUser(Boolean.TRUE);
-            }
-            client = new CopilotClient(options);
-            try {
-                long timeoutSeconds = resolveStartTimeoutSeconds();
-                if (timeoutSeconds > 0) {
-                    client.start().get(timeoutSeconds, TimeUnit.SECONDS);
+    public void initialize(String githubToken) throws ExecutionException, InterruptedException {
+        synchronized (lock) {
+            if (!initialized) {
+                logger.info("Initializing Copilot client...");
+                CopilotClientOptions options = new CopilotClientOptions();
+                String cliPath = resolveCliPath();
+                if (cliPath != null && !cliPath.isBlank()) {
+                    options.setCliPath(cliPath);
+                }
+                boolean useToken = githubToken != null && !githubToken.isBlank() && !githubToken.equals("${GITHUB_TOKEN}");
+                verifyCliHealthy(cliPath, useToken);
+                if (useToken) {
+                    options.setGithubToken(githubToken);
+                    options.setUseLoggedInUser(Boolean.FALSE);
                 } else {
-                    client.start().get();
+                    options.setUseLoggedInUser(Boolean.TRUE);
                 }
-            } catch (ExecutionException e) {
-                Throwable cause = e.getCause();
-                if (cause instanceof TimeoutException) {
-                    throw new ExecutionException(buildProtocolTimeoutMessage(), cause);
+                client = new CopilotClient(options);
+                try {
+                    long timeoutSeconds = resolveStartTimeoutSeconds();
+                    if (timeoutSeconds > 0) {
+                        client.start().get(timeoutSeconds, TimeUnit.SECONDS);
+                    } else {
+                        client.start().get();
+                    }
+                } catch (ExecutionException e) {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof TimeoutException) {
+                        throw new ExecutionException(buildProtocolTimeoutMessage(), cause);
+                    }
+                    if (cause != null) {
+                        throw new ExecutionException("Copilot client start failed: " + cause.getMessage(), cause);
+                    }
+                    throw e;
+                } catch (TimeoutException e) {
+                    throw new ExecutionException(buildClientTimeoutMessage(), e);
                 }
-                if (cause != null) {
-                    throw new ExecutionException("Copilot client start failed: " + cause.getMessage(), cause);
-                }
-                throw e;
-            } catch (TimeoutException e) {
-                throw new ExecutionException(buildClientTimeoutMessage(), e);
+                initialized = true;
+                logger.info("Copilot client initialized");
             }
-            initialized = true;
-            logger.info("Copilot client initialized");
         }
     }
 
@@ -152,7 +168,8 @@ public class CopilotService {
         runCliCommand(List.of(cliPath, "--version"), resolveCliHealthcheckSeconds(),
             "Copilot CLI did not respond within ",
             "Copilot CLI exited with code ",
-            "Failed to execute Copilot CLI: ");
+            "Failed to execute Copilot CLI: ",
+            "Ensure the CLI is installed and authenticated.");
 
         if (tokenProvided) {
             logger.info("GITHUB_TOKEN provided — skipping CLI auth status check");
@@ -160,12 +177,14 @@ public class CopilotService {
             runCliCommand(List.of(cliPath, "auth", "status"), resolveCliAuthcheckSeconds(),
                 "Copilot CLI auth status timed out after ",
                 "Copilot CLI auth status failed with code ",
-                "Failed to execute Copilot CLI auth status: ");
+                "Failed to execute Copilot CLI auth status: ",
+                "Run `github-copilot auth login` to authenticate.");
         }
     }
 
     private void runCliCommand(List<String> command, long timeoutSeconds,
-                               String timeoutMessage, String exitMessage, String ioMessage)
+                               String timeoutMessage, String exitMessage, String ioMessage,
+                               String remediationMessage)
         throws InterruptedException {
         ProcessBuilder builder = new ProcessBuilder(command);
         builder.redirectErrorStream(true);
@@ -185,17 +204,12 @@ public class CopilotService {
                 process.destroyForcibly();
                 drainFuture.cancel(true);
                 throw new CopilotCliException(timeoutMessage + timeoutSeconds + "s. "
-                    + "Ensure the CLI is installed and authenticated.");
+                    + remediationMessage);
             }
             drainFuture.join();
             if (process.exitValue() != 0) {
                 String baseMessage = exitMessage + process.exitValue() + ". ";
-                if (command.size() >= 3 && "auth".equals(command.get(1)) && "status".equals(command.get(2))) {
-                    throw new CopilotCliException(baseMessage
-                        + "Run `github-copilot auth login` to authenticate.");
-                }
-                throw new CopilotCliException(baseMessage
-                    + "Ensure the CLI is installed and authenticated.");
+                throw new CopilotCliException(baseMessage + remediationMessage);
             }
         } catch (IOException e) {
             throw new CopilotCliException(ioMessage + e.getMessage(), e);
@@ -241,32 +255,37 @@ public class CopilotService {
     /// Gets the Copilot client. Must call initialize() first.
     /// @return The initialized CopilotClient
     /// @throws IllegalStateException if not initialized
-    public synchronized CopilotClient getClient() {
-        if (!initialized || client == null) {
-            throw new IllegalStateException("CopilotService not initialized. Call initialize() first.");
+    public CopilotClient getClient() {
+        synchronized (lock) {
+            if (!initialized || client == null) {
+                throw new IllegalStateException("CopilotService not initialized. Call initialize() first.");
+            }
+            return client;
         }
-        return client;
     }
     
     /// Checks if the service is initialized.
-    /// Uses synchronized to maintain consistency with initialize/getClient/shutdown.
-    public synchronized boolean isInitialized() {
-        return initialized;
+    public boolean isInitialized() {
+        synchronized (lock) {
+            return initialized;
+        }
     }
     
     /// Shuts down the Copilot client.
     @PreDestroy
-    public synchronized void shutdown() {
-        if (client != null) {
-            try {
-                logger.info("Shutting down Copilot client...");
-                client.close();
-                logger.info("Copilot client shut down");
-            } catch (Exception e) {
-                logger.warn("Error shutting down Copilot client: {}", e.getMessage());
-            } finally {
-                client = null;
-                initialized = false;
+    public void shutdown() {
+        synchronized (lock) {
+            if (client != null) {
+                try {
+                    logger.info("Shutting down Copilot client...");
+                    client.close();
+                    logger.info("Copilot client shut down");
+                } catch (Exception e) {
+                    logger.warn("Error shutting down Copilot client: {}", e.getMessage());
+                } finally {
+                    client = null;
+                    initialized = false;
+                }
             }
         }
     }

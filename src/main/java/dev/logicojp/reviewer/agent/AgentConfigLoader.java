@@ -7,8 +7,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 /// Loads agent configurations from external files.
@@ -36,13 +43,20 @@ public class AgentConfigLoader {
     /// Creates a loader with multiple agent directories and default skill settings.
     /// Directories are searched in order; later directories override earlier ones.
     public AgentConfigLoader(List<Path> agentDirectories) {
-        this(agentDirectories, new SkillConfig(null, null));
+        this(agentDirectories, new SkillConfig(null, null), null);
     }
 
     /// Creates a loader with multiple agent directories and skill configuration.
     public AgentConfigLoader(List<Path> agentDirectories, SkillConfig skillConfig) {
-        this.agentDirectories = new ArrayList<>(agentDirectories);
-        this.markdownParser = new AgentMarkdownParser();
+        this(agentDirectories, skillConfig, null);
+    }
+
+    /// Creates a loader with multiple agent directories, skill configuration,
+    /// and a default output format loaded from an external template.
+    public AgentConfigLoader(List<Path> agentDirectories, SkillConfig skillConfig,
+                             String defaultOutputFormat) {
+        this.agentDirectories = List.copyOf(agentDirectories);
+        this.markdownParser = new AgentMarkdownParser(defaultOutputFormat);
         this.skillParser = new SkillMarkdownParser(skillConfig.filename());
         this.skillsDirectory = skillConfig.directory();
     }
@@ -205,6 +219,6 @@ public class AgentConfigLoader {
     
     /// Gets the list of configured agent directories.
     public List<Path> getAgentDirectories() {
-        return Collections.unmodifiableList(agentDirectories);
+        return agentDirectories;  // already immutable via List.copyOf()
     }
 }

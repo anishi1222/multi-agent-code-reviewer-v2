@@ -37,7 +37,7 @@ public final class AgentConfigValidator {
         if (config.name() == null || config.name().isBlank()) missing.add("name");
         if (config.systemPrompt() == null || config.systemPrompt().isBlank()) missing.add("systemPrompt");
         if (config.instruction() == null || config.instruction().isBlank()) missing.add("instruction");
-        if (config.outputFormat() == null || config.outputFormat().isBlank()) missing.add("outputFormat");
+        // outputFormat may be null when loaded from an external template at runtime
         if (missing.length() > 0) {
             throw new IllegalArgumentException("Missing required agent fields: " + missing);
         }

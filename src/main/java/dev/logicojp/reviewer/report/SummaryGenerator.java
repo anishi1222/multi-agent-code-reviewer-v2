@@ -7,7 +7,9 @@ import dev.logicojp.reviewer.service.TemplateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import dev.logicojp.reviewer.service.CopilotCliException;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
@@ -15,7 +17,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /// Generates executive summary by aggregating all agent review results.
 /// All prompt/template content is loaded from external templates via {@link TemplateService}.
@@ -50,7 +54,7 @@ public class SummaryGenerator {
     /// @param results List of review results from all agents
     /// @param repository The repository that was reviewed
     /// @return Path to the generated summary file
-    public Path generateSummary(List<ReviewResult> results, String repository) throws Exception {
+    public Path generateSummary(List<ReviewResult> results, String repository) throws IOException {
         ensureOutputDirectory();
         
         String filename = "executive_summary_%s.md".formatted(
@@ -70,7 +74,7 @@ public class SummaryGenerator {
         return summaryPath;
     }
     
-    private String buildSummaryWithAI(List<ReviewResult> results, String repository) throws Exception {
+    private String buildSummaryWithAI(List<ReviewResult> results, String repository) {
         // Create a new session for summary generation
         logger.info("Using model for summary: {}", summaryModel);
         String systemPrompt = templateService.getSummarySystemPrompt();
@@ -88,8 +92,17 @@ public class SummaryGenerator {
             sessionConfig.setReasoningEffort(effort);
         }
 
-        var session = client.createSession(sessionConfig
-        ).get(timeoutMinutes, TimeUnit.MINUTES);
+        CopilotSession session;
+        try {
+            session = client.createSession(sessionConfig)
+                .get(timeoutMinutes, TimeUnit.MINUTES);
+        } catch (ExecutionException | TimeoutException e) {
+            logger.error("Failed to create summary session: {}", e.getMessage());
+            return buildFallbackSummary(results);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CopilotCliException("Summary session creation interrupted", e);
+        }
         long timeoutMs = TimeUnit.MINUTES.toMillis(timeoutMinutes);
         
         try {
@@ -105,9 +118,15 @@ public class SummaryGenerator {
                 return buildFallbackSummary(results);
             }
             return content;
-        } catch (java.util.concurrent.TimeoutException ex) {
+        } catch (TimeoutException ex) {
             logger.error("Summary generation timed out: {}", ex.getMessage());
             return buildFallbackSummary(results);
+        } catch (ExecutionException ex) {
+            logger.error("Summary generation failed: {}", ex.getMessage());
+            return buildFallbackSummary(results);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new CopilotCliException("Summary generation interrupted", ex);
         } finally {
             session.close();
         }
@@ -147,8 +166,12 @@ public class SummaryGenerator {
     }
     
     private String buildSummaryPrompt(List<ReviewResult> results, String repository) {
-        // Build results section using templates
-        var resultsSection = new StringBuilder();
+        // Build results section using templates — estimate capacity to avoid re-allocation
+        long estimatedSize = results.stream()
+            .filter(ReviewResult::isSuccess)
+            .mapToLong(r -> r.content() != null ? r.content().length() + 200 : 200)
+            .sum();
+        var resultsSection = new StringBuilder((int) Math.min(estimatedSize, 4_000_000));
         for (ReviewResult result : results) {
             if (result.isSuccess()) {
                 var entryPlaceholders = Map.of(

@@ -3,58 +3,81 @@ package dev.logicojp.reviewer.config;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.core.annotation.Nullable;
 
-/// Configuration for template paths (summary system prompt, user prompt, etc.).
+/// Configuration for template paths.
+/// Uses Micronaut's nested `@ConfigurationProperties` for logical grouping.
 @ConfigurationProperties("reviewer.templates")
 public record TemplateConfig(
     @Nullable String directory,
-    @Nullable String summarySystemPrompt,
-    @Nullable String summaryUserPrompt,
     @Nullable String defaultOutputFormat,
     @Nullable String report,
-    @Nullable String executiveSummary,
-    @Nullable String fallbackSummary,
     @Nullable String localReviewContent,
-    @Nullable String summaryResultEntry,
-    @Nullable String summaryResultErrorEntry,
-    @Nullable String fallbackAgentRow,
-    @Nullable String fallbackAgentSuccess,
-    @Nullable String fallbackAgentFailure,
+    @Nullable String outputConstraints,
     @Nullable String reportLinkEntry,
-    @Nullable String outputConstraints
+    @Nullable SummaryTemplates summary,
+    @Nullable FallbackTemplates fallback
 ) {
 
     private static final String DEFAULT_DIRECTORY = "templates";
-    private static final String DEFAULT_SUMMARY_SYSTEM = "summary-system.md";
-    private static final String DEFAULT_SUMMARY_USER = "summary-prompt.md";
     private static final String DEFAULT_OUTPUT_FORMAT = "default-output-format.md";
     private static final String DEFAULT_REPORT = "report.md";
-    private static final String DEFAULT_EXECUTIVE_SUMMARY = "executive-summary.md";
-    private static final String DEFAULT_FALLBACK_SUMMARY = "fallback-summary.md";
     private static final String DEFAULT_LOCAL_REVIEW_CONTENT = "local-review-content.md";
-    private static final String DEFAULT_SUMMARY_RESULT_ENTRY = "summary-result-entry.md";
-    private static final String DEFAULT_SUMMARY_RESULT_ERROR_ENTRY = "summary-result-error-entry.md";
-    private static final String DEFAULT_FALLBACK_AGENT_ROW = "fallback-agent-row.md";
-    private static final String DEFAULT_FALLBACK_AGENT_SUCCESS = "fallback-agent-success.md";
-    private static final String DEFAULT_FALLBACK_AGENT_FAILURE = "fallback-agent-failure.md";
-    private static final String DEFAULT_REPORT_LINK_ENTRY = "report-link-entry.md";
     private static final String DEFAULT_OUTPUT_CONSTRAINTS = "output-constraints.md";
+    private static final String DEFAULT_REPORT_LINK_ENTRY = "report-link-entry.md";
 
     public TemplateConfig {
         directory = defaultIfBlank(directory, DEFAULT_DIRECTORY);
-        summarySystemPrompt = defaultIfBlank(summarySystemPrompt, DEFAULT_SUMMARY_SYSTEM);
-        summaryUserPrompt = defaultIfBlank(summaryUserPrompt, DEFAULT_SUMMARY_USER);
         defaultOutputFormat = defaultIfBlank(defaultOutputFormat, DEFAULT_OUTPUT_FORMAT);
         report = defaultIfBlank(report, DEFAULT_REPORT);
-        executiveSummary = defaultIfBlank(executiveSummary, DEFAULT_EXECUTIVE_SUMMARY);
-        fallbackSummary = defaultIfBlank(fallbackSummary, DEFAULT_FALLBACK_SUMMARY);
         localReviewContent = defaultIfBlank(localReviewContent, DEFAULT_LOCAL_REVIEW_CONTENT);
-        summaryResultEntry = defaultIfBlank(summaryResultEntry, DEFAULT_SUMMARY_RESULT_ENTRY);
-        summaryResultErrorEntry = defaultIfBlank(summaryResultErrorEntry, DEFAULT_SUMMARY_RESULT_ERROR_ENTRY);
-        fallbackAgentRow = defaultIfBlank(fallbackAgentRow, DEFAULT_FALLBACK_AGENT_ROW);
-        fallbackAgentSuccess = defaultIfBlank(fallbackAgentSuccess, DEFAULT_FALLBACK_AGENT_SUCCESS);
-        fallbackAgentFailure = defaultIfBlank(fallbackAgentFailure, DEFAULT_FALLBACK_AGENT_FAILURE);
-        reportLinkEntry = defaultIfBlank(reportLinkEntry, DEFAULT_REPORT_LINK_ENTRY);
         outputConstraints = defaultIfBlank(outputConstraints, DEFAULT_OUTPUT_CONSTRAINTS);
+        reportLinkEntry = defaultIfBlank(reportLinkEntry, DEFAULT_REPORT_LINK_ENTRY);
+        summary = summary != null ? summary : new SummaryTemplates(null, null, null, null, null);
+        fallback = fallback != null ? fallback : new FallbackTemplates(null, null, null, null);
+    }
+
+    /// Summary-related template configuration.
+    @ConfigurationProperties("summary")
+    public record SummaryTemplates(
+        @Nullable String systemPrompt,
+        @Nullable String userPrompt,
+        @Nullable String executiveSummary,
+        @Nullable String resultEntry,
+        @Nullable String resultErrorEntry
+    ) {
+        private static final String DEFAULT_SYSTEM = "summary-system.md";
+        private static final String DEFAULT_USER = "summary-prompt.md";
+        private static final String DEFAULT_EXECUTIVE_SUMMARY = "executive-summary.md";
+        private static final String DEFAULT_RESULT_ENTRY = "summary-result-entry.md";
+        private static final String DEFAULT_RESULT_ERROR_ENTRY = "summary-result-error-entry.md";
+
+        public SummaryTemplates {
+            systemPrompt = defaultIfBlank(systemPrompt, DEFAULT_SYSTEM);
+            userPrompt = defaultIfBlank(userPrompt, DEFAULT_USER);
+            executiveSummary = defaultIfBlank(executiveSummary, DEFAULT_EXECUTIVE_SUMMARY);
+            resultEntry = defaultIfBlank(resultEntry, DEFAULT_RESULT_ENTRY);
+            resultErrorEntry = defaultIfBlank(resultErrorEntry, DEFAULT_RESULT_ERROR_ENTRY);
+        }
+    }
+
+    /// Fallback template configuration (used when AI summary generation fails).
+    @ConfigurationProperties("fallback")
+    public record FallbackTemplates(
+        @Nullable String summary,
+        @Nullable String agentRow,
+        @Nullable String agentSuccess,
+        @Nullable String agentFailure
+    ) {
+        private static final String DEFAULT_SUMMARY = "fallback-summary.md";
+        private static final String DEFAULT_AGENT_ROW = "fallback-agent-row.md";
+        private static final String DEFAULT_AGENT_SUCCESS = "fallback-agent-success.md";
+        private static final String DEFAULT_AGENT_FAILURE = "fallback-agent-failure.md";
+
+        public FallbackTemplates {
+            summary = defaultIfBlank(summary, DEFAULT_SUMMARY);
+            agentRow = defaultIfBlank(agentRow, DEFAULT_AGENT_ROW);
+            agentSuccess = defaultIfBlank(agentSuccess, DEFAULT_AGENT_SUCCESS);
+            agentFailure = defaultIfBlank(agentFailure, DEFAULT_AGENT_FAILURE);
+        }
     }
 
     private static String defaultIfBlank(String value, String defaultValue) {

@@ -72,13 +72,6 @@ public class SkillService {
         return skillRegistry.get(skillId);
     }
 
-    /// Lists all available skill IDs.
-    public List<String> listSkills() {
-        return skillRegistry.getAll().stream()
-            .map(SkillDefinition::id)
-            .toList();
-    }
-
     /// Executes a skill by ID with the given parameters.
     public CompletableFuture<SkillResult> executeSkill(String skillId,
                                                         Map<String, String> parameters,

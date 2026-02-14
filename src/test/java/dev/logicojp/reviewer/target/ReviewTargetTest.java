@@ -45,6 +45,14 @@ class ReviewTargetTest {
         }
 
         @Test
+        @DisplayName("owner/repo形式でないリポジトリはIllegalArgumentExceptionをスローする")
+        void gitHubRejectsInvalidFormat() {
+            assertThatThrownBy(() -> ReviewTarget.gitHub("invalid-repo"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid repository format");
+        }
+
+        @Test
         @DisplayName("nullディレクトリはIllegalArgumentExceptionをスローする")
         void localRejectsNull() {
             assertThatThrownBy(() -> ReviewTarget.local(null))
@@ -127,8 +135,7 @@ class ReviewTargetTest {
         @Test
         @DisplayName("パストラバーサル文字を含むリポジトリ名は拒否される")
         void rejectsPathTraversal() {
-            ReviewTarget target = ReviewTarget.gitHub("../../tmp/malicious");
-            assertThatThrownBy(target::repositorySubPath)
+            assertThatThrownBy(() -> ReviewTarget.gitHub("../../tmp/malicious"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid repository format");
         }
@@ -136,8 +143,7 @@ class ReviewTargetTest {
         @Test
         @DisplayName("絶対パスで始まるリポジトリ名は拒否される")
         void rejectsAbsolutePath() {
-            ReviewTarget target = ReviewTarget.gitHub("/etc/passwd");
-            assertThatThrownBy(target::repositorySubPath)
+            assertThatThrownBy(() -> ReviewTarget.gitHub("/etc/passwd"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid repository format");
         }

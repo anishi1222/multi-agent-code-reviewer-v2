@@ -1,13 +1,10 @@
-package dev.logicojp.reviewer;
+package dev.logicojp.reviewer.cli;
 
-import dev.logicojp.reviewer.cli.CliParsing;
-import dev.logicojp.reviewer.cli.CliUsage;
-import dev.logicojp.reviewer.cli.CliValidationException;
-import dev.logicojp.reviewer.cli.CommandExecutor;
-import dev.logicojp.reviewer.cli.ExitCodes;
 import dev.logicojp.reviewer.service.AgentService;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -22,7 +19,7 @@ import java.util.Optional;
 @Singleton
 public class ListAgentsCommand {
 
-    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ListAgentsCommand.class);
+    private static final Logger logger = LoggerFactory.getLogger(ListAgentsCommand.class);
 
     private final AgentService agentService;
 

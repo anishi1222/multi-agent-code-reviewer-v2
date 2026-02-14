@@ -7,6 +7,7 @@ import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.report.ReviewResult;
+import dev.logicojp.reviewer.target.LocalFileProvider;
 import dev.logicojp.reviewer.target.ReviewTarget;
 import dev.logicojp.reviewer.util.ExecutorUtils;
 import dev.logicojp.reviewer.util.FeatureFlags;
@@ -15,6 +16,7 @@ import com.github.copilot.sdk.CopilotClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -23,19 +25,18 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /// Orchestrates parallel execution of multiple review agents.
-public class ReviewOrchestrator {
+public class ReviewOrchestrator implements AutoCloseable {
     
     private static final Logger logger = LoggerFactory.getLogger(ReviewOrchestrator.class);
     
     private final CopilotClient client;
-    private final String githubToken;
-    private final GithubMcpConfig githubMcpConfig;
     private final ExecutionConfig executionConfig;
     private final Semaphore concurrencyLimit;
     private final List<CustomInstruction> customInstructions;
@@ -44,6 +45,10 @@ public class ReviewOrchestrator {
     private final boolean structuredConcurrencyEnabled;
     /// Initialized in constructor — null when Structured Concurrency mode is active.
     private final ExecutorService executorService;
+    /// Shared scheduler for idle-timeout handling across all agents.
+    private final ScheduledExecutorService sharedScheduler;
+    /// Cached MCP server map — built once and shared across all agent contexts.
+    private final Map<String, Object> cachedMcpServers;
 
     public ReviewOrchestrator(CopilotClient client,
                               String githubToken,
@@ -53,8 +58,6 @@ public class ReviewOrchestrator {
                               String reasoningEffort,
                               String outputConstraints) {
         this.client = client;
-        this.githubToken = githubToken;
-        this.githubMcpConfig = githubMcpConfig;
         this.executionConfig = executionConfig;
         // Limit concurrent agent executions via --parallelism
         this.concurrencyLimit = new Semaphore(executionConfig.parallelism());
@@ -65,6 +68,9 @@ public class ReviewOrchestrator {
         this.executorService = this.structuredConcurrencyEnabled
             ? null
             : Executors.newVirtualThreadPerTaskExecutor();
+        this.sharedScheduler = Executors.newSingleThreadScheduledExecutor(
+            Thread.ofVirtual().name("idle-timeout-shared", 0).factory());
+        this.cachedMcpServers = GithubMcpConfig.buildMcpServers(githubToken, githubMcpConfig);
         
         logger.info("Parallelism set to {}", executionConfig.parallelism());
         if (!this.customInstructions.isEmpty()) {
@@ -74,11 +80,12 @@ public class ReviewOrchestrator {
     
     /// Executes a single agent with semaphore control and error handling.
     /// Shared by both virtual thread and structured concurrency execution modes.
-    private ReviewResult executeAgentSafely(AgentConfig config, ReviewTarget target) {
+    private ReviewResult executeAgentSafely(AgentConfig config, ReviewTarget target,
+                                            String cachedSourceContent) {
         try {
             concurrencyLimit.acquire();
             try {
-                var context = createContext();
+                var context = createContext(cachedSourceContent);
                 var agent = new ReviewAgent(config, context);
                 return agent.review(target);
             } finally {
@@ -114,8 +121,20 @@ public class ReviewOrchestrator {
         logger.info("Starting parallel review for {} agents on target: {}", 
             agents.size(), target.displayName());
 
+        // Pre-compute source content once for local targets (shared across all agents)
+        String cachedSourceContent = null;
+        if (target instanceof ReviewTarget.LocalTarget(Path directory)) {
+            logger.info("Pre-computing source content for local directory: {}", directory);
+            var fileProvider = new LocalFileProvider(directory);
+            var localFiles = fileProvider.collectFiles();
+            cachedSourceContent = fileProvider.generateReviewContent(localFiles);
+            String directorySummary = fileProvider.generateDirectorySummary(localFiles);
+            logger.info("Collected {} source files from local directory", localFiles.size());
+            logger.debug("Directory summary:\n{}", directorySummary);
+        }
+
         if (structuredConcurrencyEnabled) {
-            return executeReviewsStructured(agents, target);
+            return executeReviewsStructured(agents, target, cachedSourceContent);
         }
         
         List<CompletableFuture<ReviewResult>> futures = new ArrayList<>(agents.size());
@@ -125,14 +144,15 @@ public class ReviewOrchestrator {
             * (executionConfig.maxRetries() + 1L);
 
         ExecutorService executor = executorService;
+        final String sourceContent = cachedSourceContent;
         
         for (var config : agents.values()) {
             CompletableFuture<ReviewResult> future = CompletableFuture
-                .supplyAsync(() -> executeAgentSafely(config, target), executor)
+                .supplyAsync(() -> executeAgentSafely(config, target, sourceContent), executor)
                 .orTimeout(perAgentTimeoutMinutes, TimeUnit.MINUTES)
                 .exceptionally(ex -> {
-                    logger.error("Agent {} failed with timeout or error: {}", 
-                        config.name(), ex.getMessage());
+                    logger.error("Agent {} failed with timeout or error: {}",
+                        config.name(), ex.getMessage(), ex);
                     return ReviewResult.builder()
                         .agentConfig(config)
                         .repository(target.displayName())
@@ -151,7 +171,7 @@ public class ReviewOrchestrator {
         try {
             allFutures.get(timeoutMinutes + 1, TimeUnit.MINUTES);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error("Error waiting for reviews to complete: {}", e.getMessage());
+            logger.error("Error waiting for reviews to complete: {}", e.getMessage(), e);
         }
         
         // Collect results
@@ -160,14 +180,16 @@ public class ReviewOrchestrator {
             try {
                 results.add(future.getNow(null));
             } catch (Exception e) {
-                logger.error("Error collecting review result: {}", e.getMessage());
+                logger.error("Error collecting review result: {}", e.getMessage(), e);
             }
         }
         
         return collectAndLogResults(results);
     }
 
-    private List<ReviewResult> executeReviewsStructured(Map<String, AgentConfig> agents, ReviewTarget target) {
+    private List<ReviewResult> executeReviewsStructured(Map<String, AgentConfig> agents,
+                                                        ReviewTarget target,
+                                                        String cachedSourceContent) {
         long timeoutMinutes = executionConfig.orchestratorTimeoutMinutes();
         long perAgentTimeoutMinutes = executionConfig.agentTimeoutMinutes()
             * (executionConfig.maxRetries() + 1L);
@@ -175,7 +197,7 @@ public class ReviewOrchestrator {
         List<StructuredTaskScope.Subtask<ReviewResult>> tasks = new ArrayList<>(agents.size());
         try (var scope = StructuredTaskScope.<ReviewResult>open()) {
             for (var config : agents.values()) {
-                tasks.add(scope.fork(() -> executeAgentSafely(config, target)));
+                tasks.add(scope.fork(() -> executeAgentSafely(config, target, cachedSourceContent)));
             }
 
             try {
@@ -221,15 +243,25 @@ public class ReviewOrchestrator {
         };
     }
     
-    private ReviewContext createContext() {
-        return new ReviewContext(client, githubToken, githubMcpConfig,
-            executionConfig.agentTimeoutMinutes(), executionConfig.idleTimeoutMinutes(),
-            customInstructions, reasoningEffort,
-            executionConfig.maxRetries(), outputConstraints);
+    private ReviewContext createContext(String cachedSourceContent) {
+        return ReviewContext.builder()
+            .client(client)
+            .timeoutMinutes(executionConfig.agentTimeoutMinutes())
+            .idleTimeoutMinutes(executionConfig.idleTimeoutMinutes())
+            .customInstructions(customInstructions)
+            .reasoningEffort(reasoningEffort)
+            .maxRetries(executionConfig.maxRetries())
+            .outputConstraints(outputConstraints)
+            .cachedMcpServers(cachedMcpServers)
+            .cachedSourceContent(cachedSourceContent)
+            .sharedScheduler(sharedScheduler)
+            .build();
     }
 
-    /// Shuts down the executor service.
-    public void shutdown() {
+    /// Closes executor resources.
+    @Override
+    public void close() {
         ExecutorUtils.shutdownGracefully(executorService, 60);
+        ExecutorUtils.shutdownGracefully(sharedScheduler, 10);
     }
 }

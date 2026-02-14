@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.report;
 
 import dev.logicojp.reviewer.agent.AgentConfig;
+import io.micronaut.core.annotation.Nullable;
 
 import java.time.LocalDateTime;
 
@@ -8,10 +9,10 @@ import java.time.LocalDateTime;
 public record ReviewResult(
     AgentConfig agentConfig,
     String repository,
-    String content,
+    @Nullable String content,
     LocalDateTime timestamp,
     boolean success,
-    String errorMessage
+    @Nullable String errorMessage
 ) {
 
     public ReviewResult {

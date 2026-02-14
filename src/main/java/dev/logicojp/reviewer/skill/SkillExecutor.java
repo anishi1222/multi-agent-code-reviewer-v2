@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
@@ -22,30 +23,36 @@ public class SkillExecutor {
     private static final Logger logger = LoggerFactory.getLogger(SkillExecutor.class);
 
     private final CopilotClient client;
-    private final String githubToken;
-    private final GithubMcpConfig githubMcpConfig;
     private final String defaultModel;
     private final long timeoutMinutes;
     private final Executor executor;
+    private final boolean ownsExecutor;
     private final boolean structuredConcurrencyEnabled;
+    private final Map<String, Object> cachedMcpServers;
 
     public SkillExecutor(CopilotClient client, String githubToken,
                          GithubMcpConfig githubMcpConfig, String defaultModel,
                          long timeoutMinutes) {
         this(client, githubToken, githubMcpConfig, defaultModel, timeoutMinutes,
-             Executors.newVirtualThreadPerTaskExecutor());
+            Executors.newVirtualThreadPerTaskExecutor(), true);
     }
 
     public SkillExecutor(CopilotClient client, String githubToken,
                          GithubMcpConfig githubMcpConfig, String defaultModel,
                          long timeoutMinutes, Executor executor) {
+        this(client, githubToken, githubMcpConfig, defaultModel, timeoutMinutes, executor, false);
+    }
+
+    private SkillExecutor(CopilotClient client, String githubToken,
+                          GithubMcpConfig githubMcpConfig, String defaultModel,
+                          long timeoutMinutes, Executor executor, boolean ownsExecutor) {
         this.client = client;
-        this.githubToken = githubToken;
-        this.githubMcpConfig = githubMcpConfig;
         this.defaultModel = defaultModel;
         this.timeoutMinutes = timeoutMinutes;
         this.executor = executor;
+        this.ownsExecutor = ownsExecutor;
         this.structuredConcurrencyEnabled = isStructuredConcurrencyEnabledForSkills();
+        this.cachedMcpServers = GithubMcpConfig.buildMcpServers(githubToken, githubMcpConfig);
     }
 
     /// Executes a skill with the given parameters.
@@ -108,13 +115,13 @@ public class SkillExecutor {
         // Build the prompt with parameter substitution
         String prompt = skill.buildPrompt(parameters);
 
-        // Configure GitHub MCP server for repository access
-        Map<String, Object> githubMcp = githubMcpConfig.toMcpServer(githubToken);
-
         // Create session with skill configuration
         var sessionConfigBuilder = new SessionConfig()
-            .setModel(defaultModel)
-            .setMcpServers(Map.of("github", githubMcp));
+            .setModel(defaultModel);
+
+        if (cachedMcpServers != null) {
+            sessionConfigBuilder.setMcpServers(cachedMcpServers);
+        }
 
         if (systemPrompt != null && !systemPrompt.isBlank()) {
             sessionConfigBuilder.setSystemMessage(new SystemMessageConfig()
@@ -152,5 +159,12 @@ public class SkillExecutor {
 
     private boolean isStructuredConcurrencyEnabledForSkills() {
         return FeatureFlags.isStructuredConcurrencyEnabledForSkills();
+    }
+
+    /// Shuts down the internally-owned executor, if any.
+    public void shutdown() {
+        if (ownsExecutor && executor instanceof ExecutorService es) {
+            dev.logicojp.reviewer.util.ExecutorUtils.shutdownGracefully(es, 30);
+        }
     }
 }

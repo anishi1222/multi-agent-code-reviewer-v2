@@ -22,20 +22,24 @@ class TemplateServiceTest {
     private TemplateConfig createConfig() {
         return new TemplateConfig(
             tempDir.toString(),
-            "summary-system.md",
-            "summary-prompt.md",
             "default-output-format.md",
             "report.md",
-            "executive-summary.md",
-            "fallback-summary.md",
             "local-review-content.md",
-            "summary-result-entry.md",
-            "summary-result-error-entry.md",
-            "fallback-agent-row.md",
-            "fallback-agent-success.md",
-            "fallback-agent-failure.md",
+            "output-constraints.md",
             "report-link-entry.md",
-            "output-constraints.md"
+            new TemplateConfig.SummaryTemplates(
+                "summary-system.md",
+                "summary-prompt.md",
+                "executive-summary.md",
+                "summary-result-entry.md",
+                "summary-result-error-entry.md"
+            ),
+            new TemplateConfig.FallbackTemplates(
+                "fallback-summary.md",
+                "fallback-agent-row.md",
+                "fallback-agent-success.md",
+                "fallback-agent-failure.md"
+            )
         );
     }
 

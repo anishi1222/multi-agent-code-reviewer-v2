@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 public final class CliParsing {
     public record OptionValue(String value, int newIndex) {
@@ -52,6 +53,20 @@ public final class CliParsing {
             throw new CliValidationException("Option requires at least one value: " + optionName, true);
         }
         return new MultiValue(values, newIndex);
+    }
+
+    public static int readInto(String[] args, int i, String optName, Consumer<String> setter) {
+        OptionValue value = readSingleValue(optName, args, i, optName);
+        setter.accept(value.value());
+        return value.newIndex();
+    }
+
+    public static int readMultiInto(String[] args, int i, String optName, Consumer<String> setter) {
+        MultiValue values = readMultiValues(optName, args, i, optName);
+        for (String value : values.values()) {
+            setter.accept(value);
+        }
+        return values.newIndex();
     }
 
     public static List<String> splitComma(String value) {

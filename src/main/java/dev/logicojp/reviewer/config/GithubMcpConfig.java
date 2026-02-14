@@ -53,6 +53,15 @@ public record GithubMcpConfig(
         }
     }
 
+    /// Builds MCP server map from a token and config, or returns null if inputs are invalid.
+    /// Centralizes the null/blank check logic for reuse across the codebase.
+    public static Map<String, Object> buildMcpServers(String githubToken, GithubMcpConfig config) {
+        if (githubToken != null && !githubToken.isBlank() && config != null) {
+            return Map.of("github", config.toMcpServer(githubToken));
+        }
+        return null;
+    }
+
     /// Builds a type-safe MCP server configuration, then converts to Map for SDK compatibility.
     public Map<String, Object> toMcpServer(String token) {
         Map<String, String> combinedHeaders = new HashMap<>(headers);

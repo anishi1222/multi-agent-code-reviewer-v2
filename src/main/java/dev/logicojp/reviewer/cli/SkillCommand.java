@@ -1,11 +1,6 @@
-package dev.logicojp.reviewer;
+package dev.logicojp.reviewer.cli;
 
 import dev.logicojp.reviewer.agent.AgentConfig;
-import dev.logicojp.reviewer.cli.CliParsing;
-import dev.logicojp.reviewer.cli.CliUsage;
-import dev.logicojp.reviewer.cli.CliValidationException;
-import dev.logicojp.reviewer.cli.CommandExecutor;
-import dev.logicojp.reviewer.cli.ExitCodes;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.ModelConfig;
 import dev.logicojp.reviewer.service.AgentService;
@@ -78,61 +73,64 @@ public class SkillCommand {
 
     private Optional<ParsedOptions> parseArgs(String[] args) {
         args = Objects.requireNonNullElse(args, new String[0]);
-
-        String skillId = null;
-        List<String> paramStrings = new ArrayList<>();
-        String githubToken = null;  // resolved later by GitHubTokenResolver
-        String model = ModelConfig.DEFAULT_MODEL;
-        List<Path> additionalAgentDirs = new ArrayList<>();
-        boolean listSkills = false;
+        var state = new SkillParseState();
 
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
-            switch (arg) {
-                case "-h", "--help" -> {
-                    CliUsage.printSkill(System.out);
-                    return Optional.empty();
-                }
-                case "-p", "--param" -> {
-                    CliParsing.OptionValue value = CliParsing.readSingleValue(arg, args, i, "--param");
-                    i = value.newIndex();
-                    paramStrings.addAll(CliParsing.splitComma(value.value()));
-                }
-                case "--token" -> {
-                    CliParsing.OptionValue value = CliParsing.readSingleValue(arg, args, i, "--token");
-                    i = value.newIndex();
-                    githubToken = CliParsing.readTokenWithWarning(value.value());
-                }
-                case "--model" -> {
-                    CliParsing.OptionValue value = CliParsing.readSingleValue(arg, args, i, "--model");
-                    i = value.newIndex();
-                    model = value.value();
-                }
-                case "--agents-dir" -> {
-                    CliParsing.MultiValue values = CliParsing.readMultiValues(arg, args, i, "--agents-dir");
-                    i = values.newIndex();
-                    for (String path : values.values()) {
-                        additionalAgentDirs.add(Path.of(path));
-                    }
-                }
-                case "--list" -> listSkills = true;
-                default -> {
-                    if (arg.startsWith("-")) {
-                        throw new CliValidationException("Unknown option: " + arg, true);
-                    }
-                    if (skillId == null) {
-                        skillId = arg;
-                    } else {
-                        throw new CliValidationException("Unexpected argument: " + arg, true);
-                    }
-                }
+            i = applySkillOption(state, arg, args, i);
+            if (state.helpRequested) {
+                return Optional.empty();
             }
         }
 
         return Optional.of(new ParsedOptions(
-            skillId, List.copyOf(paramStrings), githubToken, model,
-            List.copyOf(additionalAgentDirs), listSkills
+            state.skillId, List.copyOf(state.paramStrings), state.githubToken, state.model,
+            List.copyOf(state.additionalAgentDirs), state.listSkills
         ));
+    }
+
+    /// Mutable accumulator for skill CLI argument parsing.
+    private static class SkillParseState {
+        String skillId;
+        final List<String> paramStrings = new ArrayList<>();
+        String githubToken = null;
+        String model = ModelConfig.DEFAULT_MODEL;
+        final List<Path> additionalAgentDirs = new ArrayList<>();
+        boolean listSkills;
+        boolean helpRequested;
+    }
+
+    /// Applies a single CLI option to the skill parse state.
+    private static int applySkillOption(SkillParseState state, String arg, String[] args, int i) {
+        return switch (arg) {
+            case "-h", "--help" -> {
+                CliUsage.printSkill(System.out);
+                state.helpRequested = true;
+                yield i;
+            }
+            case "-p", "--param" -> {
+                CliParsing.OptionValue value = CliParsing.readSingleValue(arg, args, i, "--param");
+                state.paramStrings.addAll(CliParsing.splitComma(value.value()));
+                yield value.newIndex();
+            }
+            case "--token" -> CliParsing.readInto(args, i, "--token",
+                v -> state.githubToken = CliParsing.readTokenWithWarning(v));
+            case "--model" -> CliParsing.readInto(args, i, "--model", v -> state.model = v);
+            case "--agents-dir" -> CliParsing.readMultiInto(args, i, "--agents-dir",
+                v -> state.additionalAgentDirs.add(Path.of(v)));
+            case "--list" -> { state.listSkills = true; yield i; }
+            default -> {
+                if (arg.startsWith("-")) {
+                    throw new CliValidationException("Unknown option: " + arg, true);
+                }
+                if (state.skillId == null) {
+                    state.skillId = arg;
+                } else {
+                    throw new CliValidationException("Unexpected argument: " + arg, true);
+                }
+                yield i;
+            }
+        };
     }
 
     private int executeInternal(ParsedOptions options) {

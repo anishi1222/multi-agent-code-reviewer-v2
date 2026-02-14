@@ -3,7 +3,11 @@ package dev.logicojp.reviewer.skill;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /// Registry for managing skill definitions.
@@ -37,24 +41,24 @@ public class SkillRegistry {
         return List.copyOf(skills.values());
     }
 
-    /// Gets all skill IDs.
-    public Set<String> getSkillIds() {
+    /// Gets all skill IDs (package-private — used by tests).
+    Set<String> getSkillIds() {
         return Set.copyOf(skills.keySet());
     }
 
-    /// Checks if a skill is registered.
-    public boolean hasSkill(String skillId) {
+    /// Checks if a skill is registered (package-private — used by tests).
+    boolean hasSkill(String skillId) {
         return skills.containsKey(skillId);
     }
 
-    /// Removes a skill by ID.
-    public void unregister(String skillId) {
+    /// Removes a skill by ID (package-private — used by tests).
+    void unregister(String skillId) {
         skills.remove(skillId);
         logger.info("Unregistered skill: {}", skillId);
     }
 
-    /// Clears all registered skills.
-    public void clear() {
+    /// Clears all registered skills (package-private — used by tests).
+    void clear() {
         skills.clear();
         logger.info("Cleared all skills");
     }

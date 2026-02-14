@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.target;
 
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /// Represents the target to review — either a GitHub repository or a local directory.
 ///
@@ -13,6 +14,8 @@ import java.util.Optional;
 /// };
 /// ```
 public sealed interface ReviewTarget permits ReviewTarget.LocalTarget, ReviewTarget.GitHubTarget {
+
+    Pattern REPOSITORY_PATTERN = Pattern.compile("^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$");
 
     /// A local directory target.
     /// @param directory The absolute path to the local directory to review
@@ -28,6 +31,10 @@ public sealed interface ReviewTarget permits ReviewTarget.LocalTarget, ReviewTar
     static ReviewTarget gitHub(String repository) {
         if (repository == null || repository.isBlank()) {
             throw new IllegalArgumentException("Repository must not be null or blank");
+        }
+        if (!REPOSITORY_PATTERN.matcher(repository).matches()) {
+            throw new IllegalArgumentException(
+                "Invalid repository format: " + repository + ". Expected 'owner/repo' format.");
         }
         return new GitHubTarget(repository);
     }
@@ -73,14 +80,7 @@ public sealed interface ReviewTarget permits ReviewTarget.LocalTarget, ReviewTar
     /// @throws IllegalArgumentException if the repository name contains path traversal characters
     default Path repositorySubPath() {
         return switch (this) {
-            case GitHubTarget(String repository) -> {
-                if (repository.contains("..") || repository.startsWith("/")) {
-                    throw new IllegalArgumentException(
-                        "Invalid repository format: " + repository
-                        + ". Expected 'owner/repo' format.");
-                }
-                yield Path.of(repository);
-            }
+            case GitHubTarget(String repository) -> Path.of(repository);
             case LocalTarget(Path directory) -> {
                 Path fileName = directory.getFileName();
                 yield fileName != null ? Path.of(fileName.toString()) : Path.of(directory.toString());

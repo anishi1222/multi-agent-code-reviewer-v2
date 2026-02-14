@@ -8,7 +8,12 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,6 +52,20 @@ public class AgentMarkdownParser {
         "output format",
         "focus areas"
     );
+    private static final String DEFAULT_FOCUS_AREA = "一般的なコード品質";
+
+    private final String defaultOutputFormat;
+
+    /// Creates a parser with no default output format.
+    public AgentMarkdownParser() {
+        this(null);
+    }
+
+    /// Creates a parser with a default output format loaded from an external template.
+    /// @param defaultOutputFormat Fallback output format when the agent file doesn't specify one
+    public AgentMarkdownParser(String defaultOutputFormat) {
+        this.defaultOutputFormat = defaultOutputFormat;
+    }
     
     /// Parses a .agent.md file and returns an AgentConfig.
     /// @param mdFile Path to the .agent.md file
@@ -88,6 +107,11 @@ public class AgentMarkdownParser {
         String instruction = getSection(sections, "instruction");
         String outputFormat = getSection(sections, "output format");
 
+        // Use default output format from external template if agent doesn't specify one
+        if ((outputFormat == null || outputFormat.isBlank()) && defaultOutputFormat != null) {
+            outputFormat = defaultOutputFormat;
+        }
+
         if (systemPrompt == null || systemPrompt.isBlank()) {
             systemPrompt = body.trim();
         }
@@ -122,7 +146,7 @@ public class AgentMarkdownParser {
         
         // If no focus areas found, return a default
         if (focusAreas.isEmpty()) {
-            focusAreas.add("一般的なコード品質");
+            focusAreas.add(DEFAULT_FOCUS_AREA);
         }
         
         return focusAreas;
@@ -134,14 +158,14 @@ public class AgentMarkdownParser {
         List<String> focusAreas = parseBulletItems(sectionContent);
         if (focusAreas.isEmpty()) {
             logger.warn("Focus Areas section found but contains no bullet items; using default.");
-            focusAreas.add("一般的なコード品質");
+            focusAreas.add(DEFAULT_FOCUS_AREA);
         }
         return focusAreas;
     }
 
     private List<String> parseBulletItems(String text) {
         List<String> items = new ArrayList<>();
-        for (String line : text.split("\\n")) {
+        for (String line : text.lines().toList()) {
             line = line.trim();
             if (line.startsWith("-") || line.startsWith("*")) {
                 String item = line.substring(1).trim();

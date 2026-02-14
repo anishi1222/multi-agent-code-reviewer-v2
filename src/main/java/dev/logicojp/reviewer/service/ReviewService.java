@@ -2,7 +2,6 @@ package dev.logicojp.reviewer.service;
 
 import dev.logicojp.reviewer.agent.AgentConfig;
 import dev.logicojp.reviewer.config.ExecutionConfig;
-import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.instruction.CustomInstructionLoader;
 import dev.logicojp.reviewer.orchestrator.ReviewOrchestrator;
@@ -78,14 +77,10 @@ public class ReviewService {
             logger.info("Loaded output constraints from template ({} chars)", outputConstraints.length());
         }
         
-        ReviewOrchestrator orchestrator = orchestratorFactory.create(
+        try (ReviewOrchestrator orchestrator = orchestratorFactory.create(
             githubToken, overriddenConfig,
-            effectiveInstructions, reasoningEffort, outputConstraints);
-        
-        try {
+            effectiveInstructions, reasoningEffort, outputConstraints)) {
             return orchestrator.executeReviews(agentConfigs, target);
-        } finally {
-            orchestrator.shutdown();
         }
     }
 }

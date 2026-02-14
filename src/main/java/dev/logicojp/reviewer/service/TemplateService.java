@@ -128,12 +128,12 @@ public class TemplateService {
 
     /// Loads the executive summary template with placeholders applied.
     public String getExecutiveSummaryTemplate(Map<String, String> placeholders) {
-        return loadTemplate(config.executiveSummary(), placeholders);
+        return loadTemplate(config.summary().executiveSummary(), placeholders);
     }
 
     /// Loads the fallback summary template with placeholders applied.
     public String getFallbackSummaryTemplate(Map<String, String> placeholders) {
-        return loadTemplate(config.fallbackSummary(), placeholders);
+        return loadTemplate(config.fallback().summary(), placeholders);
     }
 
     /// Loads the local review content template with placeholders applied.
@@ -143,37 +143,37 @@ public class TemplateService {
 
     /// Loads the summary system prompt template.
     public String getSummarySystemPrompt() {
-        return loadTemplateContent(config.summarySystemPrompt());
+        return loadTemplateContent(config.summary().systemPrompt());
     }
 
     /// Loads the summary user prompt template with placeholders applied.
     public String getSummaryUserPrompt(Map<String, String> placeholders) {
-        return loadTemplate(config.summaryUserPrompt(), placeholders);
+        return loadTemplate(config.summary().userPrompt(), placeholders);
     }
 
     /// Loads the summary result entry template (per-agent success) with placeholders applied.
     public String getSummaryResultEntry(Map<String, String> placeholders) {
-        return loadTemplate(config.summaryResultEntry(), placeholders);
+        return loadTemplate(config.summary().resultEntry(), placeholders);
     }
 
     /// Loads the summary result error entry template (per-agent failure) with placeholders applied.
     public String getSummaryResultErrorEntry(Map<String, String> placeholders) {
-        return loadTemplate(config.summaryResultErrorEntry(), placeholders);
+        return loadTemplate(config.summary().resultErrorEntry(), placeholders);
     }
 
     /// Loads the fallback agent row template (table row) with placeholders applied.
     public String getFallbackAgentRow(Map<String, String> placeholders) {
-        return loadTemplate(config.fallbackAgentRow(), placeholders);
+        return loadTemplate(config.fallback().agentRow(), placeholders);
     }
 
     /// Loads the fallback agent success detail template with placeholders applied.
     public String getFallbackAgentSuccess(Map<String, String> placeholders) {
-        return loadTemplate(config.fallbackAgentSuccess(), placeholders);
+        return loadTemplate(config.fallback().agentSuccess(), placeholders);
     }
 
     /// Loads the fallback agent failure detail template with placeholders applied.
     public String getFallbackAgentFailure(Map<String, String> placeholders) {
-        return loadTemplate(config.fallbackAgentFailure(), placeholders);
+        return loadTemplate(config.fallback().agentFailure(), placeholders);
     }
 
     /// Loads the report link entry template with placeholders applied.
