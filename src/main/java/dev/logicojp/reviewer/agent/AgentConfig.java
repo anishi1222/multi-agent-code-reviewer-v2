@@ -2,13 +2,8 @@ package dev.logicojp.reviewer.agent;
 
 import dev.logicojp.reviewer.config.ModelConfig;
 import dev.logicojp.reviewer.skill.SkillDefinition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.StringJoiner;
-import java.util.regex.Pattern;
 
 /// Configuration model for a review agent.
 /// Loaded from YAML files in the agents/ directory.
@@ -22,19 +17,6 @@ public record AgentConfig(
     List<String> focusAreas,
     List<SkillDefinition> skills
 ) {
-
-    private static final Logger logger = LoggerFactory.getLogger(AgentConfig.class);
-
-    // Required sections in outputFormat
-    private static final List<String> REQUIRED_OUTPUT_SECTIONS = List.of(
-        "Priority",
-        "指摘の概要",
-        "推奨対応",
-        "効果"
-    );
-
-    private static final Pattern PRIORITY_PATTERN = Pattern.compile(
-        "Critical|High|Medium|Low", Pattern.CASE_INSENSITIVE);
 
     private static final String DEFAULT_OUTPUT_FORMAT = """
         ## Output Format
@@ -114,44 +96,9 @@ public record AgentConfig(
         );
     }
 
+    /// Validates required fields. Delegates to {@link AgentConfigValidator}.
     public void validateRequired() {
-        var missing = new StringJoiner(", ");
-        if (name == null || name.isBlank()) missing.add("name");
-        if (systemPrompt == null || systemPrompt.isBlank()) missing.add("systemPrompt");
-        if (instruction == null || instruction.isBlank()) missing.add("instruction");
-        if (outputFormat == null || outputFormat.isBlank()) missing.add("outputFormat");
-        if (missing.length() > 0) {
-            throw new IllegalArgumentException("Missing required agent fields: " + missing);
-        }
-        if (focusAreas == null || focusAreas.isEmpty()) {
-            logger.warn("Agent '{}' has no focusAreas; proceeding with defaults.", name);
-        }
-
-        // Validate outputFormat required sections
-        validateOutputFormat();
-    }
-
-    private void validateOutputFormat() {
-        if (outputFormat == null || outputFormat.isBlank()) {
-            return;
-        }
-
-        List<String> missingSections = new ArrayList<>();
-        for (String section : REQUIRED_OUTPUT_SECTIONS) {
-            if (!outputFormat.contains(section)) {
-                missingSections.add(section);
-            }
-        }
-
-        if (!missingSections.isEmpty()) {
-            logger.warn("Agent '{}' outputFormat is missing recommended sections: {}",
-                name, String.join(", ", missingSections));
-        }
-
-        // Check for Priority keywords
-        if (!PRIORITY_PATTERN.matcher(outputFormat).find()) {
-            logger.warn("Agent '{}' outputFormat does not contain Priority levels (Critical/High/Medium/Low).", name);
-        }
+        AgentConfigValidator.validateRequired(this);
     }
 
     private static String normalizeOutputFormat(String value) {

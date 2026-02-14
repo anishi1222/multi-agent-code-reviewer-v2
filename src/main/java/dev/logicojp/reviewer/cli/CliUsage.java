@@ -44,7 +44,7 @@ public final class CliUsage {
                         Other options:
                             -o, --output <path>         Output directory (default: ./reports)
                             --agents-dir <path...>      Additional agent definition directories
-                            --token <token>             GitHub token (default: GITHUB_TOKEN)
+                            --token -                   Read GitHub token from stdin (default: GITHUB_TOKEN env var)
                             --parallelism <n>           Number of agents to run in parallel
                             --no-summary                Skip executive summary generation
                             --review-model <model>      Model for review stage
@@ -72,7 +72,7 @@ public final class CliUsage {
 
                         Options:
                             -p, --param <key=value>     Skill parameters (repeatable or comma-separated)
-                            --token <token>             GitHub token (default: GITHUB_TOKEN)
+                            --token -                   Read GitHub token from stdin (default: GITHUB_TOKEN env var)
                             --model <model>             Model for skill execution
                             --agents-dir <path...>      Additional agent definition directories
                             --list                       List available skills

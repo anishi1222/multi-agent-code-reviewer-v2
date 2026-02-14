@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.util;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -24,8 +25,7 @@ public final class StructuredConcurrencyUtils {
     /// @throws InterruptedException if the current thread is interrupted
     /// @throws TimeoutException if the join does not complete within the timeout
     /// @throws ExecutionException if the join fails with an exception
-    @SuppressWarnings("rawtypes")
-    public static void joinWithTimeout(StructuredTaskScope scope,
+    public static <T> void joinWithTimeout(StructuredTaskScope<T, ?> scope,
                                        long timeout, TimeUnit unit)
             throws InterruptedException, TimeoutException, ExecutionException {
         var joinFuture = CompletableFuture.runAsync(() -> {
@@ -35,7 +35,7 @@ public final class StructuredConcurrencyUtils {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
-        });
+        }, Executors.newVirtualThreadPerTaskExecutor());
         joinFuture.get(timeout, unit);
     }
 }

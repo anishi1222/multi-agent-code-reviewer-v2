@@ -28,4 +28,13 @@ public record ExecutionConfig(
         ghAuthTimeoutSeconds = (ghAuthTimeoutSeconds <= 0) ? 10 : ghAuthTimeoutSeconds;
         maxRetries = (maxRetries < 0) ? DEFAULT_MAX_RETRIES : maxRetries;
     }
+
+    /// Returns a copy of this config with the parallelism value replaced.
+    /// @param newParallelism the new parallelism value
+    /// @return a new ExecutionConfig with the updated parallelism
+    public ExecutionConfig withParallelism(int newParallelism) {
+        return new ExecutionConfig(newParallelism, orchestratorTimeoutMinutes,
+            agentTimeoutMinutes, idleTimeoutMinutes, skillTimeoutMinutes,
+            summaryTimeoutMinutes, ghAuthTimeoutSeconds, maxRetries);
+    }
 }

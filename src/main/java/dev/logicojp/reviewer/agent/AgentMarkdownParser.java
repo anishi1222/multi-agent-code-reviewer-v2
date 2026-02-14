@@ -60,20 +60,29 @@ public class AgentMarkdownParser {
     public AgentConfig parseContent(String content, String filename) {
         FrontmatterParser.Parsed parsed = FrontmatterParser.parse(content);
 
-        if (!parsed.hasFrontmatter()) {
+        String name, displayName, model, body;
+
+        if (parsed.hasFrontmatter()) {
+            Map<String, String> metadata = parsed.metadata();
+            body = parsed.body();
+            name = metadata.getOrDefault("name", extractNameFromFilename(filename));
+            displayName = metadata.getOrDefault("description",
+                metadata.getOrDefault("displayName", name));
+            model = metadata.getOrDefault("model", ModelConfig.DEFAULT_MODEL);
+        } else {
             logger.warn("No valid frontmatter found in {}", filename);
-            return parseWithoutFrontmatter(content, filename);
+            body = content;
+            name = extractNameFromFilename(filename);
+            displayName = name;
+            model = ModelConfig.DEFAULT_MODEL;
         }
 
-        Map<String, String> metadata = parsed.metadata();
-        String body = parsed.body();
+        return buildAgentConfig(name, displayName, model, body);
+    }
 
-        // Extract name from filename if not in frontmatter
-        String name = metadata.getOrDefault("name", extractNameFromFilename(filename));
-        String displayName = metadata.getOrDefault("description",
-            metadata.getOrDefault("displayName", name));
-        String model = metadata.getOrDefault("model", ModelConfig.DEFAULT_MODEL);
-
+    /// Common AgentConfig construction from extracted metadata and body.
+    private AgentConfig buildAgentConfig(String name, String displayName,
+                                          String model, String body) {
         Map<String, String> sections = extractSections(body);
         String systemPrompt = getSection(sections, "role");
         String instruction = getSection(sections, "instruction");
@@ -97,36 +106,6 @@ public class AgentMarkdownParser {
             outputFormat,
             focusAreas,
             List.of()  // skills - parsed from Skills section if present
-        );
-        config.validateRequired();
-        return config;
-    }
-
-    private AgentConfig parseWithoutFrontmatter(String content, String filename) {
-        String name = extractNameFromFilename(filename);
-
-        Map<String, String> sections = extractSections(content);
-        String systemPrompt = getSection(sections, "role");
-        String instruction = getSection(sections, "instruction");
-        String outputFormat = getSection(sections, "output format");
-        if (systemPrompt == null || systemPrompt.isBlank()) {
-            systemPrompt = content.trim();
-        }
-
-        String focusAreasSection = getSection(sections, "focus areas");
-        List<String> focusAreas = focusAreasSection != null
-            ? parseFocusAreaItems(focusAreasSection)
-            : extractFocusAreas(content);
-
-        AgentConfig config = new AgentConfig(
-            name,
-            name,
-            ModelConfig.DEFAULT_MODEL,
-            systemPrompt,
-            instruction,
-            outputFormat,
-            focusAreas,
-            List.of()  // skills
         );
         config.validateRequired();
         return config;

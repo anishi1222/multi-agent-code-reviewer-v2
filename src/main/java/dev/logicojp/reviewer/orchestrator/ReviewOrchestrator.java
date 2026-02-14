@@ -69,6 +69,38 @@ public class ReviewOrchestrator {
         }
     }
     
+    /// Executes a single agent with semaphore control and error handling.
+    /// Shared by both virtual thread and structured concurrency execution modes.
+    private ReviewResult executeAgentSafely(AgentConfig config, ReviewTarget target) {
+        try {
+            concurrencyLimit.acquire();
+            try {
+                var context = createContext();
+                var agent = new ReviewAgent(config, context);
+                return agent.review(target);
+            } finally {
+                concurrencyLimit.release();
+            }
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
+            return ReviewResult.builder()
+                .agentConfig(config)
+                .repository(target.displayName())
+                .success(false)
+                .errorMessage("Review interrupted while waiting for concurrency permit")
+                .build();
+        }
+    }
+
+    /// Collects results, filters nulls, and logs completion summary.
+    private List<ReviewResult> collectAndLogResults(List<ReviewResult> results) {
+        results.removeIf(Objects::isNull);
+        long successCount = results.stream().filter(ReviewResult::isSuccess).count();
+        logger.info("Completed {} reviews (success: {}, failed: {})",
+            results.size(), successCount, results.size() - successCount);
+        return results;
+    }
+
     /// Executes reviews for all provided agents in parallel.
     /// @param agents Map of agent name to AgentConfig
     /// @param target The target to review (GitHub repository or local directory)
@@ -90,27 +122,8 @@ public class ReviewOrchestrator {
         ExecutorService executor = getOrCreateExecutorService();
         
         for (var config : agents.values()) {
-            var context = createContext();
-            var agent = new ReviewAgent(config, context);
             CompletableFuture<ReviewResult> future = CompletableFuture
-                .supplyAsync(() -> {
-                    try {
-                        concurrencyLimit.acquire();
-                        try {
-                            return agent.review(target);
-                        } finally {
-                            concurrencyLimit.release();
-                        }
-                    } catch (InterruptedException _) {
-                        Thread.currentThread().interrupt();
-                        return ReviewResult.builder()
-                            .agentConfig(config)
-                            .repository(target.displayName())
-                            .success(false)
-                            .errorMessage("Review interrupted while waiting for concurrency permit")
-                            .build();
-                    }
-                }, executor)
+                .supplyAsync(() -> executeAgentSafely(config, target), executor)
                 .orTimeout(perAgentTimeoutMinutes, TimeUnit.MINUTES)
                 .exceptionally(ex -> {
                     logger.error("Agent {} failed with timeout or error: {}", 
@@ -146,14 +159,7 @@ public class ReviewOrchestrator {
             }
         }
         
-        // Filter out nulls
-        results.removeIf(Objects::isNull);
-        
-        long successCount = results.stream().filter(ReviewResult::isSuccess).count();
-        logger.info("Completed {} reviews (success: {}, failed: {})",
-            results.size(), successCount, results.size() - successCount);
-        
-        return results;
+        return collectAndLogResults(results);
     }
 
     private List<ReviewResult> executeReviewsStructured(Map<String, AgentConfig> agents, ReviewTarget target) {
@@ -164,33 +170,7 @@ public class ReviewOrchestrator {
         List<StructuredTaskScope.Subtask<ReviewResult>> tasks = new ArrayList<>(agents.size());
         try (var scope = StructuredTaskScope.<ReviewResult>open()) {
             for (var config : agents.values()) {
-                var context = createContext();
-                var agent = new ReviewAgent(config, context);
-                tasks.add(scope.fork(() -> {
-                    try {
-                        concurrencyLimit.acquire();
-                        try {
-                            return agent.review(target);
-                        } finally {
-                            concurrencyLimit.release();
-                        }
-                    } catch (InterruptedException _) {
-                        Thread.currentThread().interrupt();
-                        return ReviewResult.builder()
-                            .agentConfig(config)
-                            .repository(target.displayName())
-                            .success(false)
-                            .errorMessage("Review interrupted while waiting for concurrency permit")
-                            .build();
-                    } catch (Exception e) {
-                        return ReviewResult.builder()
-                            .agentConfig(config)
-                            .repository(target.displayName())
-                            .success(false)
-                            .errorMessage("Review failed: " + e.getMessage())
-                            .build();
-                    }
-                }));
+                tasks.add(scope.fork(() -> executeAgentSafely(config, target)));
             }
 
             try {
@@ -207,11 +187,7 @@ public class ReviewOrchestrator {
                 results.add(summarizeTaskResult(task, target, perAgentTimeoutMinutes));
             }
 
-            results.removeIf(Objects::isNull);
-            long successCount = results.stream().filter(ReviewResult::isSuccess).count();
-            logger.info("Completed {} reviews (success: {}, failed: {})",
-                results.size(), successCount, results.size() - successCount);
-            return results;
+            return collectAndLogResults(results);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             logger.error("Structured concurrency interrupted", e);

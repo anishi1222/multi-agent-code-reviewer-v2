@@ -1,0 +1,115 @@
+package dev.logicojp.reviewer.report;
+
+import dev.logicojp.reviewer.agent.AgentConfig;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DisplayName("ReviewResult")
+class ReviewResultTest {
+
+    private AgentConfig createAgent(String name) {
+        return new AgentConfig(name, name, "model",
+            "system", "instruction", null,
+            List.of("area"), List.of());
+    }
+
+    @Nested
+    @DisplayName("Builder")
+    class BuilderTests {
+
+        @Test
+        @DisplayName("成功結果のビルド")
+        void buildSuccessResult() {
+            AgentConfig config = createAgent("test-agent");
+            ReviewResult result = ReviewResult.builder()
+                .agentConfig(config)
+                .repository("owner/repo")
+                .content("review content")
+                .success(true)
+                .build();
+
+            assertThat(result.agentConfig()).isEqualTo(config);
+            assertThat(result.repository()).isEqualTo("owner/repo");
+            assertThat(result.content()).isEqualTo("review content");
+            assertThat(result.isSuccess()).isTrue();
+            assertThat(result.errorMessage()).isNull();
+            assertThat(result.timestamp()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("失敗結果のビルド")
+        void buildFailureResult() {
+            AgentConfig config = createAgent("test-agent");
+            ReviewResult result = ReviewResult.builder()
+                .agentConfig(config)
+                .repository("owner/repo")
+                .success(false)
+                .errorMessage("timeout occurred")
+                .build();
+
+            assertThat(result.isSuccess()).isFalse();
+            assertThat(result.errorMessage()).isEqualTo("timeout occurred");
+            assertThat(result.content()).isNull();
+        }
+
+        @Test
+        @DisplayName("timestampをカスタム値で設定できる")
+        void customTimestamp() {
+            LocalDateTime ts = LocalDateTime.of(2025, 6, 15, 12, 0);
+            ReviewResult result = ReviewResult.builder()
+                .agentConfig(createAgent("a"))
+                .repository("r")
+                .timestamp(ts)
+                .build();
+
+            assertThat(result.timestamp()).isEqualTo(ts);
+        }
+    }
+
+    @Nested
+    @DisplayName("コンストラクタ")
+    class Constructor {
+
+        @Test
+        @DisplayName("nullのtimestampはLocalDateTime.nowに設定される")
+        void nullTimestampDefaultsToNow() {
+            ReviewResult result = new ReviewResult(
+                createAgent("a"), "repo", "content", null, true, null);
+            assertThat(result.timestamp()).isNotNull();
+            assertThat(result.timestamp()).isBeforeOrEqualTo(LocalDateTime.now());
+        }
+    }
+
+    @Nested
+    @DisplayName("isSuccess")
+    class IsSuccessTests {
+
+        @Test
+        @DisplayName("success=trueのときisSuccessはtrueを返す")
+        void successReturnsTrue() {
+            ReviewResult result = ReviewResult.builder()
+                .agentConfig(createAgent("a"))
+                .repository("r")
+                .success(true)
+                .build();
+            assertThat(result.isSuccess()).isTrue();
+        }
+
+        @Test
+        @DisplayName("success=falseのときisSuccessはfalseを返す")
+        void failureReturnsFalse() {
+            ReviewResult result = ReviewResult.builder()
+                .agentConfig(createAgent("a"))
+                .repository("r")
+                .success(false)
+                .build();
+            assertThat(result.isSuccess()).isFalse();
+        }
+    }
+}

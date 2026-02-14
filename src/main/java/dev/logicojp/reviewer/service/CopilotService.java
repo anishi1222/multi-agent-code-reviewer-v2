@@ -7,10 +7,15 @@ import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -80,26 +85,39 @@ public class CopilotService {
     }
 
     private String resolveCliPath() throws ExecutionException {
-        String explicit = System.getenv(CLI_PATH_ENV);
-        if (explicit != null && !explicit.isBlank()) {
-            Path explicitPath = Path.of(explicit.trim()).toAbsolutePath().normalize();
-            if (Files.isExecutable(explicitPath)) {
-                // Validate that the binary name matches expected Copilot CLI candidates
-                String fileName = explicitPath.getFileName().toString();
-                boolean validName = java.util.Arrays.stream(CLI_CANDIDATES)
-                    .anyMatch(candidate -> fileName.equals(candidate) || fileName.startsWith(candidate));
-                if (!validName) {
-                    throw new ExecutionException("CLI path " + explicitPath
-                        + " does not match expected Copilot CLI binary names ("
-                        + String.join(", ", CLI_CANDIDATES) + "). "
-                        + "Only 'github-copilot' or 'copilot' binaries are allowed.", null);
-                }
-                return explicitPath.toString();
-            }
-            throw new ExecutionException("Copilot CLI not found at " + explicitPath
-                + ". Verify " + CLI_PATH_ENV + " or install GitHub Copilot CLI.", null);
+        String explicit = resolveExplicitCliPath();
+        if (explicit != null) {
+            return explicit;
         }
+        return resolveCliPathFromSystemPath();
+    }
 
+    /// Resolves CLI path from the COPILOT_CLI_PATH environment variable.
+    private String resolveExplicitCliPath() throws ExecutionException {
+        String explicit = System.getenv(CLI_PATH_ENV);
+        if (explicit == null || explicit.isBlank()) {
+            return null;
+        }
+        Path explicitPath = Path.of(explicit.trim()).toAbsolutePath().normalize();
+        if (Files.isExecutable(explicitPath)) {
+            // Validate that the binary name matches expected Copilot CLI candidates exactly
+            String fileName = explicitPath.getFileName().toString();
+            boolean validName = Arrays.stream(CLI_CANDIDATES)
+                .anyMatch(fileName::equals);
+            if (!validName) {
+                throw new ExecutionException("CLI path " + explicitPath
+                    + " does not match expected Copilot CLI binary names ("
+                    + String.join(", ", CLI_CANDIDATES) + "). "
+                    + "Only 'github-copilot' or 'copilot' binaries are allowed.", null);
+            }
+            return explicitPath.toString();
+        }
+        throw new ExecutionException("Copilot CLI not found at " + explicitPath
+            + ". Verify " + CLI_PATH_ENV + " or install GitHub Copilot CLI.", null);
+    }
+
+    /// Resolves CLI path by scanning the system PATH directories.
+    private String resolveCliPathFromSystemPath() throws ExecutionException {
         String pathEnv = System.getenv(PATH_ENV);
         if (pathEnv == null || pathEnv.isBlank()) {
             throw new ExecutionException("PATH is not set. Install GitHub Copilot CLI and/or set "
@@ -107,7 +125,7 @@ public class CopilotService {
         }
 
         List<Path> candidates = new ArrayList<>();
-        for (String entry : pathEnv.split(java.io.File.pathSeparator)) {
+        for (String entry : pathEnv.split(File.pathSeparator)) {
             if (entry == null || entry.isBlank()) {
                 continue;
             }
@@ -153,16 +171,23 @@ public class CopilotService {
         builder.redirectErrorStream(true);
         try {
             Process process = builder.start();
-            // Drain stdout/stderr to prevent pipe buffer overflow blocking the child process
-            try (var in = process.getInputStream()) {
-                in.transferTo(java.io.OutputStream.nullOutputStream());
-            }
+            // Drain stdout/stderr in a separate thread to prevent pipe buffer overflow
+            // blocking the child process, while keeping waitFor timeout effective.
+            var drainFuture = CompletableFuture.runAsync(() -> {
+                try (var in = process.getInputStream()) {
+                    in.transferTo(OutputStream.nullOutputStream());
+                } catch (IOException _) {
+                    // Ignore drain errors
+                }
+            });
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
+                drainFuture.cancel(true);
                 throw new ExecutionException(timeoutMessage + timeoutSeconds + "s. "
                     + "Ensure the CLI is installed and authenticated.", null);
             }
+            drainFuture.join();
             if (process.exitValue() != 0) {
                 String baseMessage = exitMessage + process.exitValue() + ". ";
                 if (command.size() >= 3 && "auth".equals(command.get(1)) && "status".equals(command.get(2))) {
@@ -172,7 +197,7 @@ public class CopilotService {
                 throw new ExecutionException(baseMessage
                     + "Ensure the CLI is installed and authenticated.", null);
             }
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             throw new ExecutionException(ioMessage + e.getMessage(), e);
         }
     }
@@ -216,7 +241,7 @@ public class CopilotService {
     /// Gets the Copilot client. Must call initialize() first.
     /// @return The initialized CopilotClient
     /// @throws IllegalStateException if not initialized
-    public CopilotClient getClient() {
+    public synchronized CopilotClient getClient() {
         if (!initialized || client == null) {
             throw new IllegalStateException("CopilotService not initialized. Call initialize() first.");
         }

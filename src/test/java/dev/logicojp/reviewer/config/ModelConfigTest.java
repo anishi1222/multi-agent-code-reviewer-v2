@@ -313,4 +313,37 @@ class ModelConfigTest {
             assertThat(result).contains(ModelConfig.DEFAULT_MODEL);
         }
     }
+
+    @Nested
+    @DisplayName("resolveReasoningEffort")
+    class ResolveReasoningEffort {
+
+        @Test
+        @DisplayName("推論モデルの場合は設定されたeffortを返す")
+        void reasoningModelReturnsConfiguredEffort() {
+            String effort = ModelConfig.resolveReasoningEffort("claude-opus-4.6", "medium");
+            assertThat(effort).isEqualTo("medium");
+        }
+
+        @Test
+        @DisplayName("推論モデルでeffortがnullの場合はデフォルトeffortを返す")
+        void reasoningModelWithNullEffortReturnsDefault() {
+            String effort = ModelConfig.resolveReasoningEffort("o3", null);
+            assertThat(effort).isEqualTo(ModelConfig.DEFAULT_REASONING_EFFORT);
+        }
+
+        @Test
+        @DisplayName("非推論モデルの場合はnullを返す")
+        void nonReasoningModelReturnsNull() {
+            String effort = ModelConfig.resolveReasoningEffort("claude-sonnet-4", "high");
+            assertThat(effort).isNull();
+        }
+
+        @Test
+        @DisplayName("nullモデルの場合はnullを返す")
+        void nullModelReturnsNull() {
+            String effort = ModelConfig.resolveReasoningEffort(null, "high");
+            assertThat(effort).isNull();
+        }
+    }
 }

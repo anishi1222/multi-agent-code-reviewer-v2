@@ -70,20 +70,6 @@ public class SummaryGenerator {
         return summaryPath;
     }
     
-    /// Determines the appropriate reasoning effort for a model.
-    /// If the model is a reasoning model, returns the configured
-    /// {@code reasoningEffort} value. Otherwise returns {@code null}.
-    ///
-    /// @param model the model name
-    /// @param configuredEffort the configured reasoning effort value
-    /// @return the reasoning effort level, or null if not a reasoning model
-    public static String resolveReasoningEffort(String model, String configuredEffort) {
-        if (ModelConfig.isReasoningModel(model)) {
-            return configuredEffort != null ? configuredEffort : ModelConfig.DEFAULT_REASONING_EFFORT;
-        }
-        return null;
-    }
-
     private String buildSummaryWithAI(List<ReviewResult> results, String repository) throws Exception {
         // Create a new session for summary generation
         logger.info("Using model for summary: {}", summaryModel);
@@ -96,7 +82,7 @@ public class SummaryGenerator {
 
         // Explicitly set reasoning effort for reasoning models to override
         // the Copilot CLI's auto-detection which may send invalid effort values.
-        String effort = resolveReasoningEffort(summaryModel, reasoningEffort);
+        String effort = ModelConfig.resolveReasoningEffort(summaryModel, reasoningEffort);
         if (effort != null) {
             logger.info("Setting reasoning effort '{}' for model: {}", effort, summaryModel);
             sessionConfig.setReasoningEffort(effort);

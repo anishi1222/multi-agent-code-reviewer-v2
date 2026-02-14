@@ -66,6 +66,20 @@ public record ModelConfig(
         this(reviewModel, reportModel, summaryModel, reasoningEffort, null);
     }
 
+    /// Determines the appropriate reasoning effort for a model.
+    /// If the model is a reasoning model, returns the configured
+    /// {@code reasoningEffort} value. Otherwise returns {@code null}.
+    ///
+    /// @param model the model name
+    /// @param configuredEffort the configured reasoning effort value
+    /// @return the reasoning effort level, or null if not a reasoning model
+    public static String resolveReasoningEffort(String model, String configuredEffort) {
+        if (isReasoningModel(model)) {
+            return configuredEffort != null ? configuredEffort : DEFAULT_REASONING_EFFORT;
+        }
+        return null;
+    }
+
     /// Checks whether the given model is a reasoning model that requires
     /// explicit `reasoningEffort` configuration.
     ///

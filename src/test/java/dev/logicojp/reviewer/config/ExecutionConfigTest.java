@@ -203,4 +203,41 @@ class ExecutionConfigTest {
             assertThat(config1).isNotEqualTo(config2);
         }
     }
+
+    @Nested
+    @DisplayName("withParallelism")
+    class WithParallelism {
+
+        @Test
+        @DisplayName("parallelismのみを変更した新しいインスタンスを返す")
+        void changesOnlyParallelism() {
+            ExecutionConfig original = new ExecutionConfig(4, 10, 5, 5, 5, 5, 10, 2);
+            ExecutionConfig updated = original.withParallelism(8);
+
+            assertThat(updated.parallelism()).isEqualTo(8);
+            assertThat(updated.orchestratorTimeoutMinutes()).isEqualTo(original.orchestratorTimeoutMinutes());
+            assertThat(updated.agentTimeoutMinutes()).isEqualTo(original.agentTimeoutMinutes());
+            assertThat(updated.idleTimeoutMinutes()).isEqualTo(original.idleTimeoutMinutes());
+            assertThat(updated.skillTimeoutMinutes()).isEqualTo(original.skillTimeoutMinutes());
+            assertThat(updated.summaryTimeoutMinutes()).isEqualTo(original.summaryTimeoutMinutes());
+            assertThat(updated.ghAuthTimeoutSeconds()).isEqualTo(original.ghAuthTimeoutSeconds());
+            assertThat(updated.maxRetries()).isEqualTo(original.maxRetries());
+        }
+
+        @Test
+        @DisplayName("元のインスタンスは変更されない")
+        void doesNotMutateOriginal() {
+            ExecutionConfig original = new ExecutionConfig(4, 10, 5, 5, 5, 5, 10, 2);
+            original.withParallelism(16);
+            assertThat(original.parallelism()).isEqualTo(4);
+        }
+
+        @Test
+        @DisplayName("0以下の値はデフォルト値に正規化される")
+        void invalidValueIsNormalized() {
+            ExecutionConfig original = new ExecutionConfig(4, 10, 5, 5, 5, 5, 10, 2);
+            ExecutionConfig updated = original.withParallelism(0);
+            assertThat(updated.parallelism()).isEqualTo(4); // default
+        }
+    }
 }

@@ -47,6 +47,10 @@ public class ReviewCommand {
 
     private final ExecutionConfig executionConfig;
 
+    private final GitHubTokenResolver tokenResolver;
+
+    private final CustomInstructionLoader instructionLoader;
+
     /// Target selection — sealed interface for type-safe exclusive choice.
     sealed interface TargetSelection {
         record Repository(String repository) implements TargetSelection {}
@@ -84,7 +88,9 @@ public class ReviewCommand {
         ReviewService reviewService,
         ReportService reportService,
         ModelConfig defaultModelConfig,
-        ExecutionConfig executionConfig
+        ExecutionConfig executionConfig,
+        GitHubTokenResolver tokenResolver,
+        CustomInstructionLoader instructionLoader
     ) {
         this.agentService = agentService;
         this.copilotService = copilotService;
@@ -92,6 +98,8 @@ public class ReviewCommand {
         this.reportService = reportService;
         this.defaultModelConfig = defaultModelConfig;
         this.executionConfig = executionConfig;
+        this.tokenResolver = tokenResolver;
+        this.instructionLoader = instructionLoader;
     }
 
     public int execute(String[] args) {
@@ -279,7 +287,6 @@ public class ReviewCommand {
         String resolvedToken = null;
         switch (options.target()) {
             case TargetSelection.Repository(String repository) -> {
-                GitHubTokenResolver tokenResolver = new GitHubTokenResolver(executionConfig.ghAuthTimeoutSeconds());
                 resolvedToken = tokenResolver.resolve(options.githubToken()).orElse(null);
                 target = ReviewTarget.gitHub(repository);
 
@@ -435,8 +442,8 @@ public class ReviewCommand {
         // Also try to load from target directory (for local targets)
         if (target.isLocal()) {
             boolean shouldLoadPrompts = !options.noPrompts();
-            CustomInstructionLoader loader = new CustomInstructionLoader(null, shouldLoadPrompts);
-            List<CustomInstruction> targetInstructions = loader.loadForTarget(target);
+            CustomInstructionLoader localLoader = new CustomInstructionLoader(null, shouldLoadPrompts);
+            List<CustomInstruction> targetInstructions = localLoader.loadForTarget(target);
             for (CustomInstruction instruction : targetInstructions) {
                 instructions.add(instruction);
                 System.out.println("  ✓ Loaded instructions from target: " + instruction.sourcePath());

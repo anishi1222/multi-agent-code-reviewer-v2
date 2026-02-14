@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.agent;
 
+import dev.logicojp.reviewer.config.ModelConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.report.ContentSanitizer;
 import dev.logicojp.reviewer.report.ReviewResult;
@@ -21,8 +22,6 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static dev.logicojp.reviewer.report.SummaryGenerator.resolveReasoningEffort;
 
 /// Executes a code review using the Copilot SDK with a specific agent configuration.
 public class ReviewAgent {
@@ -130,7 +129,7 @@ public class ReviewAgent {
             sessionConfig.setMcpServers(mcpServers);
         }
 
-        String effort = resolveReasoningEffort(config.model(), ctx.reasoningEffort());
+        String effort = ModelConfig.resolveReasoningEffort(config.model(), ctx.reasoningEffort());
         if (effort != null) {
             logger.info("Setting reasoning effort '{}' for model: {}", effort, config.model());
             sessionConfig.setReasoningEffort(effort);

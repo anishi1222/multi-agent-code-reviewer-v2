@@ -72,11 +72,13 @@ public class LocalFileProvider {
     /// accidental transmission of credentials to external LLM services.
     private static final Set<String> SENSITIVE_FILE_PATTERNS = Set.of(
         "application-prod", "application-staging", "application-secret",
-        "application-local",
+        "application-local", "application-dev",
         "secrets", "credentials", ".env",
+        ".env.local", ".env.production", ".env.development",
         "service-account", "keystore", "truststore",
         "id_rsa", "id_ed25519", "id_ecdsa",
-        ".netrc", ".npmrc", ".pypirc", ".docker/config"
+        ".netrc", ".npmrc", ".pypirc", ".docker/config",
+        "vault-config", "aws-credentials"
     );
 
     /// File extensions indicating potentially sensitive files (certificates, keys).
@@ -266,8 +268,14 @@ public class LocalFileProvider {
             }
         }
 
-        return SENSITIVE_FILE_PATTERNS.stream()
-            .noneMatch(fileName::contains);
+        // Use simple for-loop to avoid Stream API object creation overhead
+        // per file in large directory trees
+        for (String pattern : SENSITIVE_FILE_PATTERNS) {
+            if (fileName.contains(pattern)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String detectLanguage(String relativePath) {

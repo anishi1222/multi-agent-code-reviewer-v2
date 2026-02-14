@@ -29,12 +29,22 @@ public record GithubMcpConfig(
             ? "Bearer {token}" : authHeaderTemplate;
     }
 
-    public Map<String, Object> toMcpServer(String token) {
-        Map<String, Object> server = new HashMap<>();
-        server.put("type", type);
-        server.put("url", url);
-        server.put("tools", tools);
+    /// Type-safe intermediate representation of MCP server configuration.
+    /// Provides compile-time safety within the application; converted to
+    /// {@code Map<String, Object>} only at the SDK boundary.
+    public record McpServerConfig(String type, String url, List<String> tools, Map<String, String> headers) {
+        public Map<String, Object> toMap() {
+            Map<String, Object> server = new HashMap<>();
+            server.put("type", type);
+            server.put("url", url);
+            server.put("tools", tools);
+            server.put("headers", headers);
+            return server;
+        }
+    }
 
+    /// Builds a type-safe MCP server configuration, then converts to Map for SDK compatibility.
+    public Map<String, Object> toMcpServer(String token) {
         Map<String, String> combinedHeaders = new HashMap<>(headers);
         if (token != null && !token.isBlank()
             && authHeaderName != null && !authHeaderName.isBlank()
@@ -44,8 +54,7 @@ public record GithubMcpConfig(
                 .replace("{token}", token);
             combinedHeaders.put(authHeaderName, headerValue);
         }
-        server.put("headers", combinedHeaders);
 
-        return server;
+        return new McpServerConfig(type, url, tools, combinedHeaders).toMap();
     }
 }

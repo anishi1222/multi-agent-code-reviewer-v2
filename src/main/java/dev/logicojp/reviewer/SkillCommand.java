@@ -34,6 +34,7 @@ public class SkillCommand {
     private final CopilotService copilotService;
     private final SkillService skillService;
     private final ExecutionConfig executionConfig;
+    private final GitHubTokenResolver tokenResolver;
 
     /// Parsed CLI options for the skill command.
     record ParsedOptions(
@@ -50,12 +51,14 @@ public class SkillCommand {
         AgentService agentService,
         CopilotService copilotService,
         SkillService skillService,
-        ExecutionConfig executionConfig
+        ExecutionConfig executionConfig,
+        GitHubTokenResolver tokenResolver
     ) {
         this.agentService = agentService;
         this.copilotService = copilotService;
         this.skillService = skillService;
         this.executionConfig = executionConfig;
+        this.tokenResolver = tokenResolver;
     }
 
     public int execute(String[] args) {
@@ -150,7 +153,6 @@ public class SkillCommand {
         if (options.skillId() == null || options.skillId().isBlank()) {
             throw new CliValidationException("Skill ID required. Use --list to see available skills.", true);
         }
-        GitHubTokenResolver tokenResolver = new GitHubTokenResolver(executionConfig.ghAuthTimeoutSeconds());
         String resolvedToken = tokenResolver.resolve(options.githubToken()).orElse(null);
         if (resolvedToken == null || resolvedToken.isBlank()) {
             throw new CliValidationException(
@@ -209,6 +211,9 @@ public class SkillCommand {
                 int eqIdx = paramStr.indexOf('=');
                 if (eqIdx > 0) {
                     params.put(paramStr.substring(0, eqIdx).trim(), paramStr.substring(eqIdx + 1).trim());
+                } else {
+                    throw new CliValidationException(
+                        "Invalid parameter format: '" + paramStr + "'. Expected 'key=value'.", true);
                 }
             }
         }

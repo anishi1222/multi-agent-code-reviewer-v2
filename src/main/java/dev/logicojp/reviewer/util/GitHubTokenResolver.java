@@ -1,5 +1,8 @@
 package dev.logicojp.reviewer.util;
 
+import dev.logicojp.reviewer.config.ExecutionConfig;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,6 +13,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /// Resolves a GitHub token from CLI options, environment, or gh auth.
+@Singleton
 public final class GitHubTokenResolver {
 
     private static final Logger logger = LoggerFactory.getLogger(GitHubTokenResolver.class);
@@ -24,6 +28,11 @@ public final class GitHubTokenResolver {
 
     public GitHubTokenResolver(long timeoutSeconds) {
         this.timeoutSeconds = (timeoutSeconds <= 0) ? DEFAULT_TIMEOUT_SECONDS : timeoutSeconds;
+    }
+
+    @Inject
+    public GitHubTokenResolver(ExecutionConfig executionConfig) {
+        this(executionConfig.ghAuthTimeoutSeconds());
     }
 
     public Optional<String> resolve(String providedToken) {

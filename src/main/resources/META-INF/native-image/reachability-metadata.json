@@ -1364,6 +1364,9 @@
       "type": "java.util.ImmutableCollections$List12"
     },
     {
+      "type": "java.util.ImmutableCollections$ListN"
+    },
+    {
       "type": "java.util.ImmutableCollections$Map1"
     },
     {

@@ -3,6 +3,7 @@ package dev.logicojp.reviewer.service;
 import dev.logicojp.reviewer.agent.AgentConfig;
 import dev.logicojp.reviewer.agent.AgentConfigLoader;
 import dev.logicojp.reviewer.config.SkillConfig;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +23,7 @@ public class AgentService {
 
     private final SkillConfig skillConfig;
 
+    @Inject
     public AgentService(SkillConfig skillConfig) {
         this.skillConfig = skillConfig;
     }

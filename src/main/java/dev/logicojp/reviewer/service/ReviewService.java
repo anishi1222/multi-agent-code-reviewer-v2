@@ -26,14 +26,17 @@ public class ReviewService {
     private final ReviewOrchestratorFactory orchestratorFactory;
     private final ExecutionConfig executionConfig;
     private final TemplateService templateService;
+    private final CustomInstructionLoader instructionLoader;
     
     @Inject
     public ReviewService(ReviewOrchestratorFactory orchestratorFactory,
                          ExecutionConfig executionConfig,
-                         TemplateService templateService) {
+                         TemplateService templateService,
+                         CustomInstructionLoader instructionLoader) {
         this.orchestratorFactory = orchestratorFactory;
         this.executionConfig = executionConfig;
         this.templateService = templateService;
+        this.instructionLoader = instructionLoader;
     }
     
     /// Executes reviews with all specified agents in parallel.
@@ -58,8 +61,7 @@ public class ReviewService {
         // Load custom instructions from target if none provided
         List<CustomInstruction> effectiveInstructions = customInstructions;
         if (effectiveInstructions == null || effectiveInstructions.isEmpty()) {
-            CustomInstructionLoader loader = new CustomInstructionLoader();
-            effectiveInstructions = loader.loadForTarget(target);
+            effectiveInstructions = instructionLoader.loadForTarget(target);
             
             if (!effectiveInstructions.isEmpty()) {
                 logger.info("Loaded {} custom instruction(s) from target directory", 
@@ -68,16 +70,7 @@ public class ReviewService {
         }
         
         // Create config with overridden parallelism
-        ExecutionConfig overriddenConfig = new ExecutionConfig(
-            parallelism,
-            executionConfig.orchestratorTimeoutMinutes(),
-            executionConfig.agentTimeoutMinutes(),
-            executionConfig.idleTimeoutMinutes(),
-            executionConfig.skillTimeoutMinutes(),
-            executionConfig.summaryTimeoutMinutes(),
-            executionConfig.ghAuthTimeoutSeconds(),
-            executionConfig.maxRetries()
-        );
+        ExecutionConfig overriddenConfig = executionConfig.withParallelism(parallelism);
         
         // Load output constraints from external template
         String outputConstraints = templateService.getOutputConstraints();

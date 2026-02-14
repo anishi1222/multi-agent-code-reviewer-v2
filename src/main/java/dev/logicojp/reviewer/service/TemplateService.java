@@ -52,6 +52,12 @@ public class TemplateService {
 
     /// Loads template content from the filesystem or classpath.
     private String loadTemplateFromSource(String templateName) {
+        // Validate template name to prevent path traversal
+        if (templateName.contains("..") || templateName.contains("/") || templateName.contains("\\")) {
+            logger.warn("Invalid template name rejected: {}", templateName);
+            return "";
+        }
+
         Path templatePath = Path.of(config.directory(), templateName);
 
         // Try external file first

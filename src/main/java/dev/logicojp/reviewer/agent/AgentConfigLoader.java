@@ -51,9 +51,31 @@ public class AgentConfigLoader {
     /// Skills are loaded from .github/skills/ (Agent Skills spec).
     /// @return Map of agent name to AgentConfig
     public Map<String, AgentConfig> loadAllAgents() throws IOException {
-        Map<String, AgentConfig> agents = new HashMap<>();
+        return loadAgentsInternal(null);
+    }
+    
+    /// Loads specific agents by name.
+    /// Only parses agent files whose names match the requested list,
+    /// avoiding unnecessary I/O and parsing of unneeded agent definitions.
+    /// @param agentNames List of agent names to load
+    /// @return Map of agent name to AgentConfig
+    public Map<String, AgentConfig> loadAgents(List<String> agentNames) throws IOException {
+        Map<String, AgentConfig> agents = loadAgentsInternal(new HashSet<>(agentNames));
 
-        // Discover global skills from .github/skills/ (Agent Skills spec)
+        for (String name : agentNames) {
+            if (!agents.containsKey(name)) {
+                logger.warn("Agent not found: {}", name);
+            }
+        }
+
+        return agents;
+    }
+
+    /// Internal implementation shared by loadAllAgents and loadAgents.
+    /// @param filter If null, loads all agents; otherwise only agents with names in the set
+    /// @return Map of agent name to AgentConfig
+    private Map<String, AgentConfig> loadAgentsInternal(Set<String> filter) throws IOException {
+        Map<String, AgentConfig> agents = new HashMap<>();
         List<SkillDefinition> globalSkills = loadGlobalSkills();
 
         for (Path directory : agentDirectories) {
@@ -63,7 +85,32 @@ public class AgentConfigLoader {
             }
             
             logger.info("Loading agents from: {}", directory);
-            loadAgentsFromDirectory(directory, agents, globalSkills);
+
+            try (Stream<Path> paths = Files.list(directory)) {
+                var files = paths
+                    .filter(this::isAgentFile)
+                    .filter(p -> filter == null || filter.contains(extractAgentName(p)))
+                    .toList();
+
+                for (Path file : files) {
+                    try {
+                        AgentConfig config = markdownParser.parse(file);
+                        if (config != null) {
+                            List<SkillDefinition> agentSkills = collectSkillsForAgent(
+                                config.name(), globalSkills);
+                            if (!agentSkills.isEmpty()) {
+                                config = config.withSkills(agentSkills);
+                                logger.info("Loaded {} skills for agent: {}", agentSkills.size(), config.name());
+                            }
+                            config.validateRequired();
+                            agents.put(config.name(), config);
+                            logger.info("Loaded agent: {} from {}", config.name(), file.getFileName());
+                        }
+                    } catch (Exception e) {
+                        logger.error("Failed to load agent from {}: {}", file, e.getMessage());
+                    }
+                }
+            }
         }
         
         if (agents.isEmpty()) {
@@ -71,35 +118,6 @@ public class AgentConfigLoader {
         }
         
         return agents;
-    }
-    
-    private void loadAgentsFromDirectory(Path directory, Map<String, AgentConfig> agents,
-                                         List<SkillDefinition> globalSkills) throws IOException {
-        try (Stream<Path> paths = Files.list(directory)) {
-            var files = paths
-                .filter(this::isAgentFile)
-                .toList();
-            
-            for (Path file : files) {
-                try {
-                    AgentConfig config = markdownParser.parse(file);
-                    if (config != null) {
-                        // Collect skills for this agent from .github/skills/
-                        List<SkillDefinition> agentSkills = collectSkillsForAgent(
-                            config.name(), globalSkills);
-                        if (!agentSkills.isEmpty()) {
-                            config = config.withSkills(agentSkills);
-                            logger.info("Loaded {} skills for agent: {}", agentSkills.size(), config.name());
-                        }
-                        config.validateRequired();
-                        agents.put(config.name(), config);
-                        logger.info("Loaded agent: {} from {}", config.name(), file.getFileName());
-                    }
-                } catch (Exception e) {
-                    logger.error("Failed to load agent from {}: {}", file, e.getMessage());
-                }
-            }
-        }
     }
 
     /// Collects skills for a specific agent from .github/skills/.
@@ -154,58 +172,6 @@ public class AgentConfigLoader {
     private boolean isAgentFile(Path path) {
         String filename = path.getFileName().toString().toLowerCase();
         return filename.endsWith(".agent.md");
-    }
-    
-    /// Loads specific agents by name.
-    /// Only parses agent files whose names match the requested list,
-    /// avoiding unnecessary I/O and parsing of unneeded agent definitions.
-    /// @param agentNames List of agent names to load
-    /// @return Map of agent name to AgentConfig
-    public Map<String, AgentConfig> loadAgents(List<String> agentNames) throws IOException {
-        Set<String> requested = new HashSet<>(agentNames);
-        Map<String, AgentConfig> agents = new HashMap<>();
-        List<SkillDefinition> globalSkills = loadGlobalSkills();
-
-        for (Path directory : agentDirectories) {
-            if (!Files.exists(directory)) {
-                logger.debug("Agents directory does not exist: {}", directory);
-                continue;
-            }
-
-            try (Stream<Path> paths = Files.list(directory)) {
-                var files = paths
-                    .filter(this::isAgentFile)
-                    .filter(p -> requested.contains(extractAgentName(p)))
-                    .toList();
-
-                for (Path file : files) {
-                    try {
-                        AgentConfig config = markdownParser.parse(file);
-                        if (config != null) {
-                            List<SkillDefinition> agentSkills = collectSkillsForAgent(
-                                config.name(), globalSkills);
-                            if (!agentSkills.isEmpty()) {
-                                config = config.withSkills(agentSkills);
-                                logger.info("Loaded {} skills for agent: {}", agentSkills.size(), config.name());
-                            }
-                            config.validateRequired();
-                            agents.put(config.name(), config);
-                            logger.info("Loaded agent: {} from {}", config.name(), file.getFileName());
-                        }
-                    } catch (Exception e) {
-                        logger.error("Failed to load agent from {}: {}", file, e.getMessage());
-                    }
-                }
-            }
-        }
-
-        for (String name : agentNames) {
-            if (!agents.containsKey(name)) {
-                logger.warn("Agent not found: {}", name);
-            }
-        }
-
-        return agents;
     }
     
     /// Lists all available agent names from all configured directories.
