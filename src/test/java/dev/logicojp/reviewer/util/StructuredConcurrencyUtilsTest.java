@@ -19,6 +19,16 @@ class StructuredConcurrencyUtilsTest {
     class JoinWithTimeout {
 
         @Test
+        @DisplayName("スコープが正常に完了する場合はタイムアウトしない")
+        void completesNormally() throws Exception {
+            try (var scope = StructuredTaskScope.<String>open()) {
+                scope.fork(() -> "result");
+                StructuredConcurrencyUtils.joinWithTimeout(scope, 5, TimeUnit.SECONDS);
+                // No exception means success
+            }
+        }
+
+        @Test
         @DisplayName("タイムアウト期間内に完了しない場合はTimeoutExceptionをスローする")
         void throwsTimeoutException() throws Exception {
             try (var scope = StructuredTaskScope.<String>open()) {
@@ -29,10 +39,8 @@ class StructuredConcurrencyUtilsTest {
                 assertThatThrownBy(() ->
                     StructuredConcurrencyUtils.joinWithTimeout(scope, 200, TimeUnit.MILLISECONDS)
                 ).isInstanceOf(TimeoutException.class);
-                // Must join before scope.close() to satisfy StructuredTaskScope contract
-                try { scope.join(); } catch (InterruptedException _) {
-                    Thread.currentThread().interrupt();
-                }
+                // joinUntil already satisfies the owner-join contract,
+                // so scope.close() can proceed without an extra join()
             }
         }
     }

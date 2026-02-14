@@ -1,44 +1,62 @@
 package dev.logicojp.reviewer.util;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /// Utility for working with {@link StructuredTaskScope} in preview JDK releases.
 ///
-/// Workaround: {@code StructuredTaskScope.join()} does not support timeout natively.
-/// Uses a virtual thread to call {@code scope.join()} and enforces a wall-clock deadline
-/// via {@code CompletableFuture.get(timeout, unit)}.
-/// TODO(JDK 25+): Replace with {@code scope.joinUntil(Instant)} when StructuredTaskScope
-/// exits preview and supports deadline-based join.
+/// JDK 25's {@code StructuredTaskScope} requires {@code join()} to be called
+/// from the owner thread and does not provide a built-in timeout variant.
+/// This utility implements timeout by scheduling an interrupt on the owner
+/// thread after the deadline expires.
 public final class StructuredConcurrencyUtils {
 
     private StructuredConcurrencyUtils() {
     }
 
     /// Joins the given scope with a wall-clock timeout.
+    /// Must be called from the thread that opened the scope (owner thread).
+    ///
+    /// Implements timeout by scheduling an interrupt on the calling thread.
+    /// If the interrupt fires due to timeout, a {@link TimeoutException} is thrown
+    /// instead of {@link InterruptedException}.
     ///
     /// @param scope the structured task scope to join
     /// @param timeout the maximum time to wait
     /// @param unit the time unit for the timeout
-    /// @throws InterruptedException if the current thread is interrupted
+    /// @throws InterruptedException if the current thread is interrupted (non-timeout)
     /// @throws TimeoutException if the join does not complete within the timeout
-    /// @throws ExecutionException if the join fails with an exception
     public static <T> void joinWithTimeout(StructuredTaskScope<T, ?> scope,
                                        long timeout, TimeUnit unit)
-            throws InterruptedException, TimeoutException, ExecutionException {
-        var future = new CompletableFuture<Void>();
-        Thread.ofVirtual().name("scope-join").start(() -> {
+            throws InterruptedException, TimeoutException {
+        Thread ownerThread = Thread.currentThread();
+        var timedOut = new AtomicBoolean(false);
+
+        // Schedule an interrupt on the owner thread after the timeout
+        Thread timeoutThread = Thread.ofVirtual().name("join-timeout").start(() -> {
             try {
-                scope.join();
-                future.complete(null);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                future.completeExceptionally(e);
+                Thread.sleep(unit.toMillis(timeout));
+                timedOut.set(true);
+                ownerThread.interrupt();
+            } catch (InterruptedException _) {
+                // Timeout cancelled — scope.join() completed in time
             }
         });
-        future.get(timeout, unit);
+
+        try {
+            scope.join();
+        } catch (InterruptedException e) {
+            if (timedOut.get()) {
+                // Clear the interrupt flag since we are converting to TimeoutException
+                Thread.interrupted();
+                throw new TimeoutException(
+                    "Join timed out after " + timeout + " " + unit.name().toLowerCase());
+            }
+            throw e;
+        } finally {
+            timeoutThread.interrupt();
+        }
     }
 }

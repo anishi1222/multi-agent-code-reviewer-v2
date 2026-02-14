@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.StructuredTaskScope;
@@ -86,9 +85,6 @@ public class SkillExecutor {
                 scope.close();
                 return SkillResult.failure(skill.id(),
                     "Skill timed out after " + timeoutMinutes + " minutes");
-            } catch (ExecutionException e) {
-                return SkillResult.failure(skill.id(),
-                    "Skill failed: " + e.getCause().getMessage());
             }
 
             return switch (task.state()) {

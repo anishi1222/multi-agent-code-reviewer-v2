@@ -39,3 +39,7 @@ Thumbs.db
 # Reports (generated output)
 /report/
 /reports/
+
+# Claude
+CLAUDE.md
+.claude/

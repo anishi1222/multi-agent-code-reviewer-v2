@@ -183,8 +183,6 @@ public class ReviewOrchestrator {
             } catch (TimeoutException e) {
                 logger.error("Structured concurrency timed out after {} minutes", timeoutMinutes, e);
                 scope.close();
-            } catch (ExecutionException e) {
-                logger.error("Structured concurrency join failed", e);
             }
 
             List<ReviewResult> results = new ArrayList<>(tasks.size());

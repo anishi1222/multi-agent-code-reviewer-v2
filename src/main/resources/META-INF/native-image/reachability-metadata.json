@@ -1172,6 +1172,15 @@
       ]
     },
     {
+      "type": "dev.logicojp.reviewer.report.$ReportGeneratorFactory$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "dev.logicojp.reviewer.service.$AgentService$Definition",
       "methods": [
         {
@@ -1386,6 +1395,9 @@
     },
     {
       "type": "java.util.ImmutableCollections$Map1"
+    },
+    {
+      "type": "java.util.ImmutableCollections$MapN"
     },
     {
       "type": "java.util.List"
