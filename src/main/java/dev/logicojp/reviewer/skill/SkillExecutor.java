@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.skill;
 
 import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.util.FeatureFlags;
+import dev.logicojp.reviewer.util.StructuredConcurrencyUtils;
 import com.github.copilot.sdk.*;
 import com.github.copilot.sdk.json.*;
 import org.slf4j.Logger;
@@ -79,19 +80,8 @@ public class SkillExecutor {
                                                          String systemPrompt) throws Exception {
         try (var scope = StructuredTaskScope.<SkillResult>open()) {
             var task = scope.fork(() -> executeSync(skill, parameters, systemPrompt));
-            // Workaround: StructuredTaskScope.join() does not support timeout natively.
-            // Wrapping in CompletableFuture.runAsync() to enforce a wall-clock deadline.
-            // TODO: Replace with scope.joinUntil(Instant) when available in a future JDK release.
-            var joinFuture = CompletableFuture.runAsync(() -> {
-                try {
-                    scope.join();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException(e);
-                }
-            });
             try {
-                joinFuture.get(timeoutMinutes, TimeUnit.MINUTES);
+                StructuredConcurrencyUtils.joinWithTimeout(scope, timeoutMinutes, TimeUnit.MINUTES);
             } catch (TimeoutException e) {
                 scope.close();
                 return SkillResult.failure(skill.id(),

@@ -72,9 +72,16 @@ public class LocalFileProvider {
     /// accidental transmission of credentials to external LLM services.
     private static final Set<String> SENSITIVE_FILE_PATTERNS = Set.of(
         "application-prod", "application-staging", "application-secret",
+        "application-local",
         "secrets", "credentials", ".env",
         "service-account", "keystore", "truststore",
-        "id_rsa", "id_ed25519", "id_ecdsa"
+        "id_rsa", "id_ed25519", "id_ecdsa",
+        ".netrc", ".npmrc", ".pypirc", ".docker/config"
+    );
+
+    /// File extensions indicating potentially sensitive files (certificates, keys).
+    private static final Set<String> SENSITIVE_EXTENSIONS = Set.of(
+        "pem", "key", "p12", "pfx", "jks", "keystore", "cert"
     );
 
     /// A single collected source file.
@@ -84,6 +91,7 @@ public class LocalFileProvider {
     public record LocalFile(String relativePath, String content, long sizeBytes) {}
 
     private final Path baseDirectory;
+    private final Path realBaseDirectory;
 
     /// Creates a new LocalFileProvider for the given directory.
     /// @param baseDirectory The root directory to collect files from
@@ -92,6 +100,11 @@ public class LocalFileProvider {
             throw new IllegalArgumentException("Base directory must not be null");
         }
         this.baseDirectory = baseDirectory.toAbsolutePath().normalize();
+        try {
+            this.realBaseDirectory = this.baseDirectory.toRealPath();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot resolve real path for base directory: " + baseDirectory, e);
+        }
     }
 
     /// Collects all source files from the directory tree.
@@ -171,7 +184,8 @@ public class LocalFileProvider {
             return "(no source files found)";
         }
 
-        var sb = new StringBuilder();
+        long estimatedSize = files.stream().mapToLong(LocalFile::sizeBytes).sum();
+        var sb = new StringBuilder((int) Math.min(estimatedSize + files.size() * 30L, MAX_TOTAL_SIZE + 4096));
         for (LocalFile file : files) {
             String lang = detectLanguage(file.relativePath());
             sb.append("### ").append(file.relativePath()).append("\n\n");
@@ -231,8 +245,7 @@ public class LocalFileProvider {
     private boolean isWithinBaseDirectory(Path path) {
         try {
             Path realPath = path.toRealPath();
-            Path realBase = baseDirectory.toRealPath();
-            return realPath.startsWith(realBase);
+            return realPath.startsWith(realBaseDirectory);
         } catch (IOException e) {
             logger.debug("Cannot resolve real path for {}: {}", path, e.getMessage());
             return false;
@@ -243,6 +256,16 @@ public class LocalFileProvider {
     /// Excludes files that may contain credentials or secrets.
     private boolean isNotSensitiveFile(Path path) {
         String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
+
+        // Check extension-based sensitive files
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex >= 0) {
+            String ext = fileName.substring(dotIndex + 1);
+            if (SENSITIVE_EXTENSIONS.contains(ext)) {
+                return false;
+            }
+        }
+
         return SENSITIVE_FILE_PATTERNS.stream()
             .noneMatch(fileName::contains);
     }

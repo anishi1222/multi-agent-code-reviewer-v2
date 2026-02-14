@@ -7,6 +7,7 @@ import dev.logicojp.reviewer.skill.SkillDefinition;
 import dev.logicojp.reviewer.skill.SkillExecutor;
 import dev.logicojp.reviewer.skill.SkillRegistry;
 import dev.logicojp.reviewer.skill.SkillResult;
+import dev.logicojp.reviewer.util.ExecutorUtils;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -19,7 +20,6 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 /// Service for managing and executing skills.
 @Singleton
@@ -121,14 +121,6 @@ public class SkillService {
 
     @PreDestroy
     public void shutdown() {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
-            }
-        } catch (InterruptedException _) {
-            executorService.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        ExecutorUtils.shutdownGracefully(executorService, 60);
     }
 }

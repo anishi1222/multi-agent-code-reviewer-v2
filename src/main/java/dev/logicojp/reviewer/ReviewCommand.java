@@ -178,12 +178,7 @@ public class ReviewCommand {
                 case "--token" -> {
                     CliParsing.OptionValue value = CliParsing.readSingleValue(arg, args, i, "--token");
                     i = value.newIndex();
-                    String tokenValue = value.value();
-                    if (!"-".equals(tokenValue)) {
-                        System.err.println("WARNING: Token passed via command line is visible in process listings. "
-                            + "Use '--token -' or GITHUB_TOKEN env var for safer input.");
-                    }
-                    githubToken = CliParsing.readToken(tokenValue);
+                    githubToken = CliParsing.readTokenWithWarning(value.value());
                 }
                 case "--parallelism" -> {
                     CliParsing.OptionValue value = CliParsing.readSingleValue(arg, args, i, "--parallelism");
@@ -392,7 +387,7 @@ public class ReviewCommand {
             .summaryModel(baseConfig.summaryModel());
 
         if (options.defaultModel() != null) {
-            builder.defaultModel(options.defaultModel());
+            builder.allModels(options.defaultModel());
         }
         if (options.reviewModel() != null) {
             builder.reviewModel(options.reviewModel());
@@ -476,12 +471,13 @@ public class ReviewCommand {
     }
 
     private void printCompletionSummary(List<ReviewResult> results, Path outputDirectory) {
+        long successCount = results.stream().filter(ReviewResult::isSuccess).count();
         System.out.println();
         System.out.println("════════════════════════════════════════════════════════════");
         System.out.println("Review completed!");
         System.out.println("  Total agents: " + results.size());
-        System.out.println("  Successful: " + results.stream().filter(ReviewResult::isSuccess).count());
-        System.out.println("  Failed: " + results.stream().filter(r -> !r.isSuccess()).count());
+        System.out.println("  Successful: " + successCount);
+        System.out.println("  Failed: " + (results.size() - successCount));
         System.out.println("  Reports: " + outputDirectory.toAbsolutePath());
         System.out.println("════════════════════════════════════════════════════════════");
     }

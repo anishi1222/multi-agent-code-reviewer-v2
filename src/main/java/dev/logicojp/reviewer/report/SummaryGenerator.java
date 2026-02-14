@@ -209,8 +209,9 @@ public class SummaryGenerator {
         placeholders.put("date", LocalDate.now().format(DATE_FORMATTER));
         placeholders.put("repository", repository);
         placeholders.put("agentCount", String.valueOf(results.size()));
-        placeholders.put("successCount", String.valueOf(results.stream().filter(ReviewResult::isSuccess).count()));
-        placeholders.put("failureCount", String.valueOf(results.stream().filter(r -> !r.isSuccess()).count()));
+        long successCount = results.stream().filter(ReviewResult::isSuccess).count();
+        placeholders.put("successCount", String.valueOf(successCount));
+        placeholders.put("failureCount", String.valueOf(results.size() - successCount));
         placeholders.put("summaryContent", summaryContent != null ? summaryContent : "");
         placeholders.put("findingsSummary", findingsSummary);
         placeholders.put("reportLinks", reportLinksBuilder.toString());

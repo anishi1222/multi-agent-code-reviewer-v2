@@ -108,7 +108,7 @@ java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--all` | - | Run all agents | false |
 | `--output` | `-o` | Output base directory | `./reports` |
 | `--agents-dir` | - | Additional agent definition directory | - |
-| `--token` | - | GitHub token | `$GITHUB_TOKEN` |
+| `--token` | - | GitHub token (`-` for stdin) | `$GITHUB_TOKEN` |
 | `--parallelism` | - | Number of parallel executions | 4 |
 | `--no-summary` | - | Skip summary generation | false |
 | `--model` | - | Default model for all stages | - |
@@ -127,6 +127,14 @@ java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 Displays a list of available agents. Additional directories can be specified with `--agents-dir`.
 
 ### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|--------|
+| `GITHUB_TOKEN` | GitHub auth token | - |
+| `COPILOT_CLI_PATH` | Path to the Copilot CLI binary | Auto-detected from PATH |
+| `COPILOT_START_TIMEOUT_SECONDS` | Copilot client start timeout (seconds) | 60 |
+| `COPILOT_CLI_HEALTHCHECK_SECONDS` | CLI health check timeout (seconds) | 10 |
+| `COPILOT_CLI_AUTHCHECK_SECONDS` | CLI auth check timeout (seconds) | 15 |
 
 ```bash
 export GITHUB_TOKEN=your_github_token
@@ -161,13 +169,18 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 ```
 
 Supported file extensions:
-- Java: `.java`
-- Kotlin: `.kt`, `.kts`
-- JavaScript/TypeScript: `.js`, `.ts`, `.jsx`, `.tsx`
-- Python: `.py`
-- Go: `.go`
-- Ruby: `.rb`
-- Others: `.c`, `.cpp`, `.h`, `.cs`, `.rs`, `.swift`, `.php`
+- JVM: `.java`, `.kt`, `.kts`, `.groovy`, `.scala`, `.clj`
+- Web: `.js`, `.jsx`, `.ts`, `.tsx`, `.mjs`, `.cjs`, `.vue`, `.svelte`
+- Systems: `.c`, `.cpp`, `.cc`, `.cxx`, `.h`, `.hpp`, `.rs`, `.go`, `.zig`
+- Scripting: `.py`, `.rb`, `.php`, `.pl`, `.pm`, `.lua`, `.r`
+- Shell: `.sh`, `.bash`, `.zsh`, `.fish`, `.ps1`, `.psm1`
+- .NET: `.cs`, `.fs`, `.vb`
+- Mobile: `.swift`, `.m`, `.mm`
+- Data/Config: `.sql`, `.graphql`, `.gql`, `.proto`, `.yaml`, `.yml`, `.json`, `.toml`, `.xml`, `.properties`
+- Build: `.gradle`, `.cmake`, `.makefile`
+- Docs: `.md`, `.rst`, `.adoc`
+
+> **Note**: Files up to 256 KB each are collected, with a 2 MB total limit. Files that may contain sensitive information (`application-prod`, `.env`, `keystore`, etc.) are automatically excluded.
 
 ### Custom Instructions
 
@@ -449,7 +462,7 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 |--------|-------|-------------|---------|
 | `--list` | - | List available skills | - |
 | `--param` | `-p` | Parameter (key=value format) | - |
-| `--token` | - | GitHub token | `$GITHUB_TOKEN` |
+| `--token` | - | GitHub token (`-` for stdin) | `$GITHUB_TOKEN` |
 | `--model` | - | LLM model to use | default-model |
 | `--agents-dir` | - | Agent definitions directory | - |
 
@@ -704,7 +717,8 @@ multi-agent-reviewer/
     │   ├── AgentConfig.java             # Config model
     │   ├── AgentConfigLoader.java       # Config loader
     │   ├── AgentMarkdownParser.java     # .agent.md parser
-    │   └── ReviewAgent.java             # Review agent
+    │   ├── ReviewAgent.java             # Review agent
+    │   └── ReviewContext.java           # Shared review context
     ├── cli/
     │   ├── CliParsing.java              # CLI option parsing
     │   ├── CliUsage.java                # Help / usage display
@@ -714,7 +728,6 @@ multi-agent-reviewer/
     │   ├── ModelConfig.java             # LLM model config
     │   ├── ExecutionConfig.java         # Execution config
     │   ├── GithubMcpConfig.java         # GitHub MCP config
-    │   ├── OrchestratorConfig.java      # Orchestrator config
     │   ├── SkillConfig.java             # Skill config
     │   └── TemplateConfig.java          # Template config
     ├── instruction/
@@ -723,7 +736,8 @@ multi-agent-reviewer/
     │   ├── InstructionSource.java       # Source type
     │   └── PromptLoader.java            # Prompt file loader
     ├── orchestrator/
-    │   └── ReviewOrchestrator.java      # Parallel execution control
+    │   ├── ReviewOrchestrator.java      # Parallel execution control
+    │   └── ReviewOrchestratorFactory.java # Orchestrator factory
     ├── report/
     │   ├── ContentSanitizer.java        # LLM preamble / CoT removal
     │   ├── FindingsExtractor.java       # Findings extraction
@@ -748,7 +762,8 @@ multi-agent-reviewer/
     │   ├── ReviewTarget.java            # Review target (sealed interface)
     │   └── LocalFileProvider.java       # Local file collector
     └── util/
-        ├── FileExtensionUtils.java      # File extension utilities
+        ├── FeatureFlags.java            # Feature flag resolution
+        ├── FrontmatterParser.java       # YAML frontmatter parser
         └── GitHubTokenResolver.java     # GitHub token resolution
 ```
 

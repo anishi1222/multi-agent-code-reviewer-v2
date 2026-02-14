@@ -215,15 +215,16 @@ class ModelConfigTest {
         }
 
         @Test
-        @DisplayName("defaultModelで全フィールドを一括設定できる")
-        void defaultModelSetsAllFields() {
+        @DisplayName("allModelsで全フィールドを一括設定できる")
+        void allModelsSetsAllFields() {
             ModelConfig config = ModelConfig.builder()
-                .defaultModel("unified-model")
+                .allModels("unified-model")
                 .build();
 
             assertThat(config.reviewModel()).isEqualTo("unified-model");
             assertThat(config.reportModel()).isEqualTo("unified-model");
             assertThat(config.summaryModel()).isEqualTo("unified-model");
+            assertThat(config.defaultModel()).isEqualTo("unified-model");
         }
 
         @Test

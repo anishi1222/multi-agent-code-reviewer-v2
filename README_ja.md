@@ -108,7 +108,7 @@ java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--all` | - | 全エージェント実行 | false |
 | `--output` | `-o` | 出力ベースディレクトリ | `./reports` |
 | `--agents-dir` | - | 追加のエージェント定義ディレクトリ | - |
-| `--token` | - | GitHub トークン | `$GITHUB_TOKEN` |
+| `--token` | - | GitHub トークン（`-` でstdin入力） | `$GITHUB_TOKEN` |
 | `--parallelism` | - | 並列実行数 | 4 |
 | `--no-summary` | - | サマリー生成をスキップ | false |
 | `--model` | - | 全ステージのデフォルトモデル | - |
@@ -127,6 +127,14 @@ java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 利用可能なエージェント一覧を表示します。`--agents-dir` で追加のディレクトリも指定可能です。
 
 ### 環境変数
+
+| 変数 | 説明 | デフォルト |
+|------|------|--------|
+| `GITHUB_TOKEN` | GitHub 認証トークン | - |
+| `COPILOT_CLI_PATH` | Copilot CLI バイナリのパス | PATH から自動検出 |
+| `COPILOT_START_TIMEOUT_SECONDS` | Copilot クライアント起動タイムアウト（秒） | 60 |
+| `COPILOT_CLI_HEALTHCHECK_SECONDS` | CLI ヘルスチェック タイムアウト（秒） | 10 |
+| `COPILOT_CLI_AUTHCHECK_SECONDS` | CLI 認証チェック タイムアウト（秒） | 15 |
 
 ```bash
 export GITHUB_TOKEN=your_github_token
@@ -161,13 +169,18 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 ```
 
 対応しているファイル拡張子:
-- Java: `.java`
-- Kotlin: `.kt`, `.kts`
-- JavaScript/TypeScript: `.js`, `.ts`, `.jsx`, `.tsx`
-- Python: `.py`
-- Go: `.go`
-- Ruby: `.rb`
-- その他: `.c`, `.cpp`, `.h`, `.cs`, `.rs`, `.swift`, `.php`
+- JVM: `.java`, `.kt`, `.kts`, `.groovy`, `.scala`, `.clj`
+- Web: `.js`, `.jsx`, `.ts`, `.tsx`, `.mjs`, `.cjs`, `.vue`, `.svelte`
+- システム言語: `.c`, `.cpp`, `.cc`, `.cxx`, `.h`, `.hpp`, `.rs`, `.go`, `.zig`
+- スクリプト: `.py`, `.rb`, `.php`, `.pl`, `.pm`, `.lua`, `.r`
+- シェル: `.sh`, `.bash`, `.zsh`, `.fish`, `.ps1`, `.psm1`
+- .NET: `.cs`, `.fs`, `.vb`
+- モバイル: `.swift`, `.m`, `.mm`
+- データ/設定: `.sql`, `.graphql`, `.gql`, `.proto`, `.yaml`, `.yml`, `.json`, `.toml`, `.xml`, `.properties`
+- ビルド: `.gradle`, `.cmake`, `.makefile`
+- ドキュメント: `.md`, `.rst`, `.adoc`
+
+> **注意**: 1ファイルあたり最大256KB、合計最大2MBまで収集されます。機密情報を含む可能性のあるファイル（`application-prod`、`.env`、`keystore`等）は自動的に除外されます。
 
 ### カスタムインストラクション
 
@@ -449,7 +462,7 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 |-----------|--------|------|-----------|
 | `--list` | - | 利用可能なスキル一覧を表示 | - |
 | `--param` | `-p` | パラメータ（key=value形式） | - |
-| `--token` | - | GitHub トークン | `$GITHUB_TOKEN` |
+| `--token` | - | GitHub トークン（`-` でstdin入力） | `$GITHUB_TOKEN` |
 | `--model` | - | 使用するLLMモデル | default-model |
 | `--agents-dir` | - | エージェント定義ディレクトリ | - |
 
@@ -704,7 +717,8 @@ multi-agent-reviewer/
     │   ├── AgentConfig.java             # 設定モデル
     │   ├── AgentConfigLoader.java       # 設定読込
     │   ├── AgentMarkdownParser.java     # .agent.md パーサー
-    │   └── ReviewAgent.java             # レビューエージェント
+    │   ├── ReviewAgent.java             # レビューエージェント
+    │   └── ReviewContext.java           # 共有レビューコンテキスト
     ├── cli/
     │   ├── CliParsing.java              # CLIオプション解析
     │   ├── CliUsage.java                # ヘルプ・使い方表示
@@ -714,7 +728,6 @@ multi-agent-reviewer/
     │   ├── ModelConfig.java             # LLMモデル設定
     │   ├── ExecutionConfig.java         # 実行設定
     │   ├── GithubMcpConfig.java         # GitHub MCP設定
-    │   ├── OrchestratorConfig.java      # オーケストレータ設定
     │   ├── SkillConfig.java             # スキル設定
     │   └── TemplateConfig.java          # テンプレート設定
     ├── instruction/
@@ -723,7 +736,8 @@ multi-agent-reviewer/
     │   ├── InstructionSource.java       # ソース種別
     │   └── PromptLoader.java            # プロンプトファイル読込
     ├── orchestrator/
-    │   └── ReviewOrchestrator.java      # 並列実行制御
+    │   ├── ReviewOrchestrator.java      # 並列実行制御
+    │   └── ReviewOrchestratorFactory.java # オーケストレータファクトリ
     ├── report/
     │   ├── ContentSanitizer.java        # LLM前置き文/CoT除去
     │   ├── FindingsExtractor.java       # 指摘事項抽出
@@ -748,7 +762,8 @@ multi-agent-reviewer/
     │   ├── ReviewTarget.java            # レビュー対象（sealed interface）
     │   └── LocalFileProvider.java       # ローカルファイル収集
     └── util/
-        ├── FileExtensionUtils.java      # ファイル拡張子ユーティリティ
+        ├── FeatureFlags.java            # 機能フラグ解決
+        ├── FrontmatterParser.java       # YAMLフロントマターパーサー
         └── GitHubTokenResolver.java     # GitHubトークン解決
 ```
 

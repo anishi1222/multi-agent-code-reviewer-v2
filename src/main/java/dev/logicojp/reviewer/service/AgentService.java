@@ -58,19 +58,20 @@ public class AgentService {
     
     /// Loads all agents from the specified directories.
     public Map<String, AgentConfig> loadAllAgents(List<Path> agentDirs) throws IOException {
-        AgentConfigLoader loader = new AgentConfigLoader(agentDirs, skillConfig);
-        return loader.loadAllAgents();
+        return createLoader(agentDirs).loadAllAgents();
     }
     
     /// Loads specific agents by name from the specified directories.
     public Map<String, AgentConfig> loadAgents(List<Path> agentDirs, List<String> agentNames) throws IOException {
-        AgentConfigLoader loader = new AgentConfigLoader(agentDirs, skillConfig);
-        return loader.loadAgents(agentNames);
+        return createLoader(agentDirs).loadAgents(agentNames);
     }
     
     /// Lists all available agent names from the specified directories.
     public List<String> listAvailableAgents(List<Path> agentDirs) throws IOException {
-        AgentConfigLoader loader = new AgentConfigLoader(agentDirs, skillConfig);
-        return loader.listAvailableAgents();
+        return createLoader(agentDirs).listAvailableAgents();
+    }
+
+    private AgentConfigLoader createLoader(List<Path> agentDirs) {
+        return new AgentConfigLoader(agentDirs, skillConfig);
     }
 }

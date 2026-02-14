@@ -106,6 +106,7 @@ public record ModelConfig(
         private String reportModel;
         private String summaryModel;
         private String reasoningEffort = DEFAULT_REASONING_EFFORT;
+        private String defaultModelField;
 
         public Builder reviewModel(String model) {
             this.reviewModel = model;
@@ -128,8 +129,10 @@ public record ModelConfig(
         }
 
         /// Sets all three model fields (`reviewModel`, `reportModel`,
-        /// `summaryModel`) to the same value.
-        public Builder defaultModel(String model) {
+        /// `summaryModel`) to the same value and records it as the
+        /// default model.
+        public Builder allModels(String model) {
+            this.defaultModelField = model;
             this.reviewModel = model;
             this.reportModel = model;
             this.summaryModel = model;
@@ -137,7 +140,7 @@ public record ModelConfig(
         }
 
         public ModelConfig build() {
-            return new ModelConfig(reviewModel, reportModel, summaryModel, reasoningEffort, null);
+            return new ModelConfig(reviewModel, reportModel, summaryModel, reasoningEffort, defaultModelField);
         }
     }
 }

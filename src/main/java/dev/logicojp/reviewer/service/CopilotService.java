@@ -30,8 +30,8 @@ public class CopilotService {
     private static final String CLI_AUTH_CHECK_ENV = "COPILOT_CLI_AUTHCHECK_SECONDS";
     private static final long DEFAULT_CLI_AUTHCHECK_SECONDS = 15;
 
-    private CopilotClient client;
-    private boolean initialized = false;
+    private volatile CopilotClient client;
+    private volatile boolean initialized = false;
     
     /// Initializes the Copilot client.
     public synchronized void initialize(String githubToken) throws ExecutionException, InterruptedException {
@@ -89,8 +89,10 @@ public class CopilotService {
                 boolean validName = java.util.Arrays.stream(CLI_CANDIDATES)
                     .anyMatch(candidate -> fileName.equals(candidate) || fileName.startsWith(candidate));
                 if (!validName) {
-                    logger.warn("CLI path {} does not match expected Copilot CLI binary names ({})",
-                        explicitPath, String.join(", ", CLI_CANDIDATES));
+                    throw new ExecutionException("CLI path " + explicitPath
+                        + " does not match expected Copilot CLI binary names ("
+                        + String.join(", ", CLI_CANDIDATES) + "). "
+                        + "Only 'github-copilot' or 'copilot' binaries are allowed.", null);
                 }
                 return explicitPath.toString();
             }

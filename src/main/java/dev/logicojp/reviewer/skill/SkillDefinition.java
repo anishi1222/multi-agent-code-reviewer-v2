@@ -37,11 +37,17 @@ public record SkillDefinition(
     }
 
     /// Builds the prompt with parameter substitution.
+    /// Parameter values exceeding 10,000 characters are rejected
+    /// to mitigate prompt injection and resource exhaustion.
     public String buildPrompt(Map<String, String> parameterValues) {
         String result = prompt;
         for (SkillParameter param : parameters) {
             String value = parameterValues.getOrDefault(param.name(), param.defaultValue());
             if (value != null) {
+                if (value.length() > 10_000) {
+                    throw new IllegalArgumentException(
+                        "Parameter value too long for: " + param.name());
+                }
                 result = result.replace("${" + param.name() + "}", value);
             }
         }

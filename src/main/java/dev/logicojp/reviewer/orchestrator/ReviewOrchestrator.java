@@ -8,7 +8,9 @@ import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.report.ReviewResult;
 import dev.logicojp.reviewer.target.ReviewTarget;
+import dev.logicojp.reviewer.util.ExecutorUtils;
 import dev.logicojp.reviewer.util.FeatureFlags;
+import dev.logicojp.reviewer.util.StructuredConcurrencyUtils;
 import com.github.copilot.sdk.CopilotClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,10 +90,7 @@ public class ReviewOrchestrator {
         ExecutorService executor = getOrCreateExecutorService();
         
         for (var config : agents.values()) {
-            var context = new ReviewContext(client, githubToken, githubMcpConfig,
-                executionConfig.agentTimeoutMinutes(), executionConfig.idleTimeoutMinutes(),
-                customInstructions, reasoningEffort,
-                executionConfig.maxRetries(), outputConstraints);
+            var context = createContext();
             var agent = new ReviewAgent(config, context);
             CompletableFuture<ReviewResult> future = CompletableFuture
                 .supplyAsync(() -> {
@@ -150,10 +149,9 @@ public class ReviewOrchestrator {
         // Filter out nulls
         results.removeIf(Objects::isNull);
         
+        long successCount = results.stream().filter(ReviewResult::isSuccess).count();
         logger.info("Completed {} reviews (success: {}, failed: {})",
-            results.size(),
-            results.stream().filter(ReviewResult::isSuccess).count(),
-            results.stream().filter(r -> !r.isSuccess()).count());
+            results.size(), successCount, results.size() - successCount);
         
         return results;
     }
@@ -166,10 +164,7 @@ public class ReviewOrchestrator {
         List<StructuredTaskScope.Subtask<ReviewResult>> tasks = new ArrayList<>(agents.size());
         try (var scope = StructuredTaskScope.<ReviewResult>open()) {
             for (var config : agents.values()) {
-                var context = new ReviewContext(client, githubToken, githubMcpConfig,
-                    executionConfig.agentTimeoutMinutes(), executionConfig.idleTimeoutMinutes(),
-                    customInstructions, reasoningEffort,
-                    executionConfig.maxRetries(), outputConstraints);
+                var context = createContext();
                 var agent = new ReviewAgent(config, context);
                 tasks.add(scope.fork(() -> {
                     try {
@@ -198,20 +193,8 @@ public class ReviewOrchestrator {
                 }));
             }
 
-            // Workaround: StructuredTaskScope.join() does not support timeout natively.
-            // Wrapping in CompletableFuture.runAsync() to enforce a wall-clock deadline.
-            // TODO: Replace with scope.joinUntil(Instant) when available in a future JDK release.
-            var joinFuture = CompletableFuture.runAsync(() -> {
-                try {
-                    scope.join();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException(e);
-                }
-            });
-
             try {
-                joinFuture.get(timeoutMinutes + 1, TimeUnit.MINUTES);
+                StructuredConcurrencyUtils.joinWithTimeout(scope, timeoutMinutes + 1, TimeUnit.MINUTES);
             } catch (TimeoutException e) {
                 logger.error("Structured concurrency timed out after {} minutes", timeoutMinutes, e);
                 scope.close();
@@ -225,10 +208,9 @@ public class ReviewOrchestrator {
             }
 
             results.removeIf(Objects::isNull);
+            long successCount = results.stream().filter(ReviewResult::isSuccess).count();
             logger.info("Completed {} reviews (success: {}, failed: {})",
-                results.size(),
-                results.stream().filter(ReviewResult::isSuccess).count(),
-                results.stream().filter(r -> !r.isSuccess()).count());
+                results.size(), successCount, results.size() - successCount);
             return results;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -260,25 +242,29 @@ public class ReviewOrchestrator {
         };
     }
     
+    private ReviewContext createContext() {
+        return new ReviewContext(client, githubToken, githubMcpConfig,
+            executionConfig.agentTimeoutMinutes(), executionConfig.idleTimeoutMinutes(),
+            customInstructions, reasoningEffort,
+            executionConfig.maxRetries(), outputConstraints);
+    }
+
     /// Shuts down the executor service.
     public void shutdown() {
-        if (executorService == null) return;
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
-            }
-        } catch (InterruptedException _) {
-            // Java 22+: Unnamed variable - exception not used
-            executorService.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        ExecutorUtils.shutdownGracefully(executorService, 60);
     }
 
     private ExecutorService getOrCreateExecutorService() {
-        if (executorService == null) {
-            executorService = Executors.newVirtualThreadPerTaskExecutor();
+        ExecutorService es = executorService;
+        if (es == null) {
+            synchronized (this) {
+                es = executorService;
+                if (es == null) {
+                    es = Executors.newVirtualThreadPerTaskExecutor();
+                    executorService = es;
+                }
+            }
         }
-        return executorService;
+        return es;
     }
 }

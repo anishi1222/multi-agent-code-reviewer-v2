@@ -218,22 +218,20 @@ public record AgentConfig(
 
         String focusAreaText = formatFocusAreas();
         
-        // Build embedded source content section
-        String embeddedContent = """
-            
-            以下は対象ディレクトリのソースコードです:
-            
-            %s
-            """.formatted(sourceContent);
-        
-        // Replace placeholders and append source content
+        // Replace placeholders
         String basePrompt = instruction
             .replace("${repository}", targetName)
             .replace("${displayName}", displayName != null ? displayName : name)
             .replace("${name}", name)
             .replace("${focusAreas}", focusAreaText);
         
-        return basePrompt + embeddedContent;
+        // Use StringBuilder to avoid large intermediate string copies
+        return new StringBuilder(basePrompt.length() + sourceContent.length() + 64)
+            .append(basePrompt)
+            .append("\n\n以下は対象ディレクトリのソースコードです:\n\n")
+            .append(sourceContent)
+            .append("\n")
+            .toString();
     }
 
     private String formatFocusAreas() {

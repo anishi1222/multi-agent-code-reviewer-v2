@@ -105,12 +105,7 @@ public class SkillCommand {
                 case "--token" -> {
                     CliParsing.OptionValue value = CliParsing.readSingleValue(arg, args, i, "--token");
                     i = value.newIndex();
-                    String tokenValue = value.value();
-                    if (!"-".equals(tokenValue)) {
-                        System.err.println("WARNING: Token passed via command line is visible in process listings. "
-                            + "Use '--token -' or GITHUB_TOKEN env var for safer input.");
-                    }
-                    githubToken = CliParsing.readToken(tokenValue);
+                    githubToken = CliParsing.readTokenWithWarning(value.value());
                 }
                 case "--model" -> {
                     CliParsing.OptionValue value = CliParsing.readSingleValue(arg, args, i, "--model");
@@ -202,7 +197,7 @@ public class SkillCommand {
             }
             System.out.println();
         }
-        if (skillService.getRegistry().size() == 0) {
+        if (skillService.getRegistry().getAll().isEmpty()) {
             System.out.println("  No skills found.");
         }
     }

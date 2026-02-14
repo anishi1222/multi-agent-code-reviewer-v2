@@ -76,6 +76,20 @@ public final class CliParsing {
         return null;
     }
 
+    /// Reads a token value with a security check.
+    /// Rejects direct token values passed via command line to prevent
+    /// exposure in process listings and shell history.
+    /// Only `"-"` (stdin) is accepted; for other values a
+    /// {@link CliValidationException} is thrown.
+    public static String readTokenWithWarning(String value) {
+        if (!"-".equals(value)) {
+            throw new CliValidationException(
+                "Direct token passing via command line is not supported for security reasons. "
+                    + "Use '--token -' (stdin) or set GITHUB_TOKEN environment variable.", true);
+        }
+        return readToken(value);
+    }
+
     /// Reads a token value, supporting stdin input via "-" to avoid
     /// exposing the token in process listings or shell history.
     /// The returned `char[]` from `readPassword` is zero-filled after conversion

@@ -3,9 +3,13 @@ package dev.logicojp.reviewer;
 import dev.logicojp.reviewer.cli.CliParsing;
 import dev.logicojp.reviewer.cli.CliUsage;
 import dev.logicojp.reviewer.cli.ExitCodes;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
 import io.micronaut.context.ApplicationContext;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -109,12 +113,12 @@ public class ReviewApp {
     /// This is an acceptable trade-off for implementing the --verbose CLI flag at runtime.
     private void enableVerboseLogging() {
         try {
-            ch.qos.logback.classic.LoggerContext context =
-                (ch.qos.logback.classic.LoggerContext) org.slf4j.LoggerFactory.getILoggerFactory();
-            context.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME)
-                .setLevel(ch.qos.logback.classic.Level.DEBUG);
+            LoggerContext context =
+                (LoggerContext) LoggerFactory.getILoggerFactory();
+            context.getLogger(Logger.ROOT_LOGGER_NAME)
+                .setLevel(Level.DEBUG);
             context.getLogger("dev.logicojp")
-                .setLevel(ch.qos.logback.classic.Level.DEBUG);
+                .setLevel(Level.DEBUG);
         } catch (Exception e) {
             System.err.println("Failed to enable verbose logging: " + e.getMessage());
         }

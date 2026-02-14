@@ -30,7 +30,10 @@ reviewer:
       type: http
       url: https://api.githubcopilot.com/mcp/
       tools:
-        - "*"
+        - "get_file_contents"
+        - "search_code"
+        - "list_commits"
+        - "get_commit"
       auth-header-name: Authorization
       auth-header-template: "Bearer {token}"
   models:
