@@ -4,7 +4,8 @@ micronaut:
 
 reviewer:
   execution:
-    parallelism: 4
+    parallelism: 12
+    review-passes: 3
     orchestrator-timeout-minutes: 45
     agent-timeout-minutes: 20
     idle-timeout-minutes: 5
