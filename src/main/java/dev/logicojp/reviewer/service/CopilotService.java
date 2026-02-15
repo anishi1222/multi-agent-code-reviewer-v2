@@ -45,10 +45,10 @@ public class CopilotService {
         try {
             initialize(githubToken);
         } catch (ExecutionException e) {
-            throw new RuntimeException("Failed to initialize Copilot service", e);
+            throw new CopilotCliException("Failed to initialize Copilot service", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Failed to initialize Copilot service", e);
+            throw new CopilotCliException("Failed to initialize Copilot service", e);
         }
     }
 

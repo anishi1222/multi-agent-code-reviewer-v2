@@ -1,10 +1,8 @@
 package dev.logicojp.reviewer.util;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
-import jakarta.inject.Singleton;
 
 /// Centralized feature flags backed by Micronaut configuration binding.
-@Singleton
 @ConfigurationProperties("reviewer.feature-flags")
 public record FeatureFlags(
     boolean structuredConcurrency,

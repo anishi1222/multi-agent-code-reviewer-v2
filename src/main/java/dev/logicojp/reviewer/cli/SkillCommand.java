@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Singleton
 public class SkillCommand {
@@ -176,7 +177,7 @@ public class SkillCommand {
                 System.err.println("Skill execution failed: " + result.errorMessage());
                 return ExitCodes.SOFTWARE;
             }
-        } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
+        } catch (ExecutionException | TimeoutException e) {
             throw new RuntimeException("Skill execution failed", e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

@@ -6,9 +6,14 @@ import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -18,6 +23,8 @@ public final class GitHubTokenResolver {
 
     private static final Logger logger = LoggerFactory.getLogger(GitHubTokenResolver.class);
     private static final String PLACEHOLDER = "${GITHUB_TOKEN}";
+    private static final String PATH_ENV = "PATH";
+    private static final String GH_CLI_PATH_ENV = "GH_CLI_PATH";
     private static final long DEFAULT_TIMEOUT_SECONDS = 10;
 
     private final long timeoutSeconds;
@@ -56,7 +63,12 @@ public final class GitHubTokenResolver {
     }
 
     private Optional<String> resolveFromGhAuth() {
-        ProcessBuilder builder = new ProcessBuilder("gh", "auth", "token", "-h", "github.com");
+        String ghPath = resolveGhCliPath();
+        if (ghPath == null) {
+            logger.warn("gh CLI not found. Install GitHub CLI or set {}.", GH_CLI_PATH_ENV);
+            return Optional.empty();
+        }
+        ProcessBuilder builder = new ProcessBuilder(ghPath, "auth", "token", "-h", "github.com");
         builder.redirectErrorStream(true);
         try {
             Process process = builder.start();
@@ -87,5 +99,39 @@ public final class GitHubTokenResolver {
             logger.warn("Failed to resolve token from gh auth", e);
             return Optional.empty();
         }
+    }
+
+    private String resolveGhCliPath() {
+        String explicit = System.getenv(GH_CLI_PATH_ENV);
+        if (explicit != null && !explicit.isBlank()) {
+            Path explicitPath = Path.of(explicit.trim()).toAbsolutePath().normalize();
+            if (Files.isExecutable(explicitPath)
+                && "gh".equals(explicitPath.getFileName().toString())) {
+                return explicitPath.toString();
+            }
+            logger.warn("Invalid {} value: {}", GH_CLI_PATH_ENV, explicitPath);
+            return null;
+        }
+
+        String pathEnv = System.getenv(PATH_ENV);
+        if (pathEnv == null || pathEnv.isBlank()) {
+            return null;
+        }
+
+        List<Path> candidates = new ArrayList<>();
+        for (String entry : pathEnv.split(File.pathSeparator)) {
+            if (entry == null || entry.isBlank()) {
+                continue;
+            }
+            candidates.add(Path.of(entry.trim()).resolve("gh"));
+        }
+
+        for (Path candidate : candidates) {
+            if (Files.isExecutable(candidate)) {
+                return candidate.toAbsolutePath().normalize().toString();
+            }
+        }
+
+        return null;
     }
 }

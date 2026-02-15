@@ -179,19 +179,19 @@ public class ReviewCommand {
         }
 
         int parsedIndex = applyTargetOption(state, arg, args, i);
-        if (parsedIndex != i) return parsedIndex;
+        if (parsedIndex >= 0) return parsedIndex;
 
         parsedIndex = applyAgentOption(state, arg, args, i);
-        if (parsedIndex != i) return parsedIndex;
+        if (parsedIndex >= 0) return parsedIndex;
 
         parsedIndex = applyExecutionOption(state, arg, args, i);
-        if (parsedIndex != i) return parsedIndex;
+        if (parsedIndex >= 0) return parsedIndex;
 
         parsedIndex = applyModelOption(state, arg, args, i);
-        if (parsedIndex != i) return parsedIndex;
+        if (parsedIndex >= 0) return parsedIndex;
 
         parsedIndex = applyInstructionOption(state, arg, args, i);
-        if (parsedIndex != i) return parsedIndex;
+        if (parsedIndex >= 0) return parsedIndex;
 
         if (arg.startsWith("-")) {
             throw new CliValidationException("Unknown option: " + arg, true);
@@ -203,7 +203,7 @@ public class ReviewCommand {
         return switch (arg) {
             case "-r", "--repo" -> CliParsing.readInto(args, i, "--repo", v -> state.repository = v);
             case "-l", "--local" -> CliParsing.readInto(args, i, "--local", v -> state.localDirectory = Path.of(v));
-            default -> i;
+            default -> -1;
         };
     }
 
@@ -219,7 +219,7 @@ public class ReviewCommand {
                 state.agentNames.addAll(parsed);
                 yield value.newIndex();
             }
-            default -> i;
+            default -> -1;
         };
     }
 
@@ -232,7 +232,7 @@ public class ReviewCommand {
             case "--parallelism" -> CliParsing.readInto(args, i, "--parallelism",
                 v -> state.parallelism = parseInt(v, "--parallelism"));
             case "--no-summary" -> { state.noSummary = true; yield i; }
-            default -> i;
+            default -> -1;
         };
     }
 
@@ -242,7 +242,7 @@ public class ReviewCommand {
             case "--report-model" -> CliParsing.readInto(args, i, "--report-model", v -> state.reportModel = v);
             case "--summary-model" -> CliParsing.readInto(args, i, "--summary-model", v -> state.summaryModel = v);
             case "--model" -> CliParsing.readInto(args, i, "--model", v -> state.defaultModel = v);
-            default -> i;
+            default -> -1;
         };
     }
 
@@ -253,7 +253,7 @@ public class ReviewCommand {
             case "--no-instructions" -> { state.noInstructions = true; yield i; }
             case "--no-prompts" -> { state.noPrompts = true; yield i; }
             case "--trust" -> { state.trustTarget = true; yield i; }
-            default -> i;
+            default -> -1;
         };
     }
 
@@ -456,61 +456,71 @@ public class ReviewCommand {
         }
 
         List<CustomInstruction> instructions = new ArrayList<>();
-
-        // Load from explicitly specified paths
-        if (!options.instructionPaths().isEmpty()) {
-            for (Path path : options.instructionPaths()) {
-                try {
-                    if (Files.exists(path) && Files.isRegularFile(path)) {
-                        String content = Files.readString(path);
-                        if (!content.isBlank()) {
-                            CustomInstruction instruction = new CustomInstruction(
-                                path.toString(), content.trim(),
-                                InstructionSource.LOCAL_FILE, null, null);
-                            CustomInstructionSafetyValidator.ValidationResult result =
-                                CustomInstructionSafetyValidator.validate(instruction);
-                            if (result.safe()) {
-                                instructions.add(instruction);
-                                System.out.println("  ✓ Loaded instructions: " + path);
-                            } else {
-                                System.err.println("⚠  Skipped unsafe instruction: " + path + " (" + result.reason() + ")");
-                            }
-                        }
-                    } else {
-                        logger.warn("Instruction file not found: {}", path);
-                    }
-                } catch (Exception e) {
-                    logger.warn("Failed to read instruction file {}: {}", path, e.getMessage());
-                }
-            }
-        }
-
-        // Load from target directory for local targets (opt-in via --trust)
-        if (target.isLocal()) {
-            if (options.trustTarget()) {
-                // User explicitly trusts the target — load instructions
-                System.out.println("⚠  --trust enabled: loading custom instructions from the review target.");
-                CustomInstructionLoader targetLoader = options.noPrompts()
-                    ? new CustomInstructionLoader(null, false)
-                    : instructionLoader;
-                List<CustomInstruction> targetInstructions = targetLoader.loadForTarget(target);
-                for (CustomInstruction instruction : targetInstructions) {
-                    CustomInstructionSafetyValidator.ValidationResult result =
-                        CustomInstructionSafetyValidator.validate(instruction);
-                    if (result.safe()) {
-                        instructions.add(instruction);
-                        System.out.println("  ✓ Loaded instructions from target: " + instruction.sourcePath());
-                    } else {
-                        System.err.println("⚠  Skipped unsafe instruction: "
-                            + instruction.sourcePath() + " (" + result.reason() + ")");
-                    }
-                }
-            } else {
-                System.out.println("ℹ  Target instructions skipped (use --trust to load from review target).");
-            }
-        }
+        loadInstructionsFromExplicitPaths(options.instructionPaths(), instructions);
+        loadInstructionsFromTrustedTarget(target, options, instructions);
 
         return List.copyOf(instructions);
+    }
+
+    private void loadInstructionsFromExplicitPaths(List<Path> instructionPaths,
+                                                   List<CustomInstruction> instructions) {
+        if (instructionPaths.isEmpty()) {
+            return;
+        }
+
+        for (Path path : instructionPaths) {
+            try {
+                if (Files.exists(path) && Files.isRegularFile(path)) {
+                    String content = Files.readString(path);
+                    if (!content.isBlank()) {
+                        CustomInstruction instruction = new CustomInstruction(
+                            path.toString(), content.trim(),
+                            InstructionSource.LOCAL_FILE, null, null);
+                        addIfSafe(instruction, instructions, "  ✓ Loaded instructions: ");
+                    }
+                } else {
+                    logger.warn("Instruction file not found: {}", path);
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to read instruction file {}: {}", path, e.getMessage());
+            }
+        }
+    }
+
+    private void loadInstructionsFromTrustedTarget(ReviewTarget target,
+                                                   ParsedOptions options,
+                                                   List<CustomInstruction> instructions) {
+        if (!target.isLocal()) {
+            return;
+        }
+
+        if (!options.trustTarget()) {
+            System.out.println("ℹ  Target instructions skipped (use --trust to load from review target).");
+            return;
+        }
+
+        System.out.println("⚠  --trust enabled: loading custom instructions from the review target.");
+        CustomInstructionLoader targetLoader = options.noPrompts()
+            ? new CustomInstructionLoader(null, false)
+            : instructionLoader;
+        List<CustomInstruction> targetInstructions = targetLoader.loadForTarget(target);
+        for (CustomInstruction instruction : targetInstructions) {
+            addIfSafe(instruction, instructions, "  ✓ Loaded instructions from target: ");
+        }
+    }
+
+    private void addIfSafe(CustomInstruction instruction,
+                           List<CustomInstruction> instructions,
+                           String loadedPrefix) {
+        CustomInstructionSafetyValidator.ValidationResult result =
+            CustomInstructionSafetyValidator.validate(instruction);
+        if (result.safe()) {
+            instructions.add(instruction);
+            System.out.println(loadedPrefix + instruction.sourcePath());
+        } else {
+            System.err.println("⚠  Skipped unsafe instruction: "
+                + instruction.sourcePath() + " (" + result.reason() + ")");
+        }
     }
 
     private void printBanner(Map<String, AgentConfig> agentConfigs,

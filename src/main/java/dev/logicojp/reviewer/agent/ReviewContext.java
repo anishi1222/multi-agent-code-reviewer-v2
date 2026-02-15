@@ -124,6 +124,12 @@ public record ReviewContext(
         }
 
         public ReviewContext build() {
+            if (timeoutMinutes <= 0) {
+                throw new IllegalArgumentException("timeoutMinutes must be positive");
+            }
+            if (idleTimeoutMinutes <= 0) {
+                throw new IllegalArgumentException("idleTimeoutMinutes must be positive");
+            }
             return new ReviewContext(
                 client,
                 timeoutMinutes,
