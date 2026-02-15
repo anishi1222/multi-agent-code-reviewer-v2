@@ -58,13 +58,13 @@ public final class CliParsing {
     }
 
     public static int readInto(String[] args, int i, String optName, Consumer<String> setter) {
-        OptionValue value = readSingleValue(optName, args, i, optName);
+        OptionValue value = readSingleValue(args[i], args, i, optName);
         setter.accept(value.value());
         return value.newIndex();
     }
 
     public static int readMultiInto(String[] args, int i, String optName, Consumer<String> setter) {
-        MultiValue values = readMultiValues(optName, args, i, optName);
+        MultiValue values = readMultiValues(args[i], args, i, optName);
         for (String value : values.values()) {
             setter.accept(value);
         }

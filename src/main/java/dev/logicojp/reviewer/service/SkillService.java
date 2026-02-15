@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -33,6 +34,7 @@ public class SkillService {
     private final ExecutionConfig executionConfig;
     private final FeatureFlags featureFlags;
     private final ExecutorService executorService;
+    private final Map<ExecutorCacheKey, SkillExecutor> executorCache;
 
     @Inject
     public SkillService(SkillRegistry skillRegistry,
@@ -46,6 +48,7 @@ public class SkillService {
         this.executionConfig = executionConfig;
         this.featureFlags = featureFlags;
         this.executorService = Executors.newVirtualThreadPerTaskExecutor();
+        this.executorCache = new ConcurrentHashMap<>();
     }
 
     /// Registers all skills from an agent configuration.
@@ -106,15 +109,20 @@ public class SkillService {
     }
 
     private SkillExecutor createExecutor(String githubToken, String model) {
-        return new SkillExecutor(
+        var key = new ExecutorCacheKey(githubToken, model);
+        return executorCache.computeIfAbsent(key, ignored -> new SkillExecutor(
             copilotService.getClient(),
             githubToken,
             githubMcpConfig,
             model,
             executionConfig.skillTimeoutMinutes(),
             executorService,
+            false,
             featureFlags.isStructuredConcurrencyEnabledForSkills()
-        );
+        ));
+    }
+
+    private record ExecutorCacheKey(String githubToken, String model) {
     }
 
     @PreDestroy

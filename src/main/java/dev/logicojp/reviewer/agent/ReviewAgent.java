@@ -21,6 +21,7 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -220,8 +221,13 @@ public class ReviewAgent {
 
         String content;
         if (localSourceContent != null) {
-            sendWithActivityTimeout(session, initialPrompt, idleTimeoutMs, maxTimeoutMs);
-            sendWithActivityTimeout(session, localSourceContent, idleTimeoutMs, maxTimeoutMs);
+            String combinedPrompt = new StringBuilder(
+                initialPrompt.length() + localSourceContent.length() + 8)
+                .append(initialPrompt)
+                .append("\n\n")
+                .append(localSourceContent)
+                .toString();
+            sendWithActivityTimeout(session, combinedPrompt, idleTimeoutMs, maxTimeoutMs);
             content = sendWithActivityTimeout(session,
                 "ソースコードを読み込んだ内容に基づいて、指定された出力形式でレビュー結果を返してください。",
                 idleTimeoutMs, maxTimeoutMs);
@@ -287,8 +293,8 @@ public class ReviewAgent {
         private static final int MAX_ACCUMULATED_SIZE = 4 * 1024 * 1024; // 4MB
 
         private final CompletableFuture<String> future = new CompletableFuture<>();
-        private final StringBuilder accumulatedContent = new StringBuilder();
-        private final Object contentLock = new Object();
+        private final ConcurrentLinkedQueue<String> accumulatedParts = new ConcurrentLinkedQueue<>();
+        private final AtomicInteger accumulatedSize = new AtomicInteger(0);
         private final AtomicReference<String> lastContent = new AtomicReference<>(null);
         private final AtomicLong lastActivityTime = new AtomicLong(System.currentTimeMillis());
         private final AtomicInteger toolCallCount = new AtomicInteger(0);
@@ -307,10 +313,11 @@ public class ReviewAgent {
             messageCount.incrementAndGet();
             if (content != null && !content.isBlank()) {
                 lastContent.set(content);
-                synchronized (contentLock) {
-                    if (accumulatedContent.length() + content.length() <= MAX_ACCUMULATED_SIZE) {
-                        accumulatedContent.append(content);
-                    }
+                int newSize = accumulatedSize.addAndGet(content.length());
+                if (newSize <= MAX_ACCUMULATED_SIZE) {
+                    accumulatedParts.add(content);
+                } else {
+                    accumulatedSize.addAndGet(-content.length());
                 }
             }
             if (toolCalls > 0) {
@@ -324,10 +331,7 @@ public class ReviewAgent {
                 if (last != null && !last.isBlank()) {
                     future.complete(last);
                 } else {
-                    String accumulated;
-                    synchronized (contentLock) {
-                        accumulated = accumulatedContent.toString();
-                    }
+                    String accumulated = joinAccumulated();
                     future.complete(accumulated.isBlank() ? null : accumulated);
                 }
             }
@@ -343,10 +347,7 @@ public class ReviewAgent {
             if (future.isDone()) return;
             logger.warn("Agent {}: idle timeout — no events for {} ms ({} messages, {} tool calls)",
                 agentName, elapsed, messageCount.get(), toolCallCount.get());
-            String content;
-            synchronized (contentLock) {
-                content = accumulatedContent.isEmpty() ? "" : accumulatedContent.toString();
-            }
+            String content = joinAccumulated();
             if (!content.isBlank()) {
                 future.complete(content);
             } else {
@@ -360,9 +361,18 @@ public class ReviewAgent {
         }
 
         String getAccumulatedContent() {
-            synchronized (contentLock) {
-                return accumulatedContent.isEmpty() ? "" : accumulatedContent.toString();
+            return joinAccumulated();
+        }
+
+        private String joinAccumulated() {
+            if (accumulatedParts.isEmpty()) {
+                return "";
             }
+            StringBuilder sb = new StringBuilder(accumulatedSize.get());
+            for (String part : accumulatedParts) {
+                sb.append(part);
+            }
+            return sb.toString();
         }
 
         String awaitResult(long maxTimeoutMs) throws Exception {

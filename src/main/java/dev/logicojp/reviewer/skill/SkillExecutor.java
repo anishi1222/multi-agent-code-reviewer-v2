@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -34,29 +33,9 @@ public class SkillExecutor {
 
     public SkillExecutor(CopilotClient client, String githubToken,
                          GithubMcpConfig githubMcpConfig, String defaultModel,
-                         long timeoutMinutes) {
-        this(client, githubToken, githubMcpConfig, defaultModel, timeoutMinutes,
-            Executors.newVirtualThreadPerTaskExecutor(), true, false);
-    }
-
-    public SkillExecutor(CopilotClient client, String githubToken,
-                         GithubMcpConfig githubMcpConfig, String defaultModel,
-                         long timeoutMinutes, Executor executor) {
-        this(client, githubToken, githubMcpConfig, defaultModel, timeoutMinutes, executor, false, false);
-    }
-
-    public SkillExecutor(CopilotClient client, String githubToken,
-                         GithubMcpConfig githubMcpConfig, String defaultModel,
                          long timeoutMinutes, Executor executor,
+                         boolean ownsExecutor,
                          boolean structuredConcurrencyEnabled) {
-        this(client, githubToken, githubMcpConfig, defaultModel, timeoutMinutes,
-            executor, false, structuredConcurrencyEnabled);
-    }
-
-    private SkillExecutor(CopilotClient client, String githubToken,
-                          GithubMcpConfig githubMcpConfig, String defaultModel,
-                          long timeoutMinutes, Executor executor, boolean ownsExecutor,
-                          boolean structuredConcurrencyEnabled) {
         this.client = client;
         this.defaultModel = defaultModel;
         this.timeoutMinutes = timeoutMinutes;

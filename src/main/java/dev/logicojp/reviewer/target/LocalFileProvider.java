@@ -151,37 +151,16 @@ public class LocalFileProvider {
         }
 
         List<LocalFile> files = new ArrayList<>();
-        long totalSize = 0;
 
         try {
             List<Path> candidates = collectCandidatePaths();
-
-            for (Path path : candidates) {
-                try {
-                    long size = Files.size(path);
-                    if (size > maxFileSize) {
-                        logger.debug("Skipping large file ({} bytes): {}", size, path);
-                        continue;
-                    }
-                    if (totalSize + size > maxTotalSize) {
-                        logger.warn("Total content size limit reached ({} bytes). Stopping collection.", totalSize);
-                        break;
-                    }
-
-                    String content = Files.readString(path, StandardCharsets.UTF_8);
-                    String relativePath = baseDirectory.relativize(path).toString().replace('\\', '/');
-                    files.add(new LocalFile(relativePath, content, size));
-                    totalSize += size;
-
-                } catch (IOException e) {
-                    logger.debug("Failed to read file {}: {}", path, e.getMessage());
-                }
-            }
+            ProcessingResult result = processCandidates(candidates, (relativePath, content, size) ->
+                files.add(new LocalFile(relativePath, content, size)));
+            logger.info("Collected {} source files ({} bytes) from: {}",
+                result.fileCount(), result.totalSize(), baseDirectory);
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to walk directory: " + baseDirectory, e);
         }
-
-        logger.info("Collected {} source files ({} bytes) from: {}", files.size(), totalSize, baseDirectory);
         return List.copyOf(files);
     }
 
@@ -196,47 +175,27 @@ public class LocalFileProvider {
 
         try {
             List<Path> candidates = collectCandidatePaths();
-            StringBuilder reviewContentBuilder = new StringBuilder((int) Math.min(maxTotalSize + 4096, Integer.MAX_VALUE));
+            StringBuilder reviewContentBuilder = new StringBuilder((int) Math.min(64 * 1024, maxTotalSize + 4096));
             StringBuilder fileListBuilder = new StringBuilder();
-            long totalSize = 0;
-            int fileCount = 0;
-
-            for (Path path : candidates) {
-                try {
-                    long size = Files.size(path);
-                    if (size > maxFileSize) {
-                        logger.debug("Skipping large file ({} bytes): {}", size, path);
-                        continue;
-                    }
-                    if (totalSize + size > maxTotalSize) {
-                        logger.warn("Total content size limit reached ({} bytes). Stopping collection.", totalSize);
-                        break;
-                    }
-
-                    String content = Files.readString(path, StandardCharsets.UTF_8);
-                    String relativePath = baseDirectory.relativize(path).toString().replace('\\', '/');
-
-                    String lang = detectLanguage(relativePath);
-                    reviewContentBuilder.append("### ").append(relativePath).append("\n\n");
-                    reviewContentBuilder.append("```").append(lang).append("\n");
-                    reviewContentBuilder.append(content);
-                    if (!content.endsWith("\n")) {
-                        reviewContentBuilder.append("\n");
-                    }
-                    reviewContentBuilder.append("```\n\n");
-
-                    fileListBuilder.append("  - ")
-                        .append(relativePath)
-                        .append(" (")
-                        .append(size)
-                        .append(" bytes)\n");
-
-                    totalSize += size;
-                    fileCount++;
-                } catch (IOException e) {
-                    logger.debug("Failed to read file {}: {}", path, e.getMessage());
+            ProcessingResult result = processCandidates(candidates, (relativePath, content, size) -> {
+                String lang = detectLanguage(relativePath);
+                reviewContentBuilder.append("### ").append(relativePath).append("\n\n");
+                reviewContentBuilder.append("```").append(lang).append("\n");
+                reviewContentBuilder.append(content);
+                if (!content.endsWith("\n")) {
+                    reviewContentBuilder.append("\n");
                 }
-            }
+                reviewContentBuilder.append("```\n\n");
+
+                fileListBuilder.append("  - ")
+                    .append(relativePath)
+                    .append(" (")
+                    .append(size)
+                    .append(" bytes)\n");
+            });
+
+            long totalSize = result.totalSize();
+            int fileCount = result.fileCount();
 
             String reviewContent = fileCount == 0
                 ? "(no source files found)"
@@ -260,6 +219,44 @@ public class LocalFileProvider {
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to walk directory: " + baseDirectory, e);
         }
+    }
+
+    @FunctionalInterface
+    private interface FileProcessor {
+        void accept(String relativePath, String content, long sizeBytes);
+    }
+
+    private record ProcessingResult(long totalSize, int fileCount) {
+    }
+
+    private ProcessingResult processCandidates(List<Path> candidates, FileProcessor processor) {
+        long totalSize = 0;
+        int fileCount = 0;
+
+        for (Path path : candidates) {
+            try {
+                long size = Files.size(path);
+                if (size > maxFileSize) {
+                    logger.debug("Skipping large file ({} bytes): {}", size, path);
+                    continue;
+                }
+                if (totalSize + size > maxTotalSize) {
+                    logger.warn("Total content size limit reached ({} bytes). Stopping collection.", totalSize);
+                    break;
+                }
+
+                String content = Files.readString(path, StandardCharsets.UTF_8);
+                String relativePath = baseDirectory.relativize(path).toString().replace('\\', '/');
+
+                processor.accept(relativePath, content, size);
+                totalSize += size;
+                fileCount++;
+            } catch (IOException e) {
+                logger.debug("Failed to read file {}: {}", path, e.getMessage());
+            }
+        }
+
+        return new ProcessingResult(totalSize, fileCount);
     }
 
     /// Generates the review content string with all file contents embedded.
