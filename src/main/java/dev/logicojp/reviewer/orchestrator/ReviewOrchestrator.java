@@ -8,6 +8,7 @@ import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.config.LocalFileConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.report.ReviewResult;
+import dev.logicojp.reviewer.report.ReviewResultMerger;
 import dev.logicojp.reviewer.target.LocalFileProvider;
 import dev.logicojp.reviewer.target.ReviewTarget;
 import dev.logicojp.reviewer.util.ExecutorUtils;
@@ -80,6 +81,9 @@ public class ReviewOrchestrator implements AutoCloseable {
         this.localMaxTotalSize = localFileConfig.maxTotalSize();
         
         logger.info("Parallelism set to {}", executionConfig.parallelism());
+        if (executionConfig.reviewPasses() > 1) {
+            logger.info("Multi-pass review enabled: {} passes per agent", executionConfig.reviewPasses());
+        }
         if (!this.customInstructions.isEmpty()) {
             logger.info("Custom instructions loaded ({} instruction(s))", this.customInstructions.size());
         }
@@ -120,12 +124,16 @@ public class ReviewOrchestrator implements AutoCloseable {
     }
 
     /// Executes reviews for all provided agents in parallel.
+    /// When `reviewPasses > 1`, each agent is reviewed multiple times in parallel
+    /// and the results are merged per agent before returning.
     /// @param agents Map of agent name to AgentConfig
     /// @param target The target to review (GitHub repository or local directory)
-    /// @return List of ReviewResults from all agents
+    /// @return List of ReviewResults from all agents (one per agent, merged if multi-pass)
     public List<ReviewResult> executeReviews(Map<String, AgentConfig> agents, ReviewTarget target) {
-        logger.info("Starting parallel review for {} agents on target: {}", 
-            agents.size(), target.displayName());
+        int reviewPasses = executionConfig.reviewPasses();
+        int totalTasks = agents.size() * reviewPasses;
+        logger.info("Starting parallel review for {} agents ({} passes each, {} total tasks) on target: {}",
+            agents.size(), reviewPasses, totalTasks, target.displayName());
 
         // Pre-compute source content once for local targets (shared across all agents)
         String cachedSourceContent = null;
@@ -145,7 +153,7 @@ public class ReviewOrchestrator implements AutoCloseable {
             return executeReviewsStructured(agents, target, sharedContext);
         }
         
-        List<CompletableFuture<ReviewResult>> futures = new ArrayList<>(agents.size());
+        List<CompletableFuture<ReviewResult>> futures = new ArrayList<>(totalTasks);
         long timeoutMinutes = executionConfig.orchestratorTimeoutMinutes();
         // Per-agent timeout accounts for retries: each attempt gets the full agent timeout
         long perAgentTimeoutMinutes = executionConfig.agentTimeoutMinutes()
@@ -155,20 +163,30 @@ public class ReviewOrchestrator implements AutoCloseable {
         final ReviewContext context = sharedContext;
         
         for (var config : agents.values()) {
-            CompletableFuture<ReviewResult> future = CompletableFuture
-            .supplyAsync(() -> executeAgentSafely(config, target, context), executor)
-                .orTimeout(perAgentTimeoutMinutes, TimeUnit.MINUTES)
-                .exceptionally(ex -> {
-                    logger.error("Agent {} failed with timeout or error: {}",
-                        config.name(), ex.getMessage(), ex);
-                    return ReviewResult.builder()
-                        .agentConfig(config)
-                        .repository(target.displayName())
-                        .success(false)
-                        .errorMessage("Review timed out or failed: " + ex.getMessage())
-                        .build();
-                });
-            futures.add(future);
+            for (int pass = 1; pass <= reviewPasses; pass++) {
+                final int passNumber = pass;
+                CompletableFuture<ReviewResult> future = CompletableFuture
+                .supplyAsync(() -> {
+                    if (reviewPasses > 1) {
+                        logger.info("Agent {}: starting pass {}/{}",
+                            config.name(), passNumber, reviewPasses);
+                    }
+                    return executeAgentSafely(config, target, context);
+                }, executor)
+                    .orTimeout(perAgentTimeoutMinutes, TimeUnit.MINUTES)
+                    .exceptionally(ex -> {
+                        logger.error("Agent {} (pass {}) failed with timeout or error: {}",
+                            config.name(), passNumber, ex.getMessage(), ex);
+                        return ReviewResult.builder()
+                            .agentConfig(config)
+                            .repository(target.displayName())
+                            .success(false)
+                            .errorMessage("Review timed out or failed (pass %d): %s"
+                                .formatted(passNumber, ex.getMessage()))
+                            .build();
+                    });
+                futures.add(future);
+            }
         }
         
         // Wait for all reviews to complete
@@ -195,20 +213,39 @@ public class ReviewOrchestrator implements AutoCloseable {
             }
         }
         
-        return collectAndLogResults(results);
+        List<ReviewResult> collected = collectAndLogResults(results);
+
+        // Merge multi-pass results per agent
+        if (reviewPasses > 1) {
+            List<ReviewResult> merged = ReviewResultMerger.mergeByAgent(collected);
+            logger.info("Merged {} pass results into {} agent results", collected.size(), merged.size());
+            return merged;
+        }
+        return collected;
     }
 
     private List<ReviewResult> executeReviewsStructured(Map<String, AgentConfig> agents,
                                                         ReviewTarget target,
                                                         ReviewContext sharedContext) {
+        int reviewPasses = executionConfig.reviewPasses();
         long timeoutMinutes = executionConfig.orchestratorTimeoutMinutes();
         long perAgentTimeoutMinutes = executionConfig.agentTimeoutMinutes()
             * (executionConfig.maxRetries() + 1L);
 
-        List<StructuredTaskScope.Subtask<ReviewResult>> tasks = new ArrayList<>(agents.size());
+        int totalTasks = agents.size() * reviewPasses;
+        List<StructuredTaskScope.Subtask<ReviewResult>> tasks = new ArrayList<>(totalTasks);
         try (var scope = StructuredTaskScope.<ReviewResult>open()) {
             for (var config : agents.values()) {
-                tasks.add(scope.fork(() -> executeAgentSafely(config, target, sharedContext)));
+                for (int pass = 1; pass <= reviewPasses; pass++) {
+                    final int passNumber = pass;
+                    tasks.add(scope.fork(() -> {
+                        if (reviewPasses > 1) {
+                            logger.info("Agent {}: starting pass {}/{} (structured)",
+                                config.name(), passNumber, reviewPasses);
+                        }
+                        return executeAgentSafely(config, target, sharedContext);
+                    }));
+                }
             }
 
             try {
@@ -223,7 +260,15 @@ public class ReviewOrchestrator implements AutoCloseable {
                 results.add(summarizeTaskResult(task, target, perAgentTimeoutMinutes));
             }
 
-            return collectAndLogResults(results);
+            List<ReviewResult> collected = collectAndLogResults(results);
+
+            // Merge multi-pass results per agent
+            if (reviewPasses > 1) {
+                List<ReviewResult> merged = ReviewResultMerger.mergeByAgent(collected);
+                logger.info("Merged {} pass results into {} agent results", collected.size(), merged.size());
+                return merged;
+            }
+            return collected;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             logger.error("Structured concurrency interrupted", e);

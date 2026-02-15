@@ -544,6 +544,9 @@ public class ReviewCommand {
         System.out.println("Models:");
         System.out.println("  Review: " + (reviewModel != null ? reviewModel : "(agent default)"));
         System.out.println("  Summary: " + modelConfig.summaryModel());
+        if (executionConfig.reviewPasses() > 1) {
+            System.out.println("Review passes: " + executionConfig.reviewPasses() + " per agent");
+        }
         System.out.println();
     }
 
