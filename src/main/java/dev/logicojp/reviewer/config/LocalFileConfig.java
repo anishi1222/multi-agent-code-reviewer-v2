@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.config;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
+import io.micronaut.core.annotation.Nullable;
 
 import java.util.List;
 
@@ -9,9 +10,13 @@ import java.util.List;
 public record LocalFileConfig(
     long maxFileSize,
     long maxTotalSize,
+    @Nullable
     List<String> ignoredDirectories,
+    @Nullable
     List<String> sourceExtensions,
+    @Nullable
     List<String> sensitiveFilePatterns,
+    @Nullable
     List<String> sensitiveExtensions
 ) {
 
