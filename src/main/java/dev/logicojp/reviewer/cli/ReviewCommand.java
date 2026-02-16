@@ -120,7 +120,6 @@ public class ReviewCommand {
         ReviewRunExecutor.ReviewRunRequest runRequest = createRunRequest(
             options,
             target,
-            resolvedToken,
             modelConfig,
             agentConfigs,
             prepared
@@ -159,14 +158,12 @@ public class ReviewCommand {
     private ReviewRunExecutor.ReviewRunRequest createRunRequest(
             ParsedOptions options,
             ReviewTarget target,
-            String resolvedToken,
             ModelConfig modelConfig,
             Map<String, AgentConfig> agentConfigs,
             ReviewPreparationService.PreparedData prepared) {
         return runRequestFactory.create(
             options,
             target,
-            resolvedToken,
             modelConfig,
             agentConfigs,
             prepared.customInstructions(),

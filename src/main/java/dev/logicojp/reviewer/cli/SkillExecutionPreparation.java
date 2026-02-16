@@ -39,6 +39,11 @@ public class SkillExecutionPreparation {
     }
 
     public record PreparationResult(boolean listOnly, String resolvedToken, Map<String, String> parameters) {
+        @Override
+        public String toString() {
+            return "PreparationResult{listOnly=%s, resolvedToken=***, parameters=%s}"
+                .formatted(listOnly, parameters != null ? parameters.keySet() : Map.of().keySet());
+        }
     }
 
     private final AgentLoader agentLoader;

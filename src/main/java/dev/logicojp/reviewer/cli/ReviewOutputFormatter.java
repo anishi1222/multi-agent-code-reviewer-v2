@@ -56,7 +56,7 @@ public class ReviewOutputFormatter {
 
     private void printBannerHeader() {
         output.println("╔════════════════════════════════════════════════════════════╗");
-        output.println("║           Multi-Agent Code Reviewer                       ║");
+        output.println("║           Multi-Agent Code Reviewer                        ║");
         output.println("╚════════════════════════════════════════════════════════════╝");
         printBlankLine();
     }

@@ -1,5 +1,29 @@
 # Release Notes
 
+## 2026-02-17
+
+### Summary
+- Completed the final remediation split workstream (PR-1 through PR-5).
+- Closed remaining security/DI consistency backlog items and marked the final checklist as complete.
+- Performed focused regression tests, full test validation, and end-to-end execution verification.
+
+### Highlights
+- PR-1: Changed `GithubMcpConfig.buildMcpServers()` to `Optional<Map<String,Object>>` (removed null-return contract).
+- PR-2: Removed `resolvedToken` from `ReviewRunRequest`; token is now passed only at the execution boundary.
+- PR-3: Introduced structured sandbox boundaries for `CustomInstruction` and explicitly enforced system-instruction precedence.
+- PR-4: Added `LongSupplier` clock injection to `ContentCollector` and switched joined-cache validation to version-based invalidation.
+- PR-5: Removed no-arg constructor from `CopilotService` and standardized on DI constructor usage.
+
+### Validation
+- Focused tests passed: `CopilotServiceTest`, `ReportServiceTest`, `SkillServiceTest`.
+- Full suite validation: `mvn -q -DskipITs test`; confirmed 0 failures/errors in Surefire reports.
+- Runtime validation: confirmed exit code 0 for `mvn clean package` and `run --repo ... --all` execution.
+
+### References
+- Final checklist: `reports/anishi1222/multi-agent-code-reviewer/final_remediation_checklist_2026-02-16.md`
+- Final summary: `reports/anishi1222/multi-agent-code-reviewer/final_remediation_summary_2026-02-17.md`
+- Release notes EN/JA alignment guide: `reports/anishi1222/multi-agent-code-reviewer/release_notes_bilingual_alignment_2026-02-17.md`
+
 ## 2026-02-16
 
 ### Summary

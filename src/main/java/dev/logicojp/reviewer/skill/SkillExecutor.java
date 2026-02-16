@@ -42,7 +42,7 @@ public class SkillExecutor {
         this.executor = executor;
         this.ownsExecutor = ownsExecutor;
         this.structuredConcurrencyEnabled = structuredConcurrencyEnabled;
-        this.cachedMcpServers = GithubMcpConfig.buildMcpServers(githubToken, githubMcpConfig);
+        this.cachedMcpServers = GithubMcpConfig.buildMcpServers(githubToken, githubMcpConfig).orElse(Map.of());
     }
 
     /// Executes a skill with the given parameters.
@@ -109,7 +109,7 @@ public class SkillExecutor {
         var sessionConfigBuilder = new SessionConfig()
             .setModel(defaultModel);
 
-        if (cachedMcpServers != null) {
+        if (!cachedMcpServers.isEmpty()) {
             sessionConfigBuilder.setMcpServers(cachedMcpServers);
         }
 
@@ -119,11 +119,9 @@ public class SkillExecutor {
                 .setContent(systemPrompt));
         }
 
-        var session = client.createSession(sessionConfigBuilder).get(timeoutMinutes, TimeUnit.MINUTES);
-
         long timeoutMs = TimeUnit.MINUTES.toMillis(timeoutMinutes);
-        
-        try {
+
+        try (var session = client.createSession(sessionConfigBuilder).get(timeoutMinutes, TimeUnit.MINUTES)) {
             logger.debug("Sending skill prompt: {} (timeout: {} min)", skill.id(), timeoutMinutes);
             // Pass the configured timeout to sendAndWait explicitly.
             // The SDK default (60s) is too short for skills involving MCP tool calls.
@@ -141,9 +139,6 @@ public class SkillExecutor {
             logger.info("Skill execution completed: {} (content length: {} chars)", skill.id(), content.length());
 
             return SkillResult.success(skill.id(), content);
-
-        } finally {
-            session.close();
         }
     }
 

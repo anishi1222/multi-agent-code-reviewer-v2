@@ -47,7 +47,6 @@ class ReviewRunRequestFactoryTest {
         ReviewRunExecutor.ReviewRunRequest request = factory.create(
             options,
             target,
-            "ghp_token",
             modelConfig,
             agentConfigs,
             customInstructions,
@@ -55,7 +54,6 @@ class ReviewRunRequestFactoryTest {
         );
 
         assertThat(request.target()).isEqualTo(target);
-        assertThat(request.resolvedToken()).isEqualTo("ghp_token");
         assertThat(request.summaryModel()).isEqualTo("summary-model");
         assertThat(request.reasoningEffort()).isEqualTo("high");
         assertThat(request.agentConfigs()).isEqualTo(agentConfigs);

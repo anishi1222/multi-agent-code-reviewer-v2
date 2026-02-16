@@ -58,10 +58,10 @@ public class SkillService {
 
     /// Registers all skills from an agent configuration.
     public void registerAgentSkills(AgentConfig agentConfig) {
-        if (agentConfig.skills() != null) {
-            for (SkillDefinition skill : agentConfig.skills()) {
-                skillRegistry.register(skill);
-            }
+        for (SkillDefinition skill : agentConfig.skills()) {
+            skillRegistry.register(skill);
+        }
+        if (!agentConfig.skills().isEmpty()) {
             logger.info("Registered {} skills from agent: {}",
                 agentConfig.skills().size(), agentConfig.name());
         }
@@ -132,7 +132,7 @@ public class SkillService {
             executionConfig.skillTimeoutMinutes(),
             executorService,
             false,
-            featureFlags.isStructuredConcurrencyEnabledForSkills()
+                featureFlags.structuredConcurrencySkills()
         ));
     }
 

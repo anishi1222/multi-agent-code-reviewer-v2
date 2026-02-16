@@ -21,6 +21,18 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 - **マルチパスレビュー**: 各エージェントが複数回レビューを実施し、結果をマージして網羅性を向上
 - **コンテンツサニタイズ**: LLM出力からの不要な前置き文・思考過程の自動除去
 - **デフォルトモデルの外部化**: `application.yml` でデフォルトモデルを設定可能（ビルド不要で変更可能）
+- **インストラクションのサンドボックス化**: ユーザー提供指示を構造化境界付きで注入し、システム命令優先を明示
+- **トークン寿命の最小化**: 実行境界でのみトークンを受け渡し、メモリ滞留時間を短縮
+- **DI一貫性の強化**: `CopilotService` を no-arg なしのDIコンストラクタ運用へ統一
+
+## 最新リメディエーション状況
+
+- 最終リメディエーション作業（PR-1〜PR-5）は完了済みです。
+- 最終チェックリスト: `reports/anishi1222/multi-agent-code-reviewer/final_remediation_checklist_2026-02-16.md`
+- 最終サマリー: `reports/anishi1222/multi-agent-code-reviewer/final_remediation_summary_2026-02-17.md`
+- README 日英対応ガイド: `reports/anishi1222/multi-agent-code-reviewer/readme_bilingual_alignment_2026-02-17.md`
+- ドキュメント同期チェックリスト: `reports/anishi1222/multi-agent-code-reviewer/documentation_sync_checklist_2026-02-17.md`
+- リリース詳細: `RELEASE_NOTES_ja.md` の `2026-02-17` セクション
 
 ## 要件
 
@@ -354,6 +366,10 @@ reviewer:
     report-model: claude-opus-4.6-fast  # レポート生成用モデル
     summary-model: claude-sonnet-4.5 # サマリー生成用モデル
     reasoning-effort: high           # 推論モデルのエフォートレベル (low/medium/high)
+  summary:
+    max-content-per-agent: 50000     # サマリープロンプト生成時のエージェント別最大文字数
+    max-total-prompt-content: 200000 # サマリー生成時の総プロンプト最大文字数
+    fallback-excerpt-length: 180     # フォールバックサマリーで使用する抜粋長
 ```
 
 ### 外部設定ファイルによる上書き
@@ -826,7 +842,6 @@ multi-agent-reviewer/
     │   ├── ContentCollector.java        # レビューコンテンツ収集
     │   ├── EventSubscriptions.java      # イベントサブスクリプション
     │   ├── IdleTimeoutScheduler.java    # アイドルタイムアウトスケジューラ
-    │   ├── PromptTexts.java             # プロンプトテキスト定数
     │   ├── ReviewAgent.java             # レビューエージェント
     │   ├── ReviewContext.java           # 共有レビューコンテキスト
     │   ├── ReviewMessageFlow.java       # レビューメッセージフロー
@@ -844,6 +859,7 @@ multi-agent-reviewer/
     │   ├── CliValidationException.java  # CLI入力バリデーション例外
     │   ├── CommandExecutor.java         # コマンド実行基盤
     │   ├── ExitCodes.java               # 終了コード定数
+    │   ├── LifecycleRunner.java         # 共有ライフサイクル実行ヘルパー
     │   ├── ListAgentsCommand.java       # listサブコマンド
     │   ├── ReviewAgentConfigResolver.java # エージェント設定解決
     │   ├── ReviewCommand.java           # reviewサブコマンド
@@ -863,11 +879,13 @@ multi-agent-reviewer/
     │   └── SkillOutputFormatter.java    # スキル出力整形
     ├── config/
     │   ├── AgentPathConfig.java         # エージェントパス設定
+    │   ├── ConfigDefaults.java          # 共通デフォルト正規化ヘルパー
     │   ├── ExecutionConfig.java         # 実行設定
     │   ├── GithubMcpConfig.java         # GitHub MCP設定
     │   ├── LocalFileConfig.java         # ローカルファイル設定
     │   ├── ModelConfig.java             # LLMモデル設定
     │   ├── SkillConfig.java             # スキル設定
+    │   ├── SummaryConfig.java           # サマリー生成制限設定
     │   └── TemplateConfig.java          # テンプレート設定
     ├── instruction/
     │   ├── CustomInstruction.java       # カスタムインストラクションモデル
@@ -896,6 +914,7 @@ multi-agent-reviewer/
     │   ├── FindingsSummaryFormatter.java # 指摘サマリー整形
     │   ├── ReportContentFormatter.java  # レポートコンテンツ整形
     │   ├── ReportFileUtils.java         # レポートファイルユーティリティ
+    │   ├── ReportFilenameUtils.java     # 安全なレポートファイル名ヘルパー
     │   ├── ReportGenerator.java         # 個別レポート生成
     │   ├── ReportGeneratorFactory.java  # レポートジェネレータファクトリ
     │   ├── ReviewFindingParser.java     # レビュー指摘パーサー
@@ -941,6 +960,15 @@ multi-agent-reviewer/
         ├── FrontmatterParser.java       # YAMLフロントマターパーサー
         ├── GitHubTokenResolver.java     # GitHubトークン解決
         └── StructuredConcurrencyUtils.java # Structured Concurrency ユーティリティ
+
+└── src/main/resources/
+    ├── defaults/
+    │   ├── ignored-directories.txt      # ローカル収集時の既定除外ディレクトリ
+    │   ├── source-extensions.txt        # 既定ソース拡張子
+    │   ├── sensitive-file-patterns.txt  # 機密ファイル名パターン
+    │   └── sensitive-extensions.txt     # 機密拡張子
+    └── safety/
+        └── suspicious-patterns.txt      # プロンプトインジェクション疑わしいパターン定義
 ```
 
 ## ライセンス

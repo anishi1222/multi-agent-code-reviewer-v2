@@ -2,7 +2,6 @@ package dev.logicojp.reviewer.cli;
 
 import org.slf4j.Logger;
 
-import java.io.PrintStream;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -13,6 +12,8 @@ import java.util.function.Function;
 /// handling {@link CliValidationException}, and returning exit codes.
 public final class CommandExecutor {
 
+    private static final CliOutput DEFAULT_CLI_OUTPUT = new CliOutput();
+
     private CommandExecutor() {
         // Utility class — not instantiable
     }
@@ -22,7 +23,7 @@ public final class CommandExecutor {
     /// @param args           CLI arguments to parse
     /// @param parser         Function that parses args into an Optional of parsed options
     /// @param executor       Function that executes the command with parsed options
-    /// @param usagePrinter   Consumer that prints usage help to a given PrintStream
+        /// @param usagePrinter   Consumer that prints usage help via CliOutput
     /// @param logger         Logger for error reporting
     /// @param <T>            The type of parsed options
     /// @return Exit code
@@ -30,7 +31,7 @@ public final class CommandExecutor {
             String[] args,
             Function<String[], Optional<T>> parser,
             Function<T, Integer> executor,
-            Consumer<PrintStream> usagePrinter,
+            Consumer<CliOutput> usagePrinter,
             Logger logger,
             CliOutput output) {
         try {
@@ -57,7 +58,7 @@ public final class CommandExecutor {
     }
 
     private static int handleValidationError(CliValidationException e,
-                                             Consumer<PrintStream> usagePrinter,
+                                             Consumer<CliOutput> usagePrinter,
                                              CliOutput output) {
         if (hasValidationMessage(e)) {
             output.errorln(e.getMessage());
@@ -80,10 +81,10 @@ public final class CommandExecutor {
     }
 
     private static void printUsageIfNeeded(CliValidationException e,
-                                           Consumer<PrintStream> usagePrinter,
+                                           Consumer<CliOutput> usagePrinter,
                                            CliOutput output) {
         if (e.showUsage()) {
-            usagePrinter.accept(output.err());
+            usagePrinter.accept(output);
         }
     }
 
@@ -95,8 +96,8 @@ public final class CommandExecutor {
             String[] args,
             Function<String[], Optional<T>> parser,
             Function<T, Integer> executor,
-            Consumer<PrintStream> usagePrinter,
+            Consumer<CliOutput> usagePrinter,
             Logger logger) {
-        return execute(args, parser, executor, usagePrinter, logger, new CliOutput());
+        return execute(args, parser, executor, usagePrinter, logger, DEFAULT_CLI_OUTPUT);
     }
 }

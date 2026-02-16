@@ -30,8 +30,6 @@ class AgentReviewExecutorTest {
             .idleTimeoutMinutes(1)
             .customInstructions(List.of())
             .maxRetries(0)
-            .maxFileSize(1024)
-            .maxTotalSize(2048)
             .localFileConfig(new LocalFileConfig())
             .sharedScheduler(Executors.newSingleThreadScheduledExecutor())
             .build();

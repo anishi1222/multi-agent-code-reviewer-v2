@@ -1,0 +1,97 @@
+package dev.logicojp.reviewer.report;
+
+import dev.logicojp.reviewer.agent.AgentConfig;
+import dev.logicojp.reviewer.config.SummaryConfig;
+import dev.logicojp.reviewer.config.TemplateConfig;
+import dev.logicojp.reviewer.service.TemplateService;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DisplayName("SummaryGenerator")
+class SummaryGeneratorTest {
+
+    @TempDir
+    Path tempDir;
+
+    @Test
+    @DisplayName("AI要約ビルダーの結果でサマリーファイルを生成できる")
+    void generatesSummaryUsingInjectedAiBuilder() throws IOException {
+        prepareTemplateFiles(tempDir);
+        TemplateService templateService = new TemplateService(createConfig(tempDir));
+
+        SummaryGenerator generator = new SummaryGenerator(
+            tempDir,
+            null,
+            "summary-model",
+            "high",
+            1,
+            templateService,
+            new SummaryConfig(0, 0, 0),
+            null,
+            null,
+            null,
+            (results, repository) -> "AI summary content"
+        );
+
+        List<ReviewResult> results = List.of(
+            ReviewResult.builder()
+                .agentConfig(new AgentConfig("security", "Security", "model", "system", "instruction", null, List.of(), List.of()))
+                .repository("owner/repo")
+                .content("### 1. 指摘\n| Priority | High |")
+                .success(true)
+                .build()
+        );
+
+        Path summaryPath = generator.generateSummary(results, "owner/repo");
+
+        assertThat(Files.exists(summaryPath)).isTrue();
+        String content = Files.readString(summaryPath);
+        assertThat(content).contains("AI summary content");
+        assertThat(content).contains("owner/repo");
+    }
+
+    private static TemplateConfig createConfig(Path baseDir) {
+        return new TemplateConfig(
+            baseDir.toString(),
+            "default-output-format.md",
+            "report.md",
+            "local-review-content.md",
+            "output-constraints.md",
+            "report-link-entry.md",
+            new TemplateConfig.SummaryTemplates(
+                "summary-system.md",
+                "summary-prompt.md",
+                "executive-summary.md",
+                "summary-result-entry.md",
+                "summary-result-error-entry.md"
+            ),
+            new TemplateConfig.FallbackTemplates(
+                "fallback-summary.md",
+                "fallback-agent-row.md",
+                "fallback-agent-success.md",
+                "fallback-agent-failure.md"
+            )
+        );
+    }
+
+    private static void prepareTemplateFiles(Path baseDir) throws IOException {
+        Files.writeString(baseDir.resolve("executive-summary.md"),
+            "# Executive Summary\n\n" +
+                "- Date: {{date}}\n" +
+                "- Repository: {{repository}}\n\n" +
+                "{{summaryContent}}\n\n" +
+                "{{reportLinks}}\n"
+        );
+        Files.writeString(baseDir.resolve("report-link-entry.md"),
+            "- [{{displayName}}]({{filename}})\n"
+        );
+    }
+}

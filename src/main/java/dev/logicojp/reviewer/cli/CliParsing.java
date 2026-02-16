@@ -75,7 +75,7 @@ public final class CliParsing {
     public static List<String> splitComma(String value) {
         List<String> parts = new ArrayList<>();
         if (value == null || value.isBlank()) {
-            return parts;
+            return List.of();
         }
         for (String part : value.split(",")) {
             String trimmed = part.trim();
@@ -83,7 +83,7 @@ public final class CliParsing {
                 parts.add(trimmed);
             }
         }
-        return parts;
+        return List.copyOf(parts);
     }
 
     private static String inlineValue(String arg) {
@@ -136,7 +136,10 @@ public final class CliParsing {
                     Arrays.fill(chars, '\0');
                     return token;
                 }
-                return new String(System.in.readNBytes(MAX_STDIN_TOKEN_BYTES), StandardCharsets.UTF_8).trim();
+                byte[] raw = System.in.readNBytes(MAX_STDIN_TOKEN_BYTES);
+                String token = new String(raw, StandardCharsets.UTF_8).trim();
+                Arrays.fill(raw, (byte) 0);
+                return token;
             } catch (IOException e) {
                 throw tokenReadFailure(e);
             }

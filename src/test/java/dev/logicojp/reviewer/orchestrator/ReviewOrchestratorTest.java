@@ -33,7 +33,10 @@ class ReviewOrchestratorTest {
             new ExecutionConfig(2, 1, 2, 1, 1, 1, 1, 1, 0),
             List.of(),
             "high",
-            null
+            null,
+            "focus guidance",
+            "local source header",
+            "local result request"
         );
 
         AgentConfig agentConfig = new AgentConfig(

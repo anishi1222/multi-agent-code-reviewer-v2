@@ -55,12 +55,12 @@ public class TemplateService {
     /// Loads template content from the filesystem or classpath.
     private String loadTemplateFromSource(String templateName) {
         if (!isValidTemplateName(templateName)) {
-            return "";
+            throw new IllegalArgumentException("Invalid template name: " + templateName);
         }
 
         Path templatePath = resolveTemplatePath(templateName);
         if (templatePath == null) {
-            return "";
+            throw new IllegalArgumentException("Template path traversal rejected: " + templateName);
         }
 
         String content = loadTemplateByPath(templateName, templatePath);
@@ -69,7 +69,7 @@ public class TemplateService {
         }
 
         warnTemplateNotFound(templateName, templatePath);
-        return "";
+        throw new IllegalStateException("Template not found: " + templateName);
     }
 
     private String loadTemplateByPath(String templateName, Path templatePath) {

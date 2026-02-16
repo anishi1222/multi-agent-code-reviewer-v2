@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("TemplateService")
 class TemplateServiceTest {
@@ -60,32 +61,36 @@ class TemplateServiceTest {
         @DisplayName("パストラバーサルを含むテンプレート名は拒否される")
         void rejectsPathTraversal() {
             TemplateService service = new TemplateService(createConfig());
-            String content = service.loadTemplateContent("../../../etc/passwd");
-            assertThat(content).isEmpty();
+            assertThatThrownBy(() -> service.loadTemplateContent("../../../etc/passwd"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid template name");
         }
 
         @Test
         @DisplayName("スラッシュを含むテンプレート名は拒否される")
         void rejectsSlashInName() {
             TemplateService service = new TemplateService(createConfig());
-            String content = service.loadTemplateContent("sub/template.md");
-            assertThat(content).isEmpty();
+            assertThatThrownBy(() -> service.loadTemplateContent("sub/template.md"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid template name");
         }
 
         @Test
         @DisplayName("バックスラッシュを含むテンプレート名は拒否される")
         void rejectsBackslashInName() {
             TemplateService service = new TemplateService(createConfig());
-            String content = service.loadTemplateContent("sub\\template.md");
-            assertThat(content).isEmpty();
+            assertThatThrownBy(() -> service.loadTemplateContent("sub\\template.md"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid template name");
         }
 
         @Test
-        @DisplayName("存在しないテンプレートは空文字列を返す")
-        void nonExistentReturnsEmpty() {
+        @DisplayName("存在しないテンプレートは例外を送出する")
+        void nonExistentThrows() {
             TemplateService service = new TemplateService(createConfig());
-            String content = service.loadTemplateContent("nonexistent.md");
-            assertThat(content).isEmpty();
+            assertThatThrownBy(() -> service.loadTemplateContent("nonexistent.md"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Template not found");
         }
     }
 

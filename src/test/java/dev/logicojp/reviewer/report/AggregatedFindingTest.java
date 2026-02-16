@@ -44,8 +44,7 @@ class AggregatedFindingTest {
         String incomingSummary = ReviewFindingSimilarity.normalizeText("CLI解析・実行・表示処理が1クラスに集約");
         String incomingLocation = ReviewFindingSimilarity.normalizeText(
             "src/main/java/dev/logicojp/reviewer/cli/ReviewCommand.java");
-
-        boolean duplicated = existing.isNearDuplicateOf(
+        var incoming = new AggregatedFinding.NormalizedFinding(
             incomingTitle,
             incomingPriority,
             incomingSummary,
@@ -54,6 +53,8 @@ class AggregatedFindingTest {
             ReviewFindingSimilarity.bigrams(incomingSummary),
             ReviewFindingSimilarity.bigrams(incomingLocation)
         );
+
+        boolean duplicated = existing.isNearDuplicateOf(incoming);
 
         assertThat(duplicated).isTrue();
     }

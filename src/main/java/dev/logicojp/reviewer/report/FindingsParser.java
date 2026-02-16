@@ -1,16 +1,11 @@
 package dev.logicojp.reviewer.report;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 final class FindingsParser {
-
-    private static final Logger logger = LoggerFactory.getLogger(FindingsParser.class);
 
     private static final Pattern PRIORITY_PATTERN = Pattern.compile(
         "\\|\\s*\\*{0,2}Priority\\*{0,2}\\s*\\|\\s*(Critical|High|Medium|Low)\\b",
@@ -45,24 +40,20 @@ final class FindingsParser {
         appendPriorityOnlyFindings(findings, titles, priorities, agentName);
         appendTitleOnlyFindings(findings, titles, priorities, agentName);
 
-        logger.debug("Agent '{}': extracted {} finding(s)", agentName, findings.size());
         return findings;
     }
 
     private static void collectTitlesAndPriorities(String content,
                                                    List<String> titles,
                                                    List<String> priorities) {
-        for (String line : content.split("\\R")) {
-            Matcher headingMatcher = FINDING_HEADING_PATTERN.matcher(line);
-            if (headingMatcher.find()) {
-                titles.add(headingMatcher.group(1).trim());
-                continue;
-            }
+        Matcher headingMatcher = FINDING_HEADING_PATTERN.matcher(content);
+        while (headingMatcher.find()) {
+            titles.add(headingMatcher.group(1).trim());
+        }
 
-            Matcher priorityMatcher = PRIORITY_PATTERN.matcher(line);
-            if (priorityMatcher.find()) {
-                priorities.add(capitalize(priorityMatcher.group(1).trim()));
-            }
+        Matcher priorityMatcher = PRIORITY_PATTERN.matcher(content);
+        while (priorityMatcher.find()) {
+            priorities.add(capitalize(priorityMatcher.group(1).trim()));
         }
     }
 

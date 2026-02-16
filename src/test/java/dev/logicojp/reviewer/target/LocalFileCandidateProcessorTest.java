@@ -31,7 +31,7 @@ class LocalFileCandidateProcessorTest {
             new LocalFileCandidate(small, Files.size(small))
         );
 
-        var processor = new LocalFileCandidateProcessor(tempDir, 20, 10_000);
+        var processor = new LocalFileCandidateProcessor(tempDir, tempDir.toRealPath(), 20, 10_000);
         List<String> processed = new ArrayList<>();
 
         LocalFileCandidateProcessor.ProcessingResult result = processor.process(
@@ -58,7 +58,7 @@ class LocalFileCandidateProcessorTest {
             new LocalFileCandidate(second, secondSize)
         );
 
-        var processor = new LocalFileCandidateProcessor(tempDir, 10_000, firstSize);
+        var processor = new LocalFileCandidateProcessor(tempDir, tempDir.toRealPath(), 10_000, firstSize);
         List<String> processed = new ArrayList<>();
 
         LocalFileCandidateProcessor.ProcessingResult result = processor.process(

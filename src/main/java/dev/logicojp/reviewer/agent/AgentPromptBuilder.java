@@ -6,6 +6,11 @@ package dev.logicojp.reviewer.agent;
 /// the record is a pure data carrier while this class handles prompt construction logic.
 public final class AgentPromptBuilder {
 
+    public static final String DEFAULT_FOCUS_AREAS_GUIDANCE =
+        "以下の観点 **のみ** に基づいてレビューしてください。これ以外の観点での指摘は行わないでください。";
+    public static final String DEFAULT_LOCAL_SOURCE_HEADER =
+        "以下は対象ディレクトリのソースコードです。読み込んだらレビューを開始してください。";
+
     private AgentPromptBuilder() {
         // Utility class — not instantiable
     }
@@ -13,23 +18,33 @@ public final class AgentPromptBuilder {
     /// Builds the complete system prompt including output format instructions
     /// and output constraints (language, CoT suppression).
     public static String buildFullSystemPrompt(AgentConfig config) {
+        return buildFullSystemPrompt(config, DEFAULT_FOCUS_AREAS_GUIDANCE);
+    }
+
+    /// Builds the complete system prompt using custom focus-area guidance text.
+    public static String buildFullSystemPrompt(AgentConfig config, String focusAreasGuidance) {
         var sb = new StringBuilder();
         if (config.systemPrompt() != null && !config.systemPrompt().isBlank()) {
             sb.append(config.systemPrompt().trim()).append("\n\n");
         }
 
-        appendFocusAreas(config, sb);
+        appendFocusAreas(config, focusAreasGuidance, sb);
         appendOutputFormat(config, sb);
 
         return sb.toString();
     }
 
-    private static void appendFocusAreas(AgentConfig config, StringBuilder sb) {
+    private static void appendFocusAreas(AgentConfig config,
+                                         String focusAreasGuidance,
+                                         StringBuilder sb) {
         if (config.focusAreas().isEmpty()) {
             return;
         }
         sb.append("## Focus Areas\n\n");
-        sb.append(PromptTexts.FOCUS_AREAS_GUIDANCE).append("\n\n");
+        String guidance = (focusAreasGuidance == null || focusAreasGuidance.isBlank())
+            ? DEFAULT_FOCUS_AREAS_GUIDANCE
+            : focusAreasGuidance;
+        sb.append(guidance).append("\n\n");
         for (String area : config.focusAreas()) {
             sb.append("- ").append(area).append("\n");
         }
@@ -61,8 +76,19 @@ public final class AgentPromptBuilder {
     /// @param sourceContent Collected source code content
     /// @return The formatted instruction with embedded source code
     public static String buildLocalInstruction(AgentConfig config, String targetName, String sourceContent) {
+        return buildLocalInstruction(config, targetName, sourceContent, DEFAULT_LOCAL_SOURCE_HEADER);
+    }
+
+    /// Builds local instruction with custom local-source header text.
+    public static String buildLocalInstruction(AgentConfig config,
+                                               String targetName,
+                                               String sourceContent,
+                                               String localSourceHeader) {
+        String header = (localSourceHeader == null || localSourceHeader.isBlank())
+            ? DEFAULT_LOCAL_SOURCE_HEADER
+            : localSourceHeader;
         return buildLocalInstructionBase(config, targetName)
-            + "\n\n" + PromptTexts.LOCAL_SOURCE_HEADER + "\n\n"
+            + "\n\n" + header + "\n\n"
             + sourceContent
             + "\n";
     }

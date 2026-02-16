@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.report;
 
+import dev.logicojp.reviewer.config.SummaryConfig;
 import dev.logicojp.reviewer.service.TemplateService;
 import com.github.copilot.sdk.CopilotClient;
 import jakarta.inject.Inject;
@@ -27,26 +28,32 @@ public class ReportGeneratorFactory {
                                 String summaryModel,
                                 String reasoningEffort,
                                 long timeoutMinutes,
-                                TemplateService templateService);
+                                TemplateService templateService,
+                                SummaryConfig summaryConfig);
     }
 
     private final TemplateService templateService;
+    private final SummaryConfig summaryConfig;
     private final ReportGeneratorCreator reportGeneratorCreator;
     private final SummaryGeneratorCreator summaryGeneratorCreator;
 
     @Inject
-    public ReportGeneratorFactory(TemplateService templateService) {
+    public ReportGeneratorFactory(TemplateService templateService,
+                                  SummaryConfig summaryConfig) {
         this(
             templateService,
+            summaryConfig,
             ReportGenerator::new,
             SummaryGenerator::new
         );
     }
 
     ReportGeneratorFactory(TemplateService templateService,
+                           SummaryConfig summaryConfig,
                            ReportGeneratorCreator reportGeneratorCreator,
                            SummaryGeneratorCreator summaryGeneratorCreator) {
         this.templateService = templateService;
+        this.summaryConfig = summaryConfig;
         this.reportGeneratorCreator = reportGeneratorCreator;
         this.summaryGeneratorCreator = summaryGeneratorCreator;
     }
@@ -78,7 +85,8 @@ public class ReportGeneratorFactory {
             summaryModel,
             reasoningEffort,
             timeoutMinutes,
-            templateService
+            templateService,
+            summaryConfig
         );
     }
 }

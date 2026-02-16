@@ -1,0 +1,13 @@
+ignore\s+(all\s+)?(previous|prior|above)\s+instructions?
+disregard\s+(all\s+)?(previous|prior|above)
+forget\s+(all\s+)?(previous|prior)\s+instructions?
+(ignore|forget|discard)\s+(the\s+)?(rules|guardrails|policy|constraints)
+(bypass|disable|turn\s+off)\s+(the\s+)?(safety|guardrails|restrictions)
+(override|replace)\s+(the\s+)?(system|developer)\s+prompt
+(you\s+are\s+now|act\s+as\s+if\s+you\s+are)
+(follow\s+only|prioritize\s+only)\s+(the\s+)?(next|following)\s+instructions?
+(以下|上記|これまで|前|以前)\s*の?\s*指示\s*を\s*無視
+(ルール|方針|制約)\s*を\s*(忘れて|無視して)
+システム\s*プロンプト\s*(を)?\s*(上書き|無視|無効化)
+(모든|이전)\s*지시\s*(를)?\s*무시
+(忽略|无视)\s*(所有)?\s*(之前|以上)\s*的?\s*指[示令]

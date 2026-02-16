@@ -28,7 +28,7 @@ class ReviewExecutionCoordinatorTest {
 
         var coordinator = new ReviewExecutionCoordinator(
             token -> initialized.set(true),
-            request -> {
+            (resolvedToken, request) -> {
                 executed.set(true);
                 return ExitCodes.OK;
             },
@@ -57,7 +57,7 @@ class ReviewExecutionCoordinatorTest {
 
         var coordinator = new ReviewExecutionCoordinator(
             token -> initCount.incrementAndGet(),
-            request -> ExitCodes.OK,
+            (resolvedToken, request) -> ExitCodes.OK,
             shutdownCount::incrementAndGet,
             new CliOutput(new PrintStream(new ByteArrayOutputStream()), new PrintStream(new ByteArrayOutputStream()))
         );
@@ -82,7 +82,7 @@ class ReviewExecutionCoordinatorTest {
         var coordinator = new ReviewExecutionCoordinator(
             token -> {
             },
-            request -> {
+            (resolvedToken, request) -> {
                 throw new IllegalStateException("boom");
             },
             shutdownCount::incrementAndGet,
@@ -104,7 +104,6 @@ class ReviewExecutionCoordinatorTest {
     private static ReviewRunExecutor.ReviewRunRequest sampleRequest(Map<String, AgentConfig> agentConfigs) {
         return new ReviewRunExecutor.ReviewRunRequest(
             ReviewTarget.gitHub("owner/repo"),
-            "token",
             "summary-model",
             "high",
             agentConfigs,

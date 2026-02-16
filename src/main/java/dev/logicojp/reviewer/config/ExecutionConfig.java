@@ -27,23 +27,15 @@ public record ExecutionConfig(
     private static final long DEFAULT_GH_AUTH_TIMEOUT_SECONDS = 10;
 
     public ExecutionConfig {
-        parallelism = defaultIfNonPositive(parallelism, DEFAULT_PARALLELISM);
-        reviewPasses = defaultIfNonPositive(reviewPasses, DEFAULT_REVIEW_PASSES);
-        orchestratorTimeoutMinutes = defaultIfNonPositive(orchestratorTimeoutMinutes, DEFAULT_ORCHESTRATOR_TIMEOUT_MINUTES);
-        agentTimeoutMinutes = defaultIfNonPositive(agentTimeoutMinutes, DEFAULT_AGENT_TIMEOUT_MINUTES);
-        idleTimeoutMinutes = defaultIfNonPositive(idleTimeoutMinutes, DEFAULT_IDLE_TIMEOUT_MINUTES);
-        skillTimeoutMinutes = defaultIfNonPositive(skillTimeoutMinutes, DEFAULT_SKILL_TIMEOUT_MINUTES);
-        summaryTimeoutMinutes = defaultIfNonPositive(summaryTimeoutMinutes, DEFAULT_SUMMARY_TIMEOUT_MINUTES);
-        ghAuthTimeoutSeconds = defaultIfNonPositive(ghAuthTimeoutSeconds, DEFAULT_GH_AUTH_TIMEOUT_SECONDS);
+        parallelism = ConfigDefaults.defaultIfNonPositive(parallelism, DEFAULT_PARALLELISM);
+        reviewPasses = ConfigDefaults.defaultIfNonPositive(reviewPasses, DEFAULT_REVIEW_PASSES);
+        orchestratorTimeoutMinutes = ConfigDefaults.defaultIfNonPositive(orchestratorTimeoutMinutes, DEFAULT_ORCHESTRATOR_TIMEOUT_MINUTES);
+        agentTimeoutMinutes = ConfigDefaults.defaultIfNonPositive(agentTimeoutMinutes, DEFAULT_AGENT_TIMEOUT_MINUTES);
+        idleTimeoutMinutes = ConfigDefaults.defaultIfNonPositive(idleTimeoutMinutes, DEFAULT_IDLE_TIMEOUT_MINUTES);
+        skillTimeoutMinutes = ConfigDefaults.defaultIfNonPositive(skillTimeoutMinutes, DEFAULT_SKILL_TIMEOUT_MINUTES);
+        summaryTimeoutMinutes = ConfigDefaults.defaultIfNonPositive(summaryTimeoutMinutes, DEFAULT_SUMMARY_TIMEOUT_MINUTES);
+        ghAuthTimeoutSeconds = ConfigDefaults.defaultIfNonPositive(ghAuthTimeoutSeconds, DEFAULT_GH_AUTH_TIMEOUT_SECONDS);
         maxRetries = defaultIfNegative(maxRetries, DEFAULT_MAX_RETRIES);
-    }
-
-    private static int defaultIfNonPositive(int value, int defaultValue) {
-        return value <= 0 ? defaultValue : value;
-    }
-
-    private static long defaultIfNonPositive(long value, long defaultValue) {
-        return value <= 0 ? defaultValue : value;
     }
 
     private static int defaultIfNegative(int value, int defaultValue) {

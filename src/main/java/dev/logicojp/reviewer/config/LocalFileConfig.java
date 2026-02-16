@@ -23,7 +23,7 @@ public record LocalFileConfig(
     public static final long DEFAULT_MAX_FILE_SIZE = 256 * 1024;
     public static final long DEFAULT_MAX_TOTAL_SIZE = 2 * 1024 * 1024;
 
-    public static final List<String> DEFAULT_IGNORED_DIRECTORIES = List.of(
+    private static final List<String> FALLBACK_IGNORED_DIRECTORIES = List.of(
         ".git", ".svn", ".hg",
         "node_modules", "bower_components",
         "target", "build", "out", "dist", "bin", "obj",
@@ -34,7 +34,7 @@ public record LocalFileConfig(
         ".terraform"
     );
 
-    public static final List<String> DEFAULT_SOURCE_EXTENSIONS = List.of(
+    private static final List<String> FALLBACK_SOURCE_EXTENSIONS = List.of(
         "java", "kt", "kts", "groovy", "scala", "clj",
         "js", "jsx", "ts", "tsx", "mjs", "cjs", "vue", "svelte",
         "c", "cpp", "cc", "cxx", "h", "hpp", "rs", "go", "zig",
@@ -48,7 +48,7 @@ public record LocalFileConfig(
         "md", "rst", "adoc"
     );
 
-    public static final List<String> DEFAULT_SENSITIVE_FILE_PATTERNS = List.of(
+    private static final List<String> FALLBACK_SENSITIVE_FILE_PATTERNS = List.of(
         "application-prod", "application-staging", "application-secret",
         "application-local", "application-dev", "application-ci",
         "secrets", "credentials", ".env",
@@ -62,25 +62,34 @@ public record LocalFileConfig(
         "htpasswd", "shadow"
     );
 
-    public static final List<String> DEFAULT_SENSITIVE_EXTENSIONS = List.of(
+    private static final List<String> FALLBACK_SENSITIVE_EXTENSIONS = List.of(
         "pem", "key", "p12", "pfx", "jks", "keystore", "cert"
     );
 
+    public static final List<String> DEFAULT_IGNORED_DIRECTORIES = ConfigDefaults.loadListFromResource(
+        "defaults/ignored-directories.txt",
+        FALLBACK_IGNORED_DIRECTORIES
+    );
+    public static final List<String> DEFAULT_SOURCE_EXTENSIONS = ConfigDefaults.loadListFromResource(
+        "defaults/source-extensions.txt",
+        FALLBACK_SOURCE_EXTENSIONS
+    );
+    public static final List<String> DEFAULT_SENSITIVE_FILE_PATTERNS = ConfigDefaults.loadListFromResource(
+        "defaults/sensitive-file-patterns.txt",
+        FALLBACK_SENSITIVE_FILE_PATTERNS
+    );
+    public static final List<String> DEFAULT_SENSITIVE_EXTENSIONS = ConfigDefaults.loadListFromResource(
+        "defaults/sensitive-extensions.txt",
+        FALLBACK_SENSITIVE_EXTENSIONS
+    );
+
     public LocalFileConfig {
-        maxFileSize = defaultIfNonPositive(maxFileSize, DEFAULT_MAX_FILE_SIZE);
-        maxTotalSize = defaultIfNonPositive(maxTotalSize, DEFAULT_MAX_TOTAL_SIZE);
-        ignoredDirectories = defaultListIfEmpty(ignoredDirectories, DEFAULT_IGNORED_DIRECTORIES);
-        sourceExtensions = defaultListIfEmpty(sourceExtensions, DEFAULT_SOURCE_EXTENSIONS);
-        sensitiveFilePatterns = defaultListIfEmpty(sensitiveFilePatterns, DEFAULT_SENSITIVE_FILE_PATTERNS);
-        sensitiveExtensions = defaultListIfEmpty(sensitiveExtensions, DEFAULT_SENSITIVE_EXTENSIONS);
-    }
-
-    private static long defaultIfNonPositive(long value, long defaultValue) {
-        return value <= 0 ? defaultValue : value;
-    }
-
-    private static List<String> defaultListIfEmpty(List<String> values, List<String> defaultValues) {
-        return values == null || values.isEmpty() ? defaultValues : List.copyOf(values);
+        maxFileSize = ConfigDefaults.defaultIfNonPositive(maxFileSize, DEFAULT_MAX_FILE_SIZE);
+        maxTotalSize = ConfigDefaults.defaultIfNonPositive(maxTotalSize, DEFAULT_MAX_TOTAL_SIZE);
+        ignoredDirectories = ConfigDefaults.defaultListIfEmpty(ignoredDirectories, DEFAULT_IGNORED_DIRECTORIES);
+        sourceExtensions = ConfigDefaults.defaultListIfEmpty(sourceExtensions, DEFAULT_SOURCE_EXTENSIONS);
+        sensitiveFilePatterns = ConfigDefaults.defaultListIfEmpty(sensitiveFilePatterns, DEFAULT_SENSITIVE_FILE_PATTERNS);
+        sensitiveExtensions = ConfigDefaults.defaultListIfEmpty(sensitiveExtensions, DEFAULT_SENSITIVE_EXTENSIONS);
     }
 
     public LocalFileConfig(long maxFileSize, long maxTotalSize) {

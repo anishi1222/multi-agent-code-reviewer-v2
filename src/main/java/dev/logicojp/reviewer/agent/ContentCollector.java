@@ -9,6 +9,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 
 /// Collects content from Copilot session events.
 /// Tracks both the last event content (preferred) and accumulated content (fallback).
@@ -21,22 +22,30 @@ class ContentCollector {
     private final CompletableFuture<String> future = new CompletableFuture<>();
     private final StringBuilder accumulatedBuilder = new StringBuilder(8192);
     private final Object accumulatedLock = new Object();
-    private final AtomicInteger accumulatedSize = new AtomicInteger(0);
+    private int accumulatedSize;
+    private long accumulatedVersion;
     private final AtomicReference<String> lastContent = new AtomicReference<>(null);
-    private final AtomicLong lastActivityTime = new AtomicLong(System.currentTimeMillis());
+    private final AtomicLong lastActivityTime;
     private final AtomicInteger toolCallCount = new AtomicInteger(0);
     private final AtomicInteger messageCount = new AtomicInteger(0);
     private final String agentName;
+    private final LongSupplier clockMillisSupplier;
 
-    private volatile String joinedCache;
-    private volatile int joinedCacheSize;
+    private String joinedCache;
+    private long joinedCacheVersion;
 
     ContentCollector(String agentName) {
+        this(agentName, System::currentTimeMillis);
+    }
+
+    ContentCollector(String agentName, LongSupplier clockMillisSupplier) {
         this.agentName = agentName;
+        this.clockMillisSupplier = clockMillisSupplier;
+        this.lastActivityTime = new AtomicLong(clockMillisSupplier.getAsLong());
     }
 
     void onActivity() {
-        lastActivityTime.set(System.currentTimeMillis());
+        lastActivityTime.set(clockMillisSupplier.getAsLong());
     }
 
     void onMessage(String content, int toolCalls) {
@@ -59,11 +68,13 @@ class ContentCollector {
         }
         lastContent.set(content);
         synchronized (accumulatedLock) {
-            int nextSize = accumulatedSize.get() + content.length();
+            int nextSize = accumulatedSize + content.length();
             if (nextSize <= MAX_ACCUMULATED_SIZE) {
                 accumulatedBuilder.append(content);
-                accumulatedSize.set(nextSize);
-                invalidateJoinedCache();
+                accumulatedSize = nextSize;
+                accumulatedVersion++;
+                joinedCache = null;
+                joinedCacheVersion = -1;
             }
         }
     }
@@ -76,11 +87,6 @@ class ContentCollector {
         }
         String accumulated = joinAccumulated();
         future.complete(accumulated.isBlank() ? null : accumulated);
-    }
-
-    private void invalidateJoinedCache() {
-        joinedCache = null;
-        joinedCacheSize = 0;
     }
 
     void onError(String message) {
@@ -103,7 +109,7 @@ class ContentCollector {
     }
 
     long getElapsedSinceLastActivity() {
-        return System.currentTimeMillis() - lastActivityTime.get();
+        return clockMillisSupplier.getAsLong() - lastActivityTime.get();
     }
 
     String getAccumulatedContent() {
@@ -111,24 +117,20 @@ class ContentCollector {
     }
 
     private String joinAccumulated() {
-        int currentSize = accumulatedSize.get();
-        if (currentSize == 0) {
-            return "";
-        }
-        String cached = joinedCache;
-        if (cached != null && joinedCacheSize == currentSize) {
-            return cached;
-        }
         synchronized (accumulatedLock) {
-            currentSize = accumulatedSize.get();
+            int currentSize = accumulatedSize;
             if (currentSize == 0) {
                 joinedCache = "";
-                joinedCacheSize = 0;
+                joinedCacheVersion = accumulatedVersion;
                 return "";
+            }
+            String cached = joinedCache;
+            if (cached != null && joinedCacheVersion == accumulatedVersion) {
+                return cached;
             }
             String result = accumulatedBuilder.toString();
             joinedCache = result;
-            joinedCacheSize = currentSize;
+            joinedCacheVersion = accumulatedVersion;
             return result;
         }
     }

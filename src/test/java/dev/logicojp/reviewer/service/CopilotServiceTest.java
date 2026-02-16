@@ -8,10 +8,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("CopilotService")
 class CopilotServiceTest {
 
+    private static CopilotService newService() {
+        return new CopilotService(
+            new CopilotCliPathResolver(),
+            new CopilotCliHealthChecker(),
+            new CopilotTimeoutResolver(),
+            new CopilotStartupErrorFormatter(),
+            new CopilotClientStarter()
+        );
+    }
+
     @Test
     @DisplayName("初期状態ではisInitializedはfalse")
     void defaultIsNotInitialized() {
-        CopilotService service = new CopilotService();
+        CopilotService service = newService();
 
         assertThat(service.isInitialized()).isFalse();
     }
@@ -19,7 +29,7 @@ class CopilotServiceTest {
     @Test
     @DisplayName("未初期化状態のshutdownは安全に実行できる")
     void shutdownWithoutInitializeIsSafe() {
-        CopilotService service = new CopilotService();
+        CopilotService service = newService();
 
         service.shutdown();
 

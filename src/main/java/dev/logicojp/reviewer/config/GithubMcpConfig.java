@@ -7,6 +7,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /// Configuration for the GitHub MCP server connection.
 @ConfigurationProperties("reviewer.mcp.github")
@@ -20,15 +21,13 @@ public record GithubMcpConfig(
 ) {
 
     public GithubMcpConfig {
-        type = (type == null || type.isBlank()) ? "http" : type;
-        url = (url == null || url.isBlank()) ? "https://api.githubcopilot.com/mcp/" : url;
+        type = ConfigDefaults.defaultIfBlank(type, "http");
+        url = ConfigDefaults.defaultIfBlank(url, "https://api.githubcopilot.com/mcp/");
         validateUrl(url);
         tools = (tools == null || tools.isEmpty()) ? List.of("*") : List.copyOf(tools);
         headers = (headers == null) ? Map.of() : Map.copyOf(headers);
-        authHeaderName = (authHeaderName == null || authHeaderName.isBlank())
-            ? "Authorization" : authHeaderName;
-        authHeaderTemplate = (authHeaderTemplate == null || authHeaderTemplate.isBlank())
-            ? "Bearer {token}" : authHeaderTemplate;
+        authHeaderName = ConfigDefaults.defaultIfBlank(authHeaderName, "Authorization");
+        authHeaderTemplate = ConfigDefaults.defaultIfBlank(authHeaderTemplate, "Bearer {token}");
     }
 
     private static void validateUrl(String url) {
@@ -85,13 +84,13 @@ public record GithubMcpConfig(
         }
     }
 
-    /// Builds MCP server map from a token and config, or returns null if inputs are invalid.
-    /// Centralizes the null/blank check logic for reuse across the codebase.
-    public static Map<String, Object> buildMcpServers(String githubToken, GithubMcpConfig config) {
+    /// Builds MCP server map from a token and config.
+    /// Returns {@link Optional#empty()} when inputs are invalid.
+    public static Optional<Map<String, Object>> buildMcpServers(String githubToken, GithubMcpConfig config) {
         if (canBuildMcpServers(githubToken, config)) {
-            return Map.of("github", config.toMcpServer(githubToken));
+            return Optional.of(Map.of("github", config.toMcpServer(githubToken)));
         }
-        return null;
+        return Optional.empty();
     }
 
     private static boolean canBuildMcpServers(String githubToken, GithubMcpConfig config) {
@@ -108,12 +107,6 @@ public record GithubMcpConfig(
 
     private void applyAuthHeader(String token, Map<String, String> combinedHeaders) {
         if (token == null || token.isBlank()) {
-            return;
-        }
-        if (authHeaderName == null || authHeaderName.isBlank()) {
-            return;
-        }
-        if (authHeaderTemplate == null || authHeaderTemplate.isBlank()) {
             return;
         }
         String headerValue = authHeaderTemplate

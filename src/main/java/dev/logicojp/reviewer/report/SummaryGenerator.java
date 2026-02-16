@@ -7,6 +7,7 @@ import com.github.copilot.sdk.json.MessageOptions;
 import com.github.copilot.sdk.json.SessionConfig;
 import com.github.copilot.sdk.json.SystemMessageConfig;
 import dev.logicojp.reviewer.config.ModelConfig;
+import dev.logicojp.reviewer.config.SummaryConfig;
 import dev.logicojp.reviewer.service.TemplateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,12 +26,14 @@ import java.util.concurrent.TimeoutException;
 /// Generates executive summary by aggregating all agent review results.
 /// All prompt/template content is loaded from external templates via {@link TemplateService}.
 public class SummaryGenerator {
+
+    @FunctionalInterface
+    interface AiSummaryBuilder {
+        String build(List<ReviewResult> results, String repository);
+    }
     
     private static final Logger logger = LoggerFactory.getLogger(SummaryGenerator.class);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final int MAX_CONTENT_PER_AGENT = 50_000;
-    private static final int MAX_TOTAL_PROMPT_CONTENT = 200_000;
-    private static final int FALLBACK_EXCERPT_LENGTH = 180;
     
     private final Path outputDirectory;
     private final CopilotClient client;
@@ -41,6 +44,7 @@ public class SummaryGenerator {
     private final SummaryPromptBuilder summaryPromptBuilder;
     private final FallbackSummaryBuilder fallbackSummaryBuilder;
     private final SummaryFinalReportFormatter summaryFinalReportFormatter;
+    private final AiSummaryBuilder aiSummaryBuilder;
     
     public SummaryGenerator(
             Path outputDirectory, 
@@ -48,21 +52,60 @@ public class SummaryGenerator {
             String summaryModel,
             String reasoningEffort,
             long timeoutMinutes,
-            TemplateService templateService) {
+            TemplateService templateService,
+            SummaryConfig summaryConfig) {
+        this(
+            outputDirectory,
+            client,
+            summaryModel,
+            reasoningEffort,
+            timeoutMinutes,
+            templateService,
+            summaryConfig,
+            null,
+            null,
+            null,
+            null
+        );
+    }
+
+    SummaryGenerator(
+            Path outputDirectory,
+            CopilotClient client,
+            String summaryModel,
+            String reasoningEffort,
+            long timeoutMinutes,
+            TemplateService templateService,
+            SummaryConfig summaryConfig,
+            SummaryPromptBuilder summaryPromptBuilder,
+            FallbackSummaryBuilder fallbackSummaryBuilder,
+            SummaryFinalReportFormatter summaryFinalReportFormatter,
+            AiSummaryBuilder aiSummaryBuilder) {
         this.outputDirectory = outputDirectory;
         this.client = client;
         this.summaryModel = summaryModel;
         this.reasoningEffort = reasoningEffort;
         this.timeoutMinutes = timeoutMinutes;
         this.templateService = templateService;
-        this.summaryPromptBuilder = new SummaryPromptBuilder(
-            templateService,
-            MAX_CONTENT_PER_AGENT,
-            MAX_TOTAL_PROMPT_CONTENT);
-        this.fallbackSummaryBuilder = new FallbackSummaryBuilder(
-            templateService,
-            FALLBACK_EXCERPT_LENGTH);
-        this.summaryFinalReportFormatter = new SummaryFinalReportFormatter(templateService);
+        SummaryConfig effectiveSummaryConfig = summaryConfig != null
+            ? summaryConfig
+            : new SummaryConfig(0, 0, 0);
+        this.summaryPromptBuilder = summaryPromptBuilder != null
+            ? summaryPromptBuilder
+            : new SummaryPromptBuilder(
+                templateService,
+                effectiveSummaryConfig.maxContentPerAgent(),
+                effectiveSummaryConfig.maxTotalPromptContent()
+            );
+        this.fallbackSummaryBuilder = fallbackSummaryBuilder != null
+            ? fallbackSummaryBuilder
+            : new FallbackSummaryBuilder(templateService, effectiveSummaryConfig.fallbackExcerptLength());
+        this.summaryFinalReportFormatter = summaryFinalReportFormatter != null
+            ? summaryFinalReportFormatter
+            : new SummaryFinalReportFormatter(templateService);
+        this.aiSummaryBuilder = aiSummaryBuilder != null
+            ? aiSummaryBuilder
+            : this::buildSummaryWithAI;
     }
     
     /// Generates an executive summary from all review results.
@@ -79,7 +122,7 @@ public class SummaryGenerator {
         logger.info("Generating executive summary from {} review results", results.size());
         
         // Build the summary using AI
-        String summaryContent = buildSummaryWithAI(results, repository);
+        String summaryContent = aiSummaryBuilder.build(results, repository);
         
         // Build the final report
         String finalReport = summaryFinalReportFormatter.format(summaryContent, repository, results, date);

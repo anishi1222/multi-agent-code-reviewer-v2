@@ -10,26 +10,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FeatureFlagsTest {
 
     @Nested
-    @DisplayName("isStructuredConcurrencyEnabled")
+    @DisplayName("structuredConcurrency")
     class StructuredConcurrency {
 
         @Test
         @DisplayName("設定値をそのまま返す")
         void returnsConfiguredValue() {
             FeatureFlags flags = new FeatureFlags(true, false);
-            assertThat(flags.isStructuredConcurrencyEnabled()).isTrue();
+            assertThat(flags.structuredConcurrency()).isTrue();
         }
     }
 
     @Nested
-    @DisplayName("isStructuredConcurrencyEnabledForSkills")
+    @DisplayName("structuredConcurrencySkills")
     class StructuredConcurrencyForSkills {
 
         @Test
         @DisplayName("スキル用フラグ設定値を返す")
         void returnsSkillsFlag() {
             FeatureFlags flags = new FeatureFlags(false, true);
-            assertThat(flags.isStructuredConcurrencyEnabledForSkills()).isTrue();
+            assertThat(flags.structuredConcurrencySkills()).isTrue();
         }
     }
 }

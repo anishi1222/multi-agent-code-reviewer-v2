@@ -1283,6 +1283,15 @@
       ]
     },
     {
+      "type": "dev.logicojp.reviewer.cli.$ReviewAgentConfigResolver$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "dev.logicojp.reviewer.cli.$ReviewCommand$Definition",
       "methods": [
         {
@@ -1292,7 +1301,124 @@
       ]
     },
     {
+      "type": "dev.logicojp.reviewer.cli.$ReviewCustomInstructionResolver$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$ReviewExecutionCoordinator$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$ReviewModelConfigResolver$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$ReviewOptionsParser$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$ReviewOutputFormatter$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$ReviewPreparationService$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$ReviewRunExecutor$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$ReviewRunRequestFactory$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$ReviewTargetResolver$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "dev.logicojp.reviewer.cli.$SkillCommand$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$SkillExecutionCoordinator$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$SkillExecutionPreparation$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$SkillOptionsParser$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.cli.$SkillOutputFormatter$Definition",
       "methods": [
         {
           "name": "<init>",
@@ -1427,7 +1553,52 @@
       ]
     },
     {
+      "type": "dev.logicojp.reviewer.service.$CopilotCliHealthChecker$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.service.$CopilotCliPathResolver$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.service.$CopilotClientStarter$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "dev.logicojp.reviewer.service.$CopilotService$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.service.$CopilotStartupErrorFormatter$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.service.$CopilotTimeoutResolver$Definition",
       "methods": [
         {
           "name": "<init>",

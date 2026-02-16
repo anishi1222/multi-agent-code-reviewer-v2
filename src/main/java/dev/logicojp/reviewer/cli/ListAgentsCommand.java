@@ -1,13 +1,13 @@
 package dev.logicojp.reviewer.cli;
 
 import dev.logicojp.reviewer.service.AgentService;
+import dev.logicojp.reviewer.service.CopilotCliException;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -81,7 +81,7 @@ public class ListAgentsCommand {
             agentDirs = agentService.buildAgentDirectories(options.additionalAgentDirs());
             availableAgents = agentService.listAvailableAgents(agentDirs);
         } catch (IOException e) {
-            throw new UncheckedIOException("Failed to list agents", e);
+            throw new CopilotCliException("Failed to list agents", e);
         }
 
         printAgentDirectories(agentDirs);

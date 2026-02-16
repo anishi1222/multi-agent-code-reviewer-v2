@@ -84,7 +84,12 @@ public class LocalFileProvider {
             selectionConfig.sensitiveFilePatterns(),
             selectionConfig.sensitiveExtensions()
         );
-        this.candidateProcessor = new LocalFileCandidateProcessor(this.baseDirectory, this.maxFileSize, this.maxTotalSize);
+        this.candidateProcessor = new LocalFileCandidateProcessor(
+            this.baseDirectory,
+            this.realBaseDirectory,
+            this.maxFileSize,
+            this.maxTotalSize
+        );
         this.contentFormatter = new LocalFileContentFormatter(this.baseDirectory, this.maxTotalSize);
     }
 

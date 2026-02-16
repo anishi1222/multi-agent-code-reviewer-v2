@@ -54,21 +54,21 @@ class ReviewMessageFlowTest {
     }
 
     @Test
-    @DisplayName("ローカルレビューでは instruction+source を結合して最初に送信する")
-    void localSendsCombinedPromptFirst() throws Exception {
+    @DisplayName("ローカルレビューでは instruction/header と source を分割送信する")
+    void localSendsInstructionAndSourceSeparately() throws Exception {
         ReviewMessageFlow flow = newFlow();
         List<String> prompts = new ArrayList<>();
 
         String result = flow.execute("INSTRUCTION", "SOURCE", prompt -> {
             prompts.add(prompt);
-            return "LOCAL_OK";
+            return "SOURCE".equals(prompt) ? "LOCAL_OK" : "";
         });
 
         assertThat(result).isEqualTo("LOCAL_OK");
-        assertThat(prompts).hasSize(1);
+        assertThat(prompts).hasSize(2);
         assertThat(prompts.getFirst()).contains("INSTRUCTION");
         assertThat(prompts.getFirst()).contains("LOCAL_HEADER");
-        assertThat(prompts.getFirst()).contains("SOURCE");
+        assertThat(prompts.get(1)).isEqualTo("SOURCE");
     }
 
     @Test
@@ -76,16 +76,19 @@ class ReviewMessageFlowTest {
     void localFallsBackToResultRequest() throws Exception {
         ReviewMessageFlow flow = newFlow();
         List<String> prompts = new ArrayList<>();
-        AtomicInteger count = new AtomicInteger();
 
         String result = flow.execute("INSTRUCTION", "SOURCE", prompt -> {
             prompts.add(prompt);
-            return count.getAndIncrement() == 0 ? "" : "LOCAL_RESULT_OK";
+            if ("LOCAL_RESULT".equals(prompt)) {
+                return "LOCAL_RESULT_OK";
+            }
+            return "";
         });
 
         assertThat(result).isEqualTo("LOCAL_RESULT_OK");
-        assertThat(prompts).hasSize(2);
-        assertThat(prompts.get(1)).isEqualTo("LOCAL_RESULT");
+        assertThat(prompts).hasSize(3);
+        assertThat(prompts.get(1)).isEqualTo("SOURCE");
+        assertThat(prompts.get(2)).isEqualTo("LOCAL_RESULT");
     }
 
     @Test
@@ -93,22 +96,21 @@ class ReviewMessageFlowTest {
     void localFallsBackToFollowUpWhenStillEmpty() throws Exception {
         ReviewMessageFlow flow = newFlow();
         List<String> prompts = new ArrayList<>();
-        AtomicInteger count = new AtomicInteger();
 
         String result = flow.execute("INSTRUCTION", "SOURCE", prompt -> {
             prompts.add(prompt);
-            int idx = count.getAndIncrement();
-            if (idx < 2) {
+            if (!"FOLLOWUP".equals(prompt)) {
                 return " ";
             }
             return "FOLLOWUP_OK";
         });
 
         assertThat(result).isEqualTo("FOLLOWUP_OK");
-        assertThat(prompts).hasSize(3);
+        assertThat(prompts).hasSize(4);
         assertThat(prompts.getFirst()).contains("INSTRUCTION");
-        assertThat(prompts.get(1)).isEqualTo("LOCAL_RESULT");
-        assertThat(prompts.get(2)).isEqualTo("FOLLOWUP");
+        assertThat(prompts.get(1)).isEqualTo("SOURCE");
+        assertThat(prompts.get(2)).isEqualTo("LOCAL_RESULT");
+        assertThat(prompts.get(3)).isEqualTo("FOLLOWUP");
     }
 
     @Test

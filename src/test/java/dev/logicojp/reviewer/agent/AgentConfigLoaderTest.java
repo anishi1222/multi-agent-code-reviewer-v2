@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import dev.logicojp.reviewer.config.SkillConfig;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -43,6 +44,22 @@ class AgentConfigLoaderTest {
 
         - テスト項目
         """;
+
+    @Nested
+    @DisplayName("builder")
+    class BuilderApi {
+
+        @Test
+        @DisplayName("builder経由でローダーを構築できる")
+        void buildsLoaderWithBuilder(@TempDir Path tempDir) {
+            var loader = AgentConfigLoader.builder(List.of(tempDir))
+                .skillConfig(new SkillConfig(null, null))
+                .defaultOutputFormat("default")
+                .build();
+
+            assertThat(loader.getAgentDirectories()).containsExactly(tempDir);
+        }
+    }
 
     @Nested
     @DisplayName("loadAllAgents")

@@ -66,20 +66,21 @@ final class LocalFileCandidateCollector {
     }
 
     private boolean isCollectableCandidate(Path file, BasicFileAttributes attrs) {
-        return attrs.isRegularFile()
-            && !attrs.isSymbolicLink()
-            && isWithinBaseDirectory(file, attrs)
-            && isSourceFile(file)
-            && isNotSensitiveFile(file);
+        if (!attrs.isRegularFile() || attrs.isSymbolicLink()) {
+            return false;
+        }
+        if (!isWithinBaseDirectory(file, attrs)) {
+            return false;
+        }
+        String fileName = file.getFileName().toString().toLowerCase(Locale.ROOT);
+        return isSourceFile(fileName) && isNotSensitiveFile(fileName);
     }
 
     private LocalFileCandidate toCandidate(Path file, BasicFileAttributes attrs) {
         return new LocalFileCandidate(file, attrs.size());
     }
 
-    private boolean isSourceFile(Path path) {
-        String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
-
+    private boolean isSourceFile(String fileName) {
         if (isSpecialSourceFilename(fileName)) {
             return true;
         }
@@ -104,10 +105,6 @@ final class LocalFileCandidateCollector {
     }
 
     private boolean isWithinBaseDirectory(Path path, BasicFileAttributes attrs) {
-        Path normalized = path.toAbsolutePath().normalize();
-        if (!normalized.startsWith(baseDirectory)) {
-            return false;
-        }
         if (!attrs.isSymbolicLink()) {
             return true;
         }
@@ -120,9 +117,7 @@ final class LocalFileCandidateCollector {
         }
     }
 
-    private boolean isNotSensitiveFile(Path path) {
-        String fileName = path.getFileName().toString().toLowerCase(Locale.ROOT);
-
+    private boolean isNotSensitiveFile(String fileName) {
         int dotIndex = fileName.lastIndexOf('.');
         if (dotIndex >= 0) {
             String ext = fileName.substring(dotIndex + 1);

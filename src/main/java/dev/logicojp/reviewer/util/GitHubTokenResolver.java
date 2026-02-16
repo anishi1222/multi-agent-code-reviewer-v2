@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -91,7 +92,7 @@ public final class GitHubTokenResolver {
             Thread.currentThread().interrupt();
             logger.warn("Interrupted while resolving token from gh auth", e);
             return Optional.empty();
-        } catch (Exception e) {
+        } catch (IOException e) {
             logger.warn("Failed to resolve token from gh auth", e);
             return Optional.empty();
         }

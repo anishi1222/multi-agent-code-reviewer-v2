@@ -5,9 +5,13 @@ import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.config.LocalFileConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.service.CopilotService;
+import dev.logicojp.reviewer.service.TemplateService;
 import dev.logicojp.reviewer.util.FeatureFlags;
+import com.github.copilot.sdk.CopilotClient;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -20,20 +24,51 @@ import java.util.List;
 @Singleton
 public class ReviewOrchestratorFactory {
 
+    @FunctionalInterface
+    interface OrchestratorCreator {
+        ReviewOrchestrator create(CopilotClient client, ReviewOrchestrator.OrchestratorConfig orchestratorConfig);
+    }
+
+    private static final Logger logger = LoggerFactory.getLogger(ReviewOrchestratorFactory.class);
+
     private final CopilotService copilotService;
     private final GithubMcpConfig githubMcpConfig;
     private final LocalFileConfig localFileConfig;
     private final FeatureFlags featureFlags;
+    private final TemplateService templateService;
+    private final OrchestratorCreator orchestratorCreator;
 
     @Inject
     public ReviewOrchestratorFactory(CopilotService copilotService,
                                      GithubMcpConfig githubMcpConfig,
                                      LocalFileConfig localFileConfig,
-                                     FeatureFlags featureFlags) {
+                                     FeatureFlags featureFlags,
+                                     TemplateService templateService) {
+        this(
+            copilotService,
+            githubMcpConfig,
+            localFileConfig,
+            featureFlags,
+            templateService,
+            (client, orchestratorConfig) -> {
+                var collaborators = ReviewOrchestrator.defaultCollaborators(client, orchestratorConfig);
+                return new ReviewOrchestrator(client, orchestratorConfig, collaborators);
+            }
+        );
+    }
+
+    ReviewOrchestratorFactory(CopilotService copilotService,
+                              GithubMcpConfig githubMcpConfig,
+                              LocalFileConfig localFileConfig,
+                              FeatureFlags featureFlags,
+                              TemplateService templateService,
+                              OrchestratorCreator orchestratorCreator) {
         this.copilotService = copilotService;
         this.githubMcpConfig = githubMcpConfig;
         this.localFileConfig = localFileConfig;
         this.featureFlags = featureFlags;
+        this.templateService = templateService;
+        this.orchestratorCreator = orchestratorCreator;
     }
 
     /// Creates a new {@link ReviewOrchestrator} for a single review run.
@@ -64,6 +99,8 @@ public class ReviewOrchestratorFactory {
                                                                            List<CustomInstruction> customInstructions,
                                                                            String reasoningEffort,
                                                                            String outputConstraints) {
+        PromptTexts promptTexts = loadPromptTexts();
+
         return new ReviewOrchestrator.OrchestratorConfig(
             githubToken,
             githubMcpConfig,
@@ -72,11 +109,49 @@ public class ReviewOrchestratorFactory {
             executionConfig,
             customInstructions,
             reasoningEffort,
-            outputConstraints
+            outputConstraints,
+            promptTexts.focusAreasGuidance(),
+            promptTexts.localSourceHeader(),
+            promptTexts.localReviewResultRequest()
         );
     }
 
+    private PromptTexts loadPromptTexts() {
+        return new PromptTexts(
+            loadTemplateOrDefault(
+                "agent-focus-areas-guidance.md",
+                dev.logicojp.reviewer.agent.AgentPromptBuilder.DEFAULT_FOCUS_AREAS_GUIDANCE
+            ),
+            loadTemplateOrDefault(
+                "local-source-header.md",
+                dev.logicojp.reviewer.agent.AgentPromptBuilder.DEFAULT_LOCAL_SOURCE_HEADER
+            ),
+            loadTemplateOrDefault(
+                "local-review-result-request.md",
+                "ソースコードを読み込んだ内容に基づいて、指定された出力形式でレビュー結果を返してください。"
+            )
+        );
+    }
+
+    private String loadTemplateOrDefault(String templateName, String fallback) {
+        try {
+            String content = templateService.loadTemplateContent(templateName);
+            if (content == null || content.isBlank()) {
+                return fallback;
+            }
+            return content.trim();
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            logger.debug("Template '{}' unavailable, using fallback: {}", templateName, e.getMessage());
+            return fallback;
+        }
+    }
+
+    private record PromptTexts(String focusAreasGuidance,
+                               String localSourceHeader,
+                               String localReviewResultRequest) {
+    }
+
     private ReviewOrchestrator createOrchestrator(ReviewOrchestrator.OrchestratorConfig orchestratorConfig) {
-        return new ReviewOrchestrator(copilotService.getClient(), orchestratorConfig);
+        return orchestratorCreator.create(copilotService.getClient(), orchestratorConfig);
     }
 }

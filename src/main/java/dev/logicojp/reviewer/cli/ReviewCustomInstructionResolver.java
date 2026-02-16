@@ -114,7 +114,7 @@ public class ReviewCustomInstructionResolver {
     private void addTargetInstructions(List<CustomInstruction> targetInstructions,
                                        List<CustomInstruction> instructions) {
         for (CustomInstruction instruction : targetInstructions) {
-            addIfSafe(instruction, instructions, "  ✓ Loaded instructions from target: ", true);
+            addIfSafe(instruction, instructions, "  ✓ Loaded instructions from target: ", false);
         }
     }
 
@@ -135,7 +135,7 @@ public class ReviewCustomInstructionResolver {
             trusted
         );
         if (!safe.isEmpty()) {
-            instructions.add(instruction);
+            instructions.add(safe.getFirst());
             output.println(loadedPrefix + instruction.sourcePath());
         }
     }

@@ -135,7 +135,7 @@ public record AgentConfig(
     /// Builds the complete system prompt including output format instructions.
     /// Delegates to {@link AgentPromptBuilder}.
     public String buildFullSystemPrompt() {
-        return AgentPromptBuilder.buildFullSystemPrompt(this);
+        return AgentPromptBuilder.buildFullSystemPrompt(this, AgentPromptBuilder.DEFAULT_FOCUS_AREAS_GUIDANCE);
     }
 
     /// Builds the instruction for a GitHub repository review.
@@ -147,7 +147,12 @@ public record AgentConfig(
     /// Builds the instruction for a local directory review.
     /// Delegates to {@link AgentPromptBuilder}.
     public String buildLocalInstruction(String targetName, String sourceContent) {
-        return AgentPromptBuilder.buildLocalInstruction(this, targetName, sourceContent);
+        return AgentPromptBuilder.buildLocalInstruction(
+            this,
+            targetName,
+            sourceContent,
+            AgentPromptBuilder.DEFAULT_LOCAL_SOURCE_HEADER
+        );
     }
 
     /// Builds the local instruction without embedding source content.
