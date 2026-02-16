@@ -22,7 +22,11 @@ final class ReviewResultPipeline {
         List<ReviewResult> results = new ArrayList<>(futures.size());
         for (CompletableFuture<ReviewResult> future : futures) {
             try {
-                results.add(future.getNow(null));
+                ReviewResult result = future.getNow(null);
+                if (result == null) {
+                    logger.warn("Review future completed without a result (null)");
+                }
+                results.add(result);
             } catch (Exception e) {
                 logger.error("Error collecting review result: {}", e.getMessage(), e);
             }

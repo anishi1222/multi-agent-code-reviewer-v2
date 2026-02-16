@@ -3,8 +3,6 @@ package dev.logicojp.reviewer.service;
 import dev.logicojp.reviewer.agent.AgentConfig;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
-import dev.logicojp.reviewer.instruction.CustomInstructionLoader;
-import dev.logicojp.reviewer.instruction.CustomInstructionSafetyValidator;
 import dev.logicojp.reviewer.orchestrator.ReviewOrchestrator;
 import dev.logicojp.reviewer.orchestrator.ReviewOrchestratorFactory;
 import dev.logicojp.reviewer.report.ReviewResult;
@@ -20,23 +18,55 @@ import java.util.Map;
 /// Service for executing code reviews with multiple agents.
 @Singleton
 public class ReviewService {
+
+    @FunctionalInterface
+    interface OrchestratorRunner {
+        List<ReviewResult> run(Map<String, AgentConfig> agentConfigs,
+                               ReviewTarget target,
+                               String githubToken,
+                               ExecutionConfig executionConfig,
+                               List<CustomInstruction> customInstructions,
+                               String reasoningEffort,
+                               String outputConstraints);
+    }
     
     private static final Logger logger = LoggerFactory.getLogger(ReviewService.class);
     
     private final ReviewOrchestratorFactory orchestratorFactory;
     private final ExecutionConfig executionConfig;
     private final TemplateService templateService;
-    private final CustomInstructionLoader instructionLoader;
+    private final OrchestratorRunner orchestratorRunner;
     
     @Inject
     public ReviewService(ReviewOrchestratorFactory orchestratorFactory,
                          ExecutionConfig executionConfig,
-                         TemplateService templateService,
-                         CustomInstructionLoader instructionLoader) {
+                         TemplateService templateService) {
+        this(
+            orchestratorFactory,
+            executionConfig,
+            templateService,
+            (agentConfigs, target, githubToken, overriddenConfig, customInstructions, reasoningEffort, outputConstraints) -> {
+                try (ReviewOrchestrator orchestrator = orchestratorFactory.create(
+                    githubToken,
+                    overriddenConfig,
+                    customInstructions,
+                    reasoningEffort,
+                    outputConstraints
+                )) {
+                    return orchestrator.executeReviews(agentConfigs, target);
+                }
+            }
+        );
+    }
+
+    ReviewService(ReviewOrchestratorFactory orchestratorFactory,
+                  ExecutionConfig executionConfig,
+                  TemplateService templateService,
+                  OrchestratorRunner orchestratorRunner) {
         this.orchestratorFactory = orchestratorFactory;
         this.executionConfig = executionConfig;
         this.templateService = templateService;
-        this.instructionLoader = instructionLoader;
+        this.orchestratorRunner = orchestratorRunner;
     }
     
     /// Executes reviews with all specified agents in parallel.
@@ -60,12 +90,16 @@ public class ReviewService {
         List<CustomInstruction> effectiveInstructions = resolveEffectiveInstructions(customInstructions, target);
         ExecutionConfig overriddenConfig = overrideParallelism(parallelism);
         String outputConstraints = loadOutputConstraints();
-        
-        try (ReviewOrchestrator orchestrator = orchestratorFactory.create(
-            githubToken, overriddenConfig,
-            effectiveInstructions, reasoningEffort, outputConstraints)) {
-            return orchestrator.executeReviews(agentConfigs, target);
-        }
+
+        return orchestratorRunner.run(
+            agentConfigs,
+            target,
+            githubToken,
+            overriddenConfig,
+            effectiveInstructions,
+            reasoningEffort,
+            outputConstraints
+        );
     }
 
     private List<CustomInstruction> resolveEffectiveInstructions(List<CustomInstruction> customInstructions,
@@ -73,17 +107,8 @@ public class ReviewService {
         if (customInstructions != null) {
             return customInstructions;
         }
-
-        List<CustomInstruction> loadedInstructions = instructionLoader.loadForTarget(target);
-        List<CustomInstruction> safeInstructions = CustomInstructionSafetyValidator.filterSafe(
-            loadedInstructions,
-            "Skipped unsafe auto-loaded instruction"
-        );
-
-        if (!safeInstructions.isEmpty()) {
-            logger.info("Loaded {} custom instruction(s) from target directory", safeInstructions.size());
-        }
-        return safeInstructions;
+        logger.debug("No explicit custom instructions supplied; skipping auto-load for target {}", target.displayName());
+        return List.of();
     }
 
     private ExecutionConfig overrideParallelism(int parallelism) {

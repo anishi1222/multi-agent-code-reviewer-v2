@@ -55,7 +55,8 @@ final class SummaryFinalReportFormatter {
     private String buildReportLinks(List<ReviewResult> results, String date) {
         var reportLinksBuilder = new StringBuilder();
         for (ReviewResult result : results) {
-            String filename = "%s_%s.md".formatted(result.agentConfig().name(), date);
+            String safeName = ReportFilenameUtils.sanitizeAgentName(result.agentConfig().name());
+            String filename = "%s_%s.md".formatted(safeName, date);
             var linkPlaceholders = Map.of(
                 "displayName", result.agentConfig().displayName(),
                 "filename", filename);

@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("AgentConfigValidator")
@@ -61,9 +60,6 @@ class AgentConfigValidatorTest {
         @Test
         @DisplayName("outputFormatが空の場合はIllegalArgumentExceptionをスローする")
         void emptyOutputFormatThrows() {
-            AgentConfig config = new AgentConfig("test", "test", "model",
-                "system", "instruction", null,
-                List.of("area1"), List.of());
             // outputFormat defaults to DEFAULT_OUTPUT_FORMAT when null, so it
             // should pass — let's test with a blank string via reflection workaround.
             // Actually, the compact constructor normalizes null to DEFAULT_OUTPUT_FORMAT,

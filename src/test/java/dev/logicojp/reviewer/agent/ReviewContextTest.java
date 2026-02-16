@@ -33,8 +33,6 @@ class ReviewContextTest {
                 null,
                 null,
                 null,
-                0,
-                0,
                 new LocalFileConfig(),
                 null);
 
@@ -62,8 +60,6 @@ class ReviewContextTest {
                 null,
                 null,
                 null,
-                0,
-                0,
                 new LocalFileConfig(),
                 null);
 

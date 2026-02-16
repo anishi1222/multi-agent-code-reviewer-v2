@@ -117,6 +117,7 @@ public final class ReviewResultMerger {
             config.name(), successful.size(), agentResults.size());
 
         Map<String, AggregatedFinding> aggregatedFindings = new LinkedHashMap<>();
+        Map<String, Set<String>> findingKeysByPriority = new LinkedHashMap<>();
         Set<String> fallbackPassContents = new LinkedHashSet<>();
 
         for (int i = 0; i < successful.size(); i++) {
@@ -140,6 +141,7 @@ public final class ReviewResultMerger {
             }
 
             for (ReviewFindingParser.FindingBlock block : blocks) {
+                AggregatedFinding.NormalizedFinding normalized = AggregatedFinding.normalize(block);
                 String key = findingKeyResolver.resolve(block);
                 AggregatedFinding existingExact = aggregatedFindings.get(key);
                 if (existingExact != null) {
@@ -147,14 +149,15 @@ public final class ReviewResultMerger {
                     continue;
                 }
 
-                String nearDuplicateKey = findNearDuplicateKey(aggregatedFindings, block);
+                String nearDuplicateKey = findNearDuplicateKey(aggregatedFindings, findingKeysByPriority, normalized);
                 if (nearDuplicateKey != null) {
                     AggregatedFinding nearExisting = aggregatedFindings.get(nearDuplicateKey);
                     aggregatedFindings.put(nearDuplicateKey, nearExisting.withPass(passNumber));
                     continue;
                 }
 
-                aggregatedFindings.put(key, AggregatedFinding.from(block, passNumber));
+                aggregatedFindings.put(key, AggregatedFinding.fromNormalized(block, normalized, passNumber));
+                indexByPriority(findingKeysByPriority, normalized.priority(), key);
             }
         }
 
@@ -171,29 +174,35 @@ public final class ReviewResultMerger {
     }
 
     private static String findNearDuplicateKey(Map<String, AggregatedFinding> existing,
-                                               ReviewFindingParser.FindingBlock incoming) {
-        String incomingTitle = normalizeText(incoming.title());
-        String incomingPriority = normalizeText(ReviewFindingParser.extractTableValue(incoming.body(), "Priority"));
-        String incomingSummary = normalizeText(ReviewFindingParser.extractTableValue(incoming.body(), "指摘の概要"));
-        String incomingLocation = normalizeText(ReviewFindingParser.extractTableValue(incoming.body(), "該当箇所"));
-        Set<String> incomingTitleBigrams = ReviewFindingSimilarity.bigrams(incomingTitle);
-        Set<String> incomingSummaryBigrams = ReviewFindingSimilarity.bigrams(incomingSummary);
-        Set<String> incomingLocationBigrams = ReviewFindingSimilarity.bigrams(incomingLocation);
+                                               Map<String, Set<String>> findingKeysByPriority,
+                                               AggregatedFinding.NormalizedFinding incoming) {
+        if (incoming.priority().isBlank()) {
+            for (var entry : existing.entrySet()) {
+                if (entry.getValue().isNearDuplicateOf(incoming)) {
+                    return entry.getKey();
+                }
+            }
+            return null;
+        }
 
-        for (var entry : existing.entrySet()) {
-            if (entry.getValue().isNearDuplicateOf(
-                incomingTitle,
-                incomingPriority,
-                incomingSummary,
-                incomingLocation,
-                incomingTitleBigrams,
-                incomingSummaryBigrams,
-                incomingLocationBigrams
-            )) {
-                return entry.getKey();
+        Set<String> keys = findingKeysByPriority.getOrDefault(incoming.priority(), Set.of());
+        for (String key : keys) {
+            AggregatedFinding candidate = existing.get(key);
+            if (candidate != null && candidate.isNearDuplicateOf(incoming)) {
+                return key;
             }
         }
+
         return null;
+    }
+
+    private static void indexByPriority(Map<String, Set<String>> findingKeysByPriority,
+                                        String priority,
+                                        String key) {
+        if (priority == null || priority.isBlank()) {
+            return;
+        }
+        findingKeysByPriority.computeIfAbsent(priority, _ -> new LinkedHashSet<>()).add(key);
     }
 
     private static String normalizeText(String value) {

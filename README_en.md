@@ -21,6 +21,18 @@ A parallel code review application using multiple AI agents with GitHub Copilot 
 - **Multi-Pass Review**: Each agent performs multiple review passes and merges results for improved coverage
 - **Content Sanitization**: Automatic removal of LLM preamble text and chain-of-thought leakage from review output
 - **Default Model Externalization**: Configure the default model in `application.yml` (changeable without rebuild)
+- **Instruction Sandboxing**: User-provided instructions are injected with structured boundaries and explicit system-instruction precedence
+- **Token Lifetime Minimization**: Runtime token handling is narrowed to execution boundaries to reduce in-memory exposure time
+- **DI-Consistent Service Construction**: `CopilotService` is unified to DI constructor usage (no no-arg path)
+
+## Latest Remediation Status
+
+- Final remediation workstream (PR-1 to PR-5) is complete.
+- Final checklist: `reports/anishi1222/multi-agent-code-reviewer/final_remediation_checklist_2026-02-16.md`
+- Final summary: `reports/anishi1222/multi-agent-code-reviewer/final_remediation_summary_2026-02-17.md`
+- README EN/JA alignment guide: `reports/anishi1222/multi-agent-code-reviewer/readme_bilingual_alignment_2026-02-17.md`
+- Documentation sync checklist: `reports/anishi1222/multi-agent-code-reviewer/documentation_sync_checklist_2026-02-17.md`
+- Release details: `RELEASE_NOTES_en.md` (section `2026-02-17`)
 
 ## Requirements
 
@@ -354,6 +366,10 @@ reviewer:
     report-model: claude-opus-4.6-fast  # Model for report generation
     summary-model: claude-sonnet-4.5 # Model for summary generation
     reasoning-effort: high           # Reasoning effort level (low/medium/high)
+  summary:
+    max-content-per-agent: 50000     # Max characters per agent content for summary prompt
+    max-total-prompt-content: 200000 # Max total prompt characters for summary generation
+    fallback-excerpt-length: 180     # Excerpt length used by fallback summary formatter
 ```
 
 ### External Configuration Override
@@ -826,7 +842,6 @@ multi-agent-reviewer/
     │   ├── ContentCollector.java        # Review content collector
     │   ├── EventSubscriptions.java      # Event subscriptions
     │   ├── IdleTimeoutScheduler.java    # Idle timeout scheduler
-    │   ├── PromptTexts.java             # Prompt text constants
     │   ├── ReviewAgent.java             # Review agent
     │   ├── ReviewContext.java           # Shared review context
     │   ├── ReviewMessageFlow.java       # Review message flow
@@ -844,6 +859,7 @@ multi-agent-reviewer/
     │   ├── CliValidationException.java  # CLI input validation exception
     │   ├── CommandExecutor.java         # Command execution framework
     │   ├── ExitCodes.java               # Exit code constants
+    │   ├── LifecycleRunner.java         # Shared lifecycle executor helper
     │   ├── ListAgentsCommand.java       # list subcommand
     │   ├── ReviewAgentConfigResolver.java # Agent config resolver
     │   ├── ReviewCommand.java           # review subcommand
@@ -863,11 +879,13 @@ multi-agent-reviewer/
     │   └── SkillOutputFormatter.java    # Skill output formatter
     ├── config/
     │   ├── AgentPathConfig.java         # Agent path config
+    │   ├── ConfigDefaults.java          # Shared default normalization helpers
     │   ├── ExecutionConfig.java         # Execution config
     │   ├── GithubMcpConfig.java         # GitHub MCP config
     │   ├── LocalFileConfig.java         # Local file config
     │   ├── ModelConfig.java             # LLM model config
     │   ├── SkillConfig.java             # Skill config
+    │   ├── SummaryConfig.java           # Summary generation limits config
     │   └── TemplateConfig.java          # Template config
     ├── instruction/
     │   ├── CustomInstruction.java       # Custom instruction model
@@ -896,6 +914,7 @@ multi-agent-reviewer/
     │   ├── FindingsSummaryFormatter.java # Findings summary formatter
     │   ├── ReportContentFormatter.java  # Report content formatter
     │   ├── ReportFileUtils.java         # Report file utilities
+    │   ├── ReportFilenameUtils.java     # Safe report filename helper
     │   ├── ReportGenerator.java         # Individual report generation
     │   ├── ReportGeneratorFactory.java  # Report generator factory
     │   ├── ReviewFindingParser.java     # Review finding parser
@@ -941,6 +960,15 @@ multi-agent-reviewer/
         ├── FrontmatterParser.java       # YAML frontmatter parser
         ├── GitHubTokenResolver.java     # GitHub token resolution
         └── StructuredConcurrencyUtils.java # Structured Concurrency utilities
+
+└── src/main/resources/
+    ├── defaults/
+    │   ├── ignored-directories.txt      # Default ignored directories for local collection
+    │   ├── source-extensions.txt        # Default source extensions
+    │   ├── sensitive-file-patterns.txt  # Default sensitive filename patterns
+    │   └── sensitive-extensions.txt     # Default sensitive extensions
+    └── safety/
+        └── suspicious-patterns.txt      # Prompt-injection suspicious pattern definitions
 ```
 
 ## License

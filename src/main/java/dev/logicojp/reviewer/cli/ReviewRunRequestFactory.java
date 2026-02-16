@@ -16,7 +16,6 @@ public class ReviewRunRequestFactory {
     public ReviewRunExecutor.ReviewRunRequest create(
         ReviewCommand.ParsedOptions options,
         ReviewTarget target,
-        String resolvedToken,
         ModelConfig modelConfig,
         Map<String, AgentConfig> agentConfigs,
         List<CustomInstruction> customInstructions,
@@ -29,7 +28,6 @@ public class ReviewRunRequestFactory {
 
         return new ReviewRunExecutor.ReviewRunRequest(
             target,
-            resolvedToken,
             summaryModel,
             reasoningEffort,
             agentConfigs,

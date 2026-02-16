@@ -1,17 +1,11 @@
 package dev.logicojp.reviewer.cli;
 
-import java.io.PrintStream;
-
 public final class CliUsage {
     private CliUsage() {
     }
 
     public static void printGeneral(CliOutput output) {
-        printGeneral(output.out());
-    }
-
-    public static void printGeneral(PrintStream out) {
-        print(out, """
+        output.out().print("""
                 Usage: review <command> [options]
 
                 Global options:
@@ -34,15 +28,30 @@ public final class CliUsage {
     }
 
     public static void printGeneralError(CliOutput output) {
-        printGeneral(output.err());
+        output.err().print("""
+                Usage: review <command> [options]
+
+                Global options:
+                    -v, --verbose               Enable verbose logging
+                    --version                   Show version
+
+                Feature flags (env / JVM properties):
+                    REVIEWER_STRUCTURED_CONCURRENCY=true
+                    REVIEWER_STRUCTURED_CONCURRENCY_SKILLS=true
+                    -Dreviewer.structuredConcurrency=true
+                    -Dreviewer.structuredConcurrency.skills=true
+
+                Commands:
+                    run    Execute a multi-agent code review
+                    list   List available agents
+                    skill  Execute a specific agent skill
+
+                Use 'review <command> --help' for command options.
+                """);
     }
 
     public static void printRun(CliOutput output) {
-        printRun(output.out());
-    }
-
-    public static void printRun(PrintStream out) {
-            print(out, """
+            output.out().print("""
                 Usage: review run [options]
 
                 Target options (required):
@@ -70,11 +79,7 @@ public final class CliUsage {
     }
 
     public static void printList(CliOutput output) {
-        printList(output.out());
-    }
-
-    public static void printList(PrintStream out) {
-        print(out, """
+        output.out().print("""
                 Usage: review list [options]
 
                 Options:
@@ -83,11 +88,7 @@ public final class CliUsage {
     }
 
     public static void printSkill(CliOutput output) {
-        printSkill(output.out());
-    }
-
-    public static void printSkill(PrintStream out) {
-        print(out, """
+        output.out().print("""
                 Usage: review skill [skill-id] [options]
 
                 Options:
@@ -97,9 +98,5 @@ public final class CliUsage {
                     --agents-dir <path...>      Additional agent definition directories
                     --list                      List available skills
                 """);
-    }
-
-    private static void print(PrintStream out, String content) {
-        out.print(content);
     }
 }

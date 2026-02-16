@@ -32,7 +32,7 @@ class GitHubTokenResolverTest {
         void emptyTokenFallsBack() {
             GitHubTokenResolver resolver = new GitHubTokenResolver(1);
             // gh auth may or may not be available; this tests the flow
-            var result = resolver.resolve("");
+            resolver.resolve("");
             // We can't assert the value because gh auth might not be available,
             // but the method should not throw
         }
@@ -41,7 +41,7 @@ class GitHubTokenResolverTest {
         @DisplayName("nullのトークンの場合はgh authにフォールバックする")
         void nullTokenFallsBack() {
             GitHubTokenResolver resolver = new GitHubTokenResolver(1);
-            var result = resolver.resolve(null);
+            resolver.resolve(null);
             // Should not throw
         }
 
@@ -50,7 +50,7 @@ class GitHubTokenResolverTest {
         void placeholderIsIgnored() {
             GitHubTokenResolver resolver = new GitHubTokenResolver(1);
             // The placeholder should be treated as no token provided
-            var result = resolver.resolve("${GITHUB_TOKEN}");
+            resolver.resolve("${GITHUB_TOKEN}");
             // Should fall back to gh auth
         }
     }

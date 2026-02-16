@@ -1,5 +1,7 @@
 package dev.logicojp.reviewer.skill;
 
+import dev.logicojp.reviewer.instruction.CustomInstructionSafetyValidator;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +55,10 @@ public record SkillDefinition(
                 if (value.length() > 10_000) {
                     throw new IllegalArgumentException(
                         "Parameter value too long for: " + param.name());
+                }
+                if (CustomInstructionSafetyValidator.containsSuspiciousPattern(value)) {
+                    throw new IllegalArgumentException(
+                        "Parameter value contains suspicious pattern for: " + param.name());
                 }
                 resolvedValues.put(param.name(), value);
             }

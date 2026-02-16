@@ -24,10 +24,17 @@ public class ReviewAgent {
     /// Used as an in-session retry — much faster than a full retry since MCP context is already loaded.
     private static final String FOLLOWUP_PROMPT =
         "Please provide the complete review results in the specified output format.";
-    private static final long RETRY_BACKOFF_BASE_MS = 1000L;
-    private static final long RETRY_BACKOFF_MAX_MS = 8000L;
-    private static final String LOCAL_SOURCE_HEADER_PROMPT = PromptTexts.LOCAL_SOURCE_HEADER;
-    private static final String LOCAL_REVIEW_RESULT_PROMPT = PromptTexts.LOCAL_RESULT_REQUEST;
+    private static final String DEFAULT_LOCAL_REVIEW_RESULT_PROMPT =
+        "ソースコードを読み込んだ内容に基づいて、指定された出力形式でレビュー結果を返してください。";
+
+    record AgentCollaborators(
+        ReviewTargetInstructionResolver reviewTargetInstructionResolver,
+        ReviewSessionMessageSender reviewSessionMessageSender,
+        ReviewRetryExecutor reviewRetryExecutor,
+        ReviewSessionConfigFactory reviewSessionConfigFactory,
+        ReviewResultFactory reviewResultFactory
+    ) {
+    }
     
     private final AgentConfig config;
     private final ReviewContext ctx;
@@ -38,37 +45,91 @@ public class ReviewAgent {
     private final ReviewRetryExecutor reviewRetryExecutor;
     private final ReviewSessionConfigFactory reviewSessionConfigFactory;
     private final ReviewResultFactory reviewResultFactory;
+    private final String focusAreasGuidance;
+    private final String localSourceHeaderPrompt;
+    private final String localReviewResultPrompt;
 
-    public ReviewAgent(AgentConfig config, ReviewContext ctx) {
-        this(config, ctx, IdleTimeoutScheduler.defaultScheduler(), new ReviewSystemPromptFormatter());
+    static AgentCollaborators defaultCollaborators(AgentConfig config, ReviewContext ctx) {
+        return new AgentCollaborators(
+            new ReviewTargetInstructionResolver(
+                config,
+                ctx.localFileConfig(),
+                () -> logger.debug("Computed source content locally for agent: {}", config.name())
+            ),
+            new ReviewSessionMessageSender(config.name()),
+            new ReviewRetryExecutor(config.name(), ctx.maxRetries()),
+            new ReviewSessionConfigFactory(),
+            new ReviewResultFactory()
+        );
     }
 
-    ReviewAgent(AgentConfig config, ReviewContext ctx, IdleTimeoutScheduler idleTimeoutScheduler) {
-        this(config, ctx, idleTimeoutScheduler, new ReviewSystemPromptFormatter());
+    public ReviewAgent(AgentConfig config, ReviewContext ctx) {
+        this(
+            config,
+            ctx,
+            IdleTimeoutScheduler.defaultScheduler(),
+            new ReviewSystemPromptFormatter(),
+            AgentPromptBuilder.DEFAULT_FOCUS_AREAS_GUIDANCE,
+            AgentPromptBuilder.DEFAULT_LOCAL_SOURCE_HEADER,
+            DEFAULT_LOCAL_REVIEW_RESULT_PROMPT
+        );
+    }
+
+    public ReviewAgent(AgentConfig config,
+                       ReviewContext ctx,
+                       String focusAreasGuidance,
+                       String localSourceHeaderPrompt,
+                       String localReviewResultPrompt) {
+        this(
+            config,
+            ctx,
+            IdleTimeoutScheduler.defaultScheduler(),
+            new ReviewSystemPromptFormatter(),
+            focusAreasGuidance,
+            localSourceHeaderPrompt,
+            localReviewResultPrompt
+        );
     }
 
     ReviewAgent(AgentConfig config,
                 ReviewContext ctx,
                 IdleTimeoutScheduler idleTimeoutScheduler,
-                ReviewSystemPromptFormatter reviewSystemPromptFormatter) {
+                ReviewSystemPromptFormatter reviewSystemPromptFormatter,
+                String focusAreasGuidance,
+                String localSourceHeaderPrompt,
+                String localReviewResultPrompt) {
+        this(
+            config,
+            ctx,
+            idleTimeoutScheduler,
+            reviewSystemPromptFormatter,
+            focusAreasGuidance,
+            localSourceHeaderPrompt,
+            localReviewResultPrompt,
+            defaultCollaborators(config, ctx)
+        );
+    }
+
+    ReviewAgent(AgentConfig config,
+                ReviewContext ctx,
+                IdleTimeoutScheduler idleTimeoutScheduler,
+                ReviewSystemPromptFormatter reviewSystemPromptFormatter,
+                String focusAreasGuidance,
+                String localSourceHeaderPrompt,
+                String localReviewResultPrompt,
+                AgentCollaborators collaborators) {
         this.config = config;
         this.ctx = ctx;
         this.idleTimeoutScheduler = idleTimeoutScheduler;
         this.reviewSystemPromptFormatter = reviewSystemPromptFormatter;
-        this.reviewTargetInstructionResolver = new ReviewTargetInstructionResolver(
-            config,
-            ctx.localFileConfig(),
-            () -> logger.debug("Computed source content locally for agent: {}", config.name())
-        );
-        this.reviewSessionMessageSender = new ReviewSessionMessageSender(config.name());
-        this.reviewRetryExecutor = new ReviewRetryExecutor(
-            config.name(),
-            ctx.maxRetries(),
-            RETRY_BACKOFF_BASE_MS,
-            RETRY_BACKOFF_MAX_MS
-        );
-        this.reviewSessionConfigFactory = new ReviewSessionConfigFactory();
-        this.reviewResultFactory = new ReviewResultFactory();
+        this.focusAreasGuidance = focusAreasGuidance;
+        this.localSourceHeaderPrompt = localSourceHeaderPrompt;
+        this.localReviewResultPrompt = localReviewResultPrompt;
+        this.reviewTargetInstructionResolver = collaborators.reviewTargetInstructionResolver();
+        this.reviewSessionMessageSender = collaborators.reviewSessionMessageSender();
+        this.reviewRetryExecutor = collaborators.reviewRetryExecutor();
+        this.reviewSessionConfigFactory = collaborators.reviewSessionConfigFactory();
+        this.reviewResultFactory = collaborators.reviewResultFactory();
     }
     
     /// Executes the review synchronously on the calling thread with retry support.
@@ -181,8 +242,8 @@ public class ReviewAgent {
         return new ReviewMessageFlow(
             config.name(),
             FOLLOWUP_PROMPT,
-            LOCAL_SOURCE_HEADER_PROMPT,
-            LOCAL_REVIEW_RESULT_PROMPT
+            localSourceHeaderPrompt,
+            localReviewResultPrompt
         );
     }
 
@@ -255,7 +316,7 @@ public class ReviewAgent {
     /// Custom instructions from .github/instructions/*.instructions.md are appended last.
     private String buildSystemPromptWithCustomInstruction() {
         return reviewSystemPromptFormatter.format(
-            config.buildFullSystemPrompt(),
+            AgentPromptBuilder.buildFullSystemPrompt(config, focusAreasGuidance),
             ctx.outputConstraints(),
             ctx.customInstructions(),
             instruction -> logger.debug("Applied custom instruction from {} to agent: {}",

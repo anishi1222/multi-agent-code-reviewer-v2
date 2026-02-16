@@ -21,42 +21,83 @@ import java.util.Map;
 @Singleton
 public class ReviewRunExecutor {
 
+    @FunctionalInterface
+    interface ReviewRunner {
+        List<ReviewResult> run(String resolvedToken, ReviewRunRequest context);
+    }
+
+    @FunctionalInterface
+    interface ReportsGenerator {
+        List<Path> generate(List<ReviewResult> results, Path outputDirectory) throws IOException;
+    }
+
+    @FunctionalInterface
+    interface SummaryGeneratorRunner {
+        Path generate(List<ReviewResult> results, ReviewRunRequest context) throws IOException;
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(ReviewRunExecutor.class);
 
-    private final ReviewService reviewService;
-    private final ReportService reportService;
     private final ReviewOutputFormatter outputFormatter;
     private final CliOutput output;
+    private final ReviewRunner reviewRunner;
+    private final ReportsGenerator reportsGenerator;
+    private final SummaryGeneratorRunner summaryGeneratorRunner;
 
     @Inject
     public ReviewRunExecutor(ReviewService reviewService,
                              ReportService reportService,
                              ReviewOutputFormatter outputFormatter,
                              CliOutput output) {
-        this.reviewService = reviewService;
-        this.reportService = reportService;
-        this.outputFormatter = outputFormatter;
-        this.output = output;
+        this(
+            reviewService,
+            reportService,
+            outputFormatter,
+            output,
+            (resolvedToken, context) -> reviewService.executeReviews(
+                context.agentConfigs(),
+                context.target(),
+                resolvedToken,
+                context.parallelism(),
+                context.customInstructions(),
+                context.reasoningEffort()
+            ),
+            reportService::generateReports,
+            (results, context) -> reportService.generateSummary(
+                results,
+                context.target().displayName(),
+                context.outputDirectory(),
+                context.summaryModel(),
+                context.reasoningEffort()
+            )
+        );
     }
 
-    public int execute(ReviewRunRequest context) {
+    ReviewRunExecutor(ReviewService reviewService,
+                      ReportService reportService,
+                      ReviewOutputFormatter outputFormatter,
+                      CliOutput output,
+                      ReviewRunner reviewRunner,
+                      ReportsGenerator reportsGenerator,
+                      SummaryGeneratorRunner summaryGeneratorRunner) {
+        this.outputFormatter = outputFormatter;
+        this.output = output;
+        this.reviewRunner = reviewRunner;
+        this.reportsGenerator = reportsGenerator;
+        this.summaryGeneratorRunner = summaryGeneratorRunner;
+    }
+
+    public int execute(String resolvedToken, ReviewRunRequest context) {
         output.println("Starting reviews...");
-        List<ReviewResult> results = executeReviews(context);
+        List<ReviewResult> results = executeReviews(resolvedToken, context);
         generateOutputs(results, context);
 
         outputFormatter.printCompletionSummary(results, context.outputDirectory());
         return ExitCodes.OK;
     }
 
-    private List<ReviewResult> executeReviews(ReviewRunRequest context) {
-        return reviewService.executeReviews(
-            context.agentConfigs(),
-            context.target(),
-            context.resolvedToken(),
-            context.parallelism(),
-            context.customInstructions(),
-            context.reasoningEffort()
-        );
+    private List<ReviewResult> executeReviews(String resolvedToken, ReviewRunRequest context) {
+        return reviewRunner.run(resolvedToken, context);
     }
 
     private void generateOutputs(List<ReviewResult> results, ReviewRunRequest context) {
@@ -74,7 +115,7 @@ public class ReviewRunExecutor {
         output.println("\nGenerating reports...");
         List<Path> reports;
         try {
-            reports = reportService.generateReports(results, outputDirectory);
+            reports = reportsGenerator.generate(results, outputDirectory);
         } catch (IOException e) {
             throw new UncheckedIOException("Report generation failed", e);
         }
@@ -90,12 +131,7 @@ public class ReviewRunExecutor {
     private void generateSummary(List<ReviewResult> results, ReviewRunRequest context) {
         output.println("\nGenerating executive summary...");
         try {
-            Path summaryPath = reportService.generateSummary(
-                results,
-                context.target().displayName(),
-                context.outputDirectory(),
-                context.summaryModel(),
-                context.reasoningEffort());
+            Path summaryPath = summaryGeneratorRunner.generate(results, context);
             output.println("  ✓ " + summaryPath.getFileName());
         } catch (IOException e) {
             logger.error("Summary generation failed: {}", e.getMessage(), e);
@@ -105,7 +141,6 @@ public class ReviewRunExecutor {
 
     public record ReviewRunRequest(
         ReviewTarget target,
-        String resolvedToken,
         String summaryModel,
         String reasoningEffort,
         Map<String, AgentConfig> agentConfigs,
@@ -114,5 +149,10 @@ public class ReviewRunExecutor {
         List<CustomInstruction> customInstructions,
         Path outputDirectory
     ) {
+        @Override
+        public String toString() {
+            return "ReviewRunRequest{target=%s, summaryModel='%s', reasoningEffort='%s', parallelism=%d, noSummary=%s, outputDirectory=%s}"
+                .formatted(target, summaryModel, reasoningEffort, parallelism, noSummary, outputDirectory);
+        }
     }
 }

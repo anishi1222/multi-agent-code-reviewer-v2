@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.util;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -23,21 +24,17 @@ public final class CliPathResolver {
             return Optional.empty();
         }
 
-        String fileName = explicitPath.getFileName().toString();
-        boolean validName = Arrays.stream(allowedNames).anyMatch(fileName::equals);
-        if (!validName) {
+        if (!hasAllowedName(explicitPath, allowedNames)) {
             return Optional.empty();
         }
 
         try {
             Path realPath = explicitPath.toRealPath();
-            String realFileName = realPath.getFileName().toString();
-            boolean realNameAllowed = Arrays.stream(allowedNames).anyMatch(realFileName::equals);
-            if (!realNameAllowed) {
+            if (!hasAllowedName(realPath, allowedNames)) {
                 return Optional.empty();
             }
             return Optional.of(realPath);
-        } catch (Exception _) {
+        } catch (IOException | SecurityException _) {
             return Optional.empty();
         }
     }
@@ -58,12 +55,10 @@ public final class CliPathResolver {
                 if (Files.isExecutable(candidate)) {
                     try {
                         Path realPath = candidate.toRealPath();
-                        String realFileName = realPath.getFileName().toString();
-                        boolean validName = Arrays.stream(candidateNames).anyMatch(realFileName::equals);
-                        if (validName) {
+                        if (hasAllowedName(realPath, candidateNames)) {
                             return Optional.of(realPath);
                         }
-                    } catch (Exception _) {
+                    } catch (IOException | SecurityException _) {
                         // Ignore invalid candidate and continue searching PATH
                     }
                 }
@@ -71,5 +66,10 @@ public final class CliPathResolver {
         }
 
         return Optional.empty();
+    }
+
+    private static boolean hasAllowedName(Path path, String... allowedNames) {
+        String fileName = path.getFileName().toString();
+        return Arrays.stream(allowedNames).anyMatch(fileName::equals);
     }
 }

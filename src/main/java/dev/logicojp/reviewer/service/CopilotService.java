@@ -29,16 +29,6 @@ public class CopilotService {
     private volatile CopilotClient client;
     private volatile boolean initialized = false;
 
-    public CopilotService() {
-        this(
-            new CopilotCliPathResolver(),
-            new CopilotCliHealthChecker(),
-            new CopilotTimeoutResolver(),
-            new CopilotStartupErrorFormatter(),
-            new CopilotClientStarter()
-        );
-    }
-
     @Inject
     public CopilotService(CopilotCliPathResolver cliPathResolver,
                           CopilotCliHealthChecker cliHealthChecker,

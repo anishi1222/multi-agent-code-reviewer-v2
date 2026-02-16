@@ -16,12 +16,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("SkillService")
 class SkillServiceTest {
 
+    private static CopilotService newCopilotService() {
+        return new CopilotService(
+            new CopilotCliPathResolver(),
+            new CopilotCliHealthChecker(),
+            new CopilotTimeoutResolver(),
+            new CopilotStartupErrorFormatter(),
+            new CopilotClientStarter()
+        );
+    }
+
     @Test
     @DisplayName("存在しないスキルIDは失敗結果を返す")
     void unknownSkillReturnsFailureResult() {
         SkillService service = new SkillService(
             new dev.logicojp.reviewer.skill.SkillRegistry(),
-            new CopilotService(),
+            newCopilotService(),
             new GithubMcpConfig(null, null, null, null, null, null),
             new ExecutionConfig(1, 1, 1, 1, 1, 1, 1, 1, 0),
             new FeatureFlags(false, false)
@@ -38,7 +48,7 @@ class SkillServiceTest {
     void registerAgentSkillsAddsToRegistry() {
         SkillService service = new SkillService(
             new dev.logicojp.reviewer.skill.SkillRegistry(),
-            new CopilotService(),
+            newCopilotService(),
             new GithubMcpConfig(null, null, null, null, null, null),
             new ExecutionConfig(1, 1, 1, 1, 1, 1, 1, 1, 0),
             new FeatureFlags(false, false)

@@ -11,7 +11,12 @@ import java.nio.file.Path;
 @Singleton
 public class ReviewTargetResolver {
 
-    public record TargetAndToken(ReviewTarget target, String resolvedToken) {}
+    public record TargetAndToken(ReviewTarget target, String resolvedToken) {
+        @Override
+        public String toString() {
+            return "TargetAndToken{target=%s, resolvedToken=***}".formatted(target);
+        }
+    }
 
     private final GitHubTokenResolver tokenResolver;
 

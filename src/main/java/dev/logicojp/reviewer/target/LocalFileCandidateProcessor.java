@@ -22,11 +22,16 @@ final class LocalFileCandidateProcessor {
     private static final Logger logger = LoggerFactory.getLogger(LocalFileCandidateProcessor.class);
 
     private final Path baseDirectory;
+    private final Path realBaseDirectory;
     private final long maxFileSize;
     private final long maxTotalSize;
 
-    LocalFileCandidateProcessor(Path baseDirectory, long maxFileSize, long maxTotalSize) {
+    LocalFileCandidateProcessor(Path baseDirectory,
+                                Path realBaseDirectory,
+                                long maxFileSize,
+                                long maxTotalSize) {
         this.baseDirectory = baseDirectory;
+        this.realBaseDirectory = realBaseDirectory;
         this.maxFileSize = maxFileSize;
         this.maxTotalSize = maxTotalSize;
     }
@@ -64,11 +69,22 @@ final class LocalFileCandidateProcessor {
         }
 
         try {
-            String content = Files.readString(path, StandardCharsets.UTF_8);
+            if (Files.isSymbolicLink(path)) {
+                logger.warn("File became symbolic link after collection, skipping: {}", path);
+                return ProcessedCandidate.skip();
+            }
+
+            Path realPath = path.toRealPath();
+            if (!realPath.startsWith(realBaseDirectory)) {
+                logger.warn("File escaped base directory (possible race), skipping: {}", path);
+                return ProcessedCandidate.skip();
+            }
+
+            String content = Files.readString(realPath, StandardCharsets.UTF_8);
             String relativePath = toRelativePath(path);
             return ProcessedCandidate.included(relativePath, content, size);
         } catch (IOException e) {
-            logger.debug("Failed to read file {}: {}", candidate.path(), e.getMessage());
+            logger.warn("Failed to read file {}: {}", candidate.path(), e.getMessage());
             return ProcessedCandidate.skip();
         }
     }

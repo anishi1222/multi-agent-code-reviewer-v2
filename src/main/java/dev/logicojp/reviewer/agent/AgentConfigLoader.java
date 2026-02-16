@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -34,6 +35,34 @@ public class AgentConfigLoader {
     private final AgentMarkdownParser markdownParser;
     private final SkillMarkdownParser skillParser;
     private final String skillsDirectory;
+
+    public static Builder builder(List<Path> agentDirectories) {
+        return new Builder(agentDirectories);
+    }
+
+    public static final class Builder {
+        private final List<Path> agentDirectories;
+        private SkillConfig skillConfig = new SkillConfig(null, null);
+        private String defaultOutputFormat;
+
+        private Builder(List<Path> agentDirectories) {
+            this.agentDirectories = List.copyOf(agentDirectories);
+        }
+
+        public Builder skillConfig(SkillConfig skillConfig) {
+            this.skillConfig = skillConfig != null ? skillConfig : new SkillConfig(null, null);
+            return this;
+        }
+
+        public Builder defaultOutputFormat(String defaultOutputFormat) {
+            this.defaultOutputFormat = defaultOutputFormat;
+            return this;
+        }
+
+        public AgentConfigLoader build() {
+            return new AgentConfigLoader(agentDirectories, skillConfig, defaultOutputFormat);
+        }
+    }
     
     /// Creates a loader with a single agents directory and default skill settings.
     public AgentConfigLoader(Path agentsDirectory) {
@@ -110,7 +139,7 @@ public class AgentConfigLoader {
                         agents.put(config.name(), config);
                         logger.info("Loaded agent: {} from {}", config.name(), file.getFileName());
                     }
-                } catch (Exception e) {
+                } catch (IOException | IllegalArgumentException | UncheckedIOException e) {
                     logger.error("Failed to load agent from {}: {}", file, e.getMessage());
                 }
             }
@@ -176,7 +205,7 @@ public class AgentConfigLoader {
                 skills.add(skill);
                 logger.info("Loaded global skill: {} from {}", skill.id(),
                     skillFile.getParent().getFileName());
-            } catch (Exception e) {
+            } catch (IOException | IllegalArgumentException | UncheckedIOException e) {
                 logger.error("Failed to load skill from {}: {}", skillFile, e.getMessage());
             }
         }
@@ -222,13 +251,7 @@ public class AgentConfigLoader {
     }
     
     private String extractAgentName(Path file) {
-        String filename = file.getFileName().toString();
-        
-        if (filename.endsWith(".agent.md")) {
-            return filename.substring(0, filename.length() - ".agent.md".length());
-        }
-        
-        return filename;
+        return AgentMarkdownParser.extractNameFromFilename(file.getFileName().toString());
     }
     
     /// Gets the list of configured agent directories.

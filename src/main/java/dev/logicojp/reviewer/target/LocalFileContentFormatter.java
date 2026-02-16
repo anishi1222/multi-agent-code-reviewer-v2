@@ -3,8 +3,32 @@ package dev.logicojp.reviewer.target;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 final class LocalFileContentFormatter {
+
+    private static final Map<String, String> LANGUAGE_MAP = Map.ofEntries(
+        Map.entry("js", "javascript"),
+        Map.entry("mjs", "javascript"),
+        Map.entry("cjs", "javascript"),
+        Map.entry("ts", "typescript"),
+        Map.entry("jsx", "jsx"),
+        Map.entry("tsx", "tsx"),
+        Map.entry("py", "python"),
+        Map.entry("rb", "ruby"),
+        Map.entry("rs", "rust"),
+        Map.entry("kt", "kotlin"),
+        Map.entry("kts", "kotlin"),
+        Map.entry("cs", "csharp"),
+        Map.entry("fs", "fsharp"),
+        Map.entry("sh", "bash"),
+        Map.entry("bash", "bash"),
+        Map.entry("zsh", "bash"),
+        Map.entry("ps1", "powershell"),
+        Map.entry("psm1", "powershell"),
+        Map.entry("yml", "yaml"),
+        Map.entry("md", "markdown")
+    );
 
     private final Path baseDirectory;
     private final long maxTotalSize;
@@ -91,22 +115,6 @@ final class LocalFileContentFormatter {
             return "";
         }
         String ext = relativePath.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
-        return switch (ext) {
-            case "js", "mjs", "cjs" -> "javascript";
-            case "ts" -> "typescript";
-            case "jsx" -> "jsx";
-            case "tsx" -> "tsx";
-            case "py" -> "python";
-            case "rb" -> "ruby";
-            case "rs" -> "rust";
-            case "kt", "kts" -> "kotlin";
-            case "cs" -> "csharp";
-            case "fs" -> "fsharp";
-            case "sh", "bash", "zsh" -> "bash";
-            case "ps1", "psm1" -> "powershell";
-            case "yml" -> "yaml";
-            case "md" -> "markdown";
-            default -> ext;
-        };
+        return LANGUAGE_MAP.getOrDefault(ext, ext);
     }
 }

@@ -73,12 +73,8 @@ public class ReportGenerator {
     }
 
     private String buildReportFilename(AgentConfig config, String date) {
-        String safeName = sanitizeAgentName(config.name());
+        String safeName = ReportFilenameUtils.sanitizeAgentName(config.name());
         return "%s_%s.md".formatted(safeName, date);
-    }
-
-    private String sanitizeAgentName(String agentName) {
-        return agentName.replaceAll("[/\\\\]", "_");
     }
     
     private void ensureOutputDirectory() throws IOException {

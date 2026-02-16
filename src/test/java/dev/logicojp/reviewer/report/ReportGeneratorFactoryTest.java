@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.report;
 
 import com.github.copilot.sdk.CopilotClient;
+import dev.logicojp.reviewer.config.SummaryConfig;
 import dev.logicojp.reviewer.config.TemplateConfig;
 import dev.logicojp.reviewer.service.TemplateService;
 import org.junit.jupiter.api.DisplayName;
@@ -24,7 +25,7 @@ class ReportGeneratorFactoryTest {
         var config = new TemplateConfig(tempDir.toString(),
             null, null, null, null, null, null, null);
         var templateService = new TemplateService(config);
-        var factory = new ReportGeneratorFactory(templateService);
+        var factory = new ReportGeneratorFactory(templateService, new SummaryConfig(0, 0, 0));
         ReportGenerator generator = factory.createReportGenerator(Path.of("/tmp/reports"));
         assertThat(generator).isNotNull();
     }
@@ -41,13 +42,22 @@ class ReportGeneratorFactoryTest {
 
         var factory = new ReportGeneratorFactory(
             templateService,
+            new SummaryConfig(0, 0, 0),
             (outputDirectory, ts) -> {
                 reportCreatorCalled.set(true);
                 return new ReportGenerator(outputDirectory, ts);
             },
-            (outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, ts) -> {
+            (outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, ts, summaryConfig) -> {
                 summaryCreatorCalled.set(true);
-                return new SummaryGenerator(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, ts);
+                return new SummaryGenerator(
+                    outputDirectory,
+                    client,
+                    summaryModel,
+                    reasoningEffort,
+                    timeoutMinutes,
+                    ts,
+                    summaryConfig
+                );
             }
         );
 
@@ -69,13 +79,22 @@ class ReportGeneratorFactoryTest {
 
         var factory = new ReportGeneratorFactory(
             templateService,
+            new SummaryConfig(0, 0, 0),
             (outputDirectory, ts) -> {
                 reportCreatorCalled.set(true);
                 return new ReportGenerator(outputDirectory, ts);
             },
-            (outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, ts) -> {
+            (outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, ts, summaryConfig) -> {
                 summaryCreatorCalled.set(true);
-                return new SummaryGenerator(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, ts);
+                return new SummaryGenerator(
+                    outputDirectory,
+                    client,
+                    summaryModel,
+                    reasoningEffort,
+                    timeoutMinutes,
+                    ts,
+                    summaryConfig
+                );
             }
         );
 

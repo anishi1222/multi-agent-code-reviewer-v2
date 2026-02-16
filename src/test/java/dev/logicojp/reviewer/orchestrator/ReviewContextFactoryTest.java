@@ -42,8 +42,6 @@ class ReviewContextFactoryTest {
                 "high",
                 "constraints",
                 cachedMcp,
-                localFileConfig.maxFileSize(),
-                localFileConfig.maxTotalSize(),
                 localFileConfig,
                 scheduler
             );

@@ -163,19 +163,19 @@ public class AgentMarkdownParser {
         if (focusAreas.isEmpty()) {
             focusAreas.add(DEFAULT_FOCUS_AREA);
         }
-        
-        return focusAreas;
+
+        return List.copyOf(focusAreas);
     }
 
     /// Parses focus area items from an already-extracted section body (header stripped).
     /// Falls back to default if no bullet items are found.
     private List<String> parseFocusAreaItems(String sectionContent) {
-        List<String> focusAreas = parseBulletItems(sectionContent);
+        List<String> focusAreas = new ArrayList<>(parseBulletItems(sectionContent));
         if (focusAreas.isEmpty()) {
             logger.warn("Focus Areas section found but contains no bullet items; using default.");
             focusAreas.add(DEFAULT_FOCUS_AREA);
         }
-        return focusAreas;
+        return List.copyOf(focusAreas);
     }
 
     private List<String> parseBulletItems(String text) {
@@ -189,14 +189,14 @@ public class AgentMarkdownParser {
                 }
             }
         }
-        return items;
+        return List.copyOf(items);
     }
 
     private Map<String, String> extractSections(String body) {
         Map<String, StringBuilder> sectionBuilders = new LinkedHashMap<>();
         String currentKey = null;
 
-        for (String line : body.split("\\n", -1)) {
+        for (String line : body.lines().toList()) {
             String sectionKey = extractRecognizedSectionKey(line);
             if (sectionKey != null) {
                 if (sectionBuilders.containsKey(sectionKey)) {
@@ -242,7 +242,7 @@ public class AgentMarkdownParser {
         return key == null ? "" : key.trim().toLowerCase(Locale.ROOT);
     }
     
-    private String extractNameFromFilename(String filename) {
+    static String extractNameFromFilename(String filename) {
         // Remove .agent.md or .md suffix
         String name = filename;
         if (name.endsWith(".agent.md")) {

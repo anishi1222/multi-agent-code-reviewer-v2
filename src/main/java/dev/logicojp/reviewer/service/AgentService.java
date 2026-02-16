@@ -74,6 +74,9 @@ public class AgentService {
 
     private AgentConfigLoader createLoader(List<Path> agentDirs) {
         String defaultOutputFormat = templateService.getDefaultOutputFormat();
-        return new AgentConfigLoader(agentDirs, skillConfig, defaultOutputFormat);
+        return AgentConfigLoader.builder(agentDirs)
+            .skillConfig(skillConfig)
+            .defaultOutputFormat(defaultOutputFormat)
+            .build();
     }
 }

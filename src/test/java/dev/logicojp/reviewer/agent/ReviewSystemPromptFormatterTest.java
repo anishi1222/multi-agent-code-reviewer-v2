@@ -37,6 +37,8 @@ class ReviewSystemPromptFormatterTest {
         assertThat(prompt).contains("OUTPUT_CONSTRAINTS");
         assertThat(prompt).contains("--- BEGIN PROJECT INSTRUCTIONS ---");
         assertThat(prompt).contains("カスタムインストラクション");
+        assertThat(prompt).contains("<user_provided_instruction");
+        assertThat(prompt).contains("</user_provided_instruction>");
         assertThat(prompt).contains("Use project rule");
         assertThat(prompt).contains("--- END PROJECT INSTRUCTIONS ---");
     }

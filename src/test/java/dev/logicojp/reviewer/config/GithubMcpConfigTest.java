@@ -173,4 +173,28 @@ class GithubMcpConfigTest {
             assertThat(str).doesNotContain("Bearer ***");
         }
     }
+
+    @Nested
+    @DisplayName("buildMcpServers")
+    class BuildMcpServersTests {
+
+        @Test
+        @DisplayName("トークンと設定が揃っている場合はMCPサーバー設定を返す")
+        void returnsMcpServersWhenInputsAreValid() {
+            GithubMcpConfig config = new GithubMcpConfig(null, null, null, null, null, null);
+
+            var servers = GithubMcpConfig.buildMcpServers("ghp_token", config);
+
+            assertThat(servers).isPresent();
+            assertThat(servers.orElseThrow()).containsKey("github");
+        }
+
+        @Test
+        @DisplayName("トークンまたは設定が不正な場合はemptyを返す")
+        void returnsEmptyWhenInputsAreInvalid() {
+            assertThat(GithubMcpConfig.buildMcpServers("", new GithubMcpConfig(null, null, null, null, null, null)))
+                .isEmpty();
+            assertThat(GithubMcpConfig.buildMcpServers("ghp_token", null)).isEmpty();
+        }
+    }
 }

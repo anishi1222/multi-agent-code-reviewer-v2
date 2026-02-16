@@ -1,5 +1,29 @@
 # リリースノート
 
+## 2026-02-17
+
+### 概要
+- 最終リメディエーションの分割対応（PR-1〜PR-5）を完了しました。
+- セキュリティとDI一貫性の未完了項目を解消し、最終チェックリストを完了状態に更新しました。
+- 回帰防止のため、影響範囲テスト・全体テスト・実行確認まで実施しました。
+
+### 主な変更
+- PR-1: `GithubMcpConfig.buildMcpServers()` を `Optional<Map<String,Object>>` 化（null契約排除）。
+- PR-2: `ReviewRunRequest` から `resolvedToken` を分離し、実行境界で短寿命受け渡しへ変更。
+- PR-3: `CustomInstruction` を構造化サンドボックス化し、システム命令優先を明示。
+- PR-4: `ContentCollector` に `LongSupplier` 時計注入を追加し、連結キャッシュ判定をバージョン依存へ変更。
+- PR-5: `CopilotService` no-arg コンストラクタを削除し、DIコンストラクタへ統一。
+
+### 検証
+- 影響テスト: `CopilotServiceTest` / `ReportServiceTest` / `SkillServiceTest` 成功。
+- 全体テスト: `mvn -q -DskipITs test` 実行後、Surefire レポートで failures/errors 0 を確認。
+- 実行確認: `mvn clean package` と `run --repo ... --all` の終了コード 0 を確認。
+
+### 参照
+- 最終チェックリスト: `reports/anishi1222/multi-agent-code-reviewer/final_remediation_checklist_2026-02-16.md`
+- 最終サマリー: `reports/anishi1222/multi-agent-code-reviewer/final_remediation_summary_2026-02-17.md`
+- RELEASE_NOTES 日英対応ガイド: `reports/anishi1222/multi-agent-code-reviewer/release_notes_bilingual_alignment_2026-02-17.md`
+
 ## 2026-02-16
 
 ### 概要

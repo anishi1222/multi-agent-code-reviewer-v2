@@ -67,15 +67,52 @@ public class SkillExecutionCoordinator {
                        String model,
                        long timeoutMinutes) {
         try {
-            initializer.initialize(resolvedToken);
-            return runAndHandleResult(skillId, parameters, resolvedToken, model, timeoutMinutes);
-        } catch (ExecutionException | TimeoutException e) {
-            throw toExecutionFailure(e);
-        } catch (InterruptedException e) {
+            return LifecycleRunner.executeWithLifecycle(
+                () -> initializer.initialize(resolvedToken),
+                () -> runUnchecked(skillId, parameters, resolvedToken, model, timeoutMinutes),
+                shutdowner::shutdown
+            );
+        } catch (SkillRunExecutionException e) {
+            throw toExecutionFailure((ExecutionException) e.getCause());
+        } catch (SkillRunTimeoutException e) {
+            throw toExecutionFailure((TimeoutException) e.getCause());
+        } catch (SkillRunInterruptedException e) {
             Thread.currentThread().interrupt();
-            throw toInterruptedFailure(e);
-        } finally {
-            shutdowner.shutdown();
+            throw toInterruptedFailure((InterruptedException) e.getCause());
+        }
+    }
+
+    private int runUnchecked(String skillId,
+                             Map<String, String> parameters,
+                             String resolvedToken,
+                             String model,
+                             long timeoutMinutes) {
+        try {
+            return runAndHandleResult(skillId, parameters, resolvedToken, model, timeoutMinutes);
+        } catch (ExecutionException e) {
+            throw new SkillRunExecutionException(e);
+        } catch (TimeoutException e) {
+            throw new SkillRunTimeoutException(e);
+        } catch (InterruptedException e) {
+            throw new SkillRunInterruptedException(e);
+        }
+    }
+
+    private static final class SkillRunExecutionException extends RuntimeException {
+        private SkillRunExecutionException(ExecutionException cause) {
+            super(cause);
+        }
+    }
+
+    private static final class SkillRunTimeoutException extends RuntimeException {
+        private SkillRunTimeoutException(TimeoutException cause) {
+            super(cause);
+        }
+    }
+
+    private static final class SkillRunInterruptedException extends RuntimeException {
+        private SkillRunInterruptedException(InterruptedException cause) {
+            super(cause);
         }
     }
 

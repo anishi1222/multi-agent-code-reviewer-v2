@@ -46,18 +46,15 @@ public record ModelConfig(
     }
 
     private static String resolveDefaultModel(String defaultModel) {
-        return (defaultModel == null || defaultModel.isBlank())
-            ? DEFAULT_MODEL : defaultModel;
+        return ConfigDefaults.defaultIfBlank(defaultModel, DEFAULT_MODEL);
     }
 
     private static String resolveStageModel(String stageModel, String defaultModel) {
-        return (stageModel == null || stageModel.isBlank())
-            ? defaultModel : stageModel;
+        return ConfigDefaults.defaultIfBlank(stageModel, defaultModel);
     }
 
     private static String resolveReasoningEffortValue(String reasoningEffort) {
-        return (reasoningEffort == null || reasoningEffort.isBlank())
-            ? DEFAULT_REASONING_EFFORT : reasoningEffort;
+        return ConfigDefaults.defaultIfBlank(reasoningEffort, DEFAULT_REASONING_EFFORT);
     }
 
     public ModelConfig() {
@@ -103,12 +100,12 @@ public record ModelConfig(
         return new Builder();
     }
 
-    public static class Builder {
+    public static final class Builder {
         private String reviewModel;
         private String reportModel;
         private String summaryModel;
         private String reasoningEffort = DEFAULT_REASONING_EFFORT;
-        private String defaultModelField;
+        private String defaultModel;
 
         public Builder reviewModel(String model) {
             this.reviewModel = model;
@@ -134,7 +131,7 @@ public record ModelConfig(
         /// `summaryModel`) to the same value and records it as the
         /// default model.
         public Builder allModels(String model) {
-            this.defaultModelField = model;
+            this.defaultModel = model;
             this.reviewModel = model;
             this.reportModel = model;
             this.summaryModel = model;
@@ -142,7 +139,7 @@ public record ModelConfig(
         }
 
         public ModelConfig build() {
-            return new ModelConfig(reviewModel, reportModel, summaryModel, reasoningEffort, defaultModelField);
+            return new ModelConfig(reviewModel, reportModel, summaryModel, reasoningEffort, defaultModel);
         }
     }
 }

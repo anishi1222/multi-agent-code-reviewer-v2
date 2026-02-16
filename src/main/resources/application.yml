@@ -56,3 +56,7 @@ reviewer:
     report-model: claude-opus-4.6-fast
     summary-model: claude-sonnet-4.5
     reasoning-effort: high
+  summary:
+    max-content-per-agent: 50000
+    max-total-prompt-content: 200000
+    fallback-excerpt-length: 180

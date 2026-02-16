@@ -18,8 +18,6 @@ final class ReviewContextFactory {
     private final String reasoningEffort;
     private final String outputConstraints;
     private final Map<String, Object> cachedMcpServers;
-    private final long localMaxFileSize;
-    private final long localMaxTotalSize;
     private final LocalFileConfig localFileConfig;
     private final ScheduledExecutorService sharedScheduler;
 
@@ -29,8 +27,6 @@ final class ReviewContextFactory {
                          String reasoningEffort,
                          String outputConstraints,
                          Map<String, Object> cachedMcpServers,
-                         long localMaxFileSize,
-                         long localMaxTotalSize,
                          LocalFileConfig localFileConfig,
                          ScheduledExecutorService sharedScheduler) {
         this.client = client;
@@ -39,8 +35,6 @@ final class ReviewContextFactory {
         this.reasoningEffort = reasoningEffort;
         this.outputConstraints = outputConstraints;
         this.cachedMcpServers = cachedMcpServers;
-        this.localMaxFileSize = localMaxFileSize;
-        this.localMaxTotalSize = localMaxTotalSize;
         this.localFileConfig = localFileConfig;
         this.sharedScheduler = sharedScheduler;
     }
@@ -61,8 +55,6 @@ final class ReviewContextFactory {
             .outputConstraints(outputConstraints)
             .cachedMcpServers(cachedMcpServers)
             .cachedSourceContent(cachedSourceContent)
-            .maxFileSize(localMaxFileSize)
-            .maxTotalSize(localMaxTotalSize)
             .localFileConfig(localFileConfig)
             .sharedScheduler(sharedScheduler);
     }

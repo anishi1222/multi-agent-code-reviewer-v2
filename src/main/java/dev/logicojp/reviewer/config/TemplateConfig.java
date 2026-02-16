@@ -24,16 +24,6 @@ public record TemplateConfig(
     private static final String DEFAULT_OUTPUT_CONSTRAINTS = "output-constraints.md";
     private static final String DEFAULT_REPORT_LINK_ENTRY = "report-link-entry.md";
 
-    /// Shared defaults utility used by this record and nested template records.
-    static final class Defaults {
-        private Defaults() {
-        }
-
-        static String defaultIfBlank(String value, String defaultValue) {
-            return (value == null || value.isBlank()) ? defaultValue : value;
-        }
-    }
-
     public TemplateConfig {
         TopLevelValues normalized = normalizeTopLevelValues(
             directory,
@@ -60,12 +50,12 @@ public record TemplateConfig(
                                                           String outputConstraints,
                                                           String reportLinkEntry) {
         return new TopLevelValues(
-            Defaults.defaultIfBlank(directory, DEFAULT_DIRECTORY),
-            Defaults.defaultIfBlank(defaultOutputFormat, DEFAULT_OUTPUT_FORMAT),
-            Defaults.defaultIfBlank(report, DEFAULT_REPORT),
-            Defaults.defaultIfBlank(localReviewContent, DEFAULT_LOCAL_REVIEW_CONTENT),
-            Defaults.defaultIfBlank(outputConstraints, DEFAULT_OUTPUT_CONSTRAINTS),
-            Defaults.defaultIfBlank(reportLinkEntry, DEFAULT_REPORT_LINK_ENTRY)
+            ConfigDefaults.defaultIfBlank(directory, DEFAULT_DIRECTORY),
+            ConfigDefaults.defaultIfBlank(defaultOutputFormat, DEFAULT_OUTPUT_FORMAT),
+            ConfigDefaults.defaultIfBlank(report, DEFAULT_REPORT),
+            ConfigDefaults.defaultIfBlank(localReviewContent, DEFAULT_LOCAL_REVIEW_CONTENT),
+            ConfigDefaults.defaultIfBlank(outputConstraints, DEFAULT_OUTPUT_CONSTRAINTS),
+            ConfigDefaults.defaultIfBlank(reportLinkEntry, DEFAULT_REPORT_LINK_ENTRY)
         );
     }
 
@@ -93,11 +83,11 @@ public record TemplateConfig(
         private static final String DEFAULT_RESULT_ERROR_ENTRY = "summary-result-error-entry.md";
 
         public SummaryTemplates {
-            systemPrompt = Defaults.defaultIfBlank(systemPrompt, DEFAULT_SYSTEM);
-            userPrompt = Defaults.defaultIfBlank(userPrompt, DEFAULT_USER);
-            executiveSummary = Defaults.defaultIfBlank(executiveSummary, DEFAULT_EXECUTIVE_SUMMARY);
-            resultEntry = Defaults.defaultIfBlank(resultEntry, DEFAULT_RESULT_ENTRY);
-            resultErrorEntry = Defaults.defaultIfBlank(resultErrorEntry, DEFAULT_RESULT_ERROR_ENTRY);
+            systemPrompt = ConfigDefaults.defaultIfBlank(systemPrompt, DEFAULT_SYSTEM);
+            userPrompt = ConfigDefaults.defaultIfBlank(userPrompt, DEFAULT_USER);
+            executiveSummary = ConfigDefaults.defaultIfBlank(executiveSummary, DEFAULT_EXECUTIVE_SUMMARY);
+            resultEntry = ConfigDefaults.defaultIfBlank(resultEntry, DEFAULT_RESULT_ENTRY);
+            resultErrorEntry = ConfigDefaults.defaultIfBlank(resultErrorEntry, DEFAULT_RESULT_ERROR_ENTRY);
         }
     }
 
@@ -115,10 +105,10 @@ public record TemplateConfig(
         private static final String DEFAULT_AGENT_FAILURE = "fallback-agent-failure.md";
 
         public FallbackTemplates {
-            summary = Defaults.defaultIfBlank(summary, DEFAULT_SUMMARY);
-            agentRow = Defaults.defaultIfBlank(agentRow, DEFAULT_AGENT_ROW);
-            agentSuccess = Defaults.defaultIfBlank(agentSuccess, DEFAULT_AGENT_SUCCESS);
-            agentFailure = Defaults.defaultIfBlank(agentFailure, DEFAULT_AGENT_FAILURE);
+            summary = ConfigDefaults.defaultIfBlank(summary, DEFAULT_SUMMARY);
+            agentRow = ConfigDefaults.defaultIfBlank(agentRow, DEFAULT_AGENT_ROW);
+            agentSuccess = ConfigDefaults.defaultIfBlank(agentSuccess, DEFAULT_AGENT_SUCCESS);
+            agentFailure = ConfigDefaults.defaultIfBlank(agentFailure, DEFAULT_AGENT_FAILURE);
         }
     }
 }

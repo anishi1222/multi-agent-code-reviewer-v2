@@ -19,7 +19,7 @@ public class ReviewExecutionCoordinator {
 
     @FunctionalInterface
     interface Executor {
-        int execute(ReviewRunExecutor.ReviewRunRequest runRequest);
+        int execute(String resolvedToken, ReviewRunExecutor.ReviewRunRequest runRequest);
     }
 
     @FunctionalInterface
@@ -63,12 +63,11 @@ public class ReviewExecutionCoordinator {
 
     private int executeReviewRun(String resolvedToken,
                                  ReviewRunExecutor.ReviewRunRequest runRequest) {
-        try {
-            initializer.initializeOrThrow(resolvedToken);
-            return executor.execute(runRequest);
-        } finally {
-            shutdowner.shutdown();
-        }
+        return LifecycleRunner.executeWithLifecycle(
+            () -> initializer.initializeOrThrow(resolvedToken),
+            () -> executor.execute(resolvedToken, runRequest),
+            shutdowner::shutdown
+        );
     }
 
     private boolean hasNoAgents(Map<String, AgentConfig> agentConfigs) {

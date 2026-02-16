@@ -7,6 +7,9 @@ import org.slf4j.LoggerFactory;
 /// Executes review attempts with retry/backoff behavior.
 final class ReviewRetryExecutor {
 
+    static final long DEFAULT_BACKOFF_BASE_MS = 1000L;
+    static final long DEFAULT_BACKOFF_MAX_MS = 8000L;
+
     @FunctionalInterface
     interface AttemptExecutor {
         ReviewResult execute() throws Exception;
@@ -35,6 +38,10 @@ final class ReviewRetryExecutor {
                         long backoffBaseMs,
                         long backoffMaxMs) {
         this(agentName, maxRetries, backoffBaseMs, backoffMaxMs, Thread::sleep);
+    }
+
+    ReviewRetryExecutor(String agentName, int maxRetries) {
+        this(agentName, maxRetries, DEFAULT_BACKOFF_BASE_MS, DEFAULT_BACKOFF_MAX_MS, Thread::sleep);
     }
 
     ReviewRetryExecutor(String agentName,

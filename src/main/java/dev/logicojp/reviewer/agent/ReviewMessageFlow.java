@@ -74,15 +74,15 @@ final class ReviewMessageFlow {
     private String sendForLocalReview(String instruction,
                                       String localSourceContent,
                                       PromptSender promptSender) throws Exception {
-        String combinedPrompt = new StringBuilder(instruction.length() + localSourceContent.length() + 96)
+        String instructionPrompt = new StringBuilder(instruction.length() + localSourceHeaderPrompt.length() + 32)
             .append(instruction)
             .append("\n\n")
             .append(localSourceHeaderPrompt)
-            .append("\n\n")
-            .append(localSourceContent)
             .toString();
 
-        String sourceResponse = promptSender.send(combinedPrompt);
+        promptSender.send(instructionPrompt);
+
+        String sourceResponse = promptSender.send(localSourceContent);
         if (sourceResponse != null && !sourceResponse.isBlank()) {
             return sourceResponse;
         }
