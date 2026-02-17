@@ -101,8 +101,7 @@ class ReviewResultPipelineTest {
             List.of(CompletableFuture.completedFuture(result), CompletableFuture.completedFuture(null))
         );
 
-        assertThat(collected).hasSize(2);
+        assertThat(collected).hasSize(1);
         assertThat(collected.getFirst()).isEqualTo(result);
-        assertThat(collected.get(1)).isNull();
     }
 }

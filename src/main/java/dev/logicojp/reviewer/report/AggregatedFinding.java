@@ -131,21 +131,11 @@ record AggregatedFinding(String title,
             titleBigrams, incoming.titleBigrams());
     }
 
-    AggregatedFinding withPass(int passNumber) {
-        LinkedHashSet<Integer> updated = new LinkedHashSet<>(passNumbers);
-        updated.add(passNumber);
-        return new AggregatedFinding(
-            title,
-            body,
-            updated,
-            normalizedTitle,
-            normalizedPriority,
-            normalizedSummary,
-            normalizedLocation,
-            titleBigrams,
-            summaryBigrams,
-            locationBigrams
-        );
+    /// Adds a pass number to this finding in-place.
+    /// This is safe because AggregatedFinding instances are only mutated
+    /// within ReviewResultMerger's merge loop, never shared across threads.
+    void addPass(int passNumber) {
+        passNumbers.add(passNumber);
     }
 
     private static String normalizeText(String value) {

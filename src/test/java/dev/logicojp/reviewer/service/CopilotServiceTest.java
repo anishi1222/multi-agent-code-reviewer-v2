@@ -11,7 +11,7 @@ class CopilotServiceTest {
     private static CopilotService newService() {
         return new CopilotService(
             new CopilotCliPathResolver(),
-            new CopilotCliHealthChecker(),
+            new CopilotCliHealthChecker(new CopilotTimeoutResolver()),
             new CopilotTimeoutResolver(),
             new CopilotStartupErrorFormatter(),
             new CopilotClientStarter()

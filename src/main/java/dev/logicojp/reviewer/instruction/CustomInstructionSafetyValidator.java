@@ -46,7 +46,8 @@ public final class CustomInstructionSafetyValidator {
     private static final Pattern CONTROL_CHARS_PATTERN = Pattern.compile("[\\p{Cf}\\p{Cc}]");
     private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
     private static final Pattern DELIMITER_INJECTION_PATTERN = Pattern.compile(
-        "---\\s*(BEGIN|END|SYSTEM|OVERRIDE)", Pattern.CASE_INSENSITIVE);
+        "---\\s*(BEGIN|END|SYSTEM|OVERRIDE)|</user_provided_instruction>",
+        Pattern.CASE_INSENSITIVE);
 
     private static List<Pattern> loadSuspiciousPatterns() {
         return loadPatternTextsFromResource().stream()
@@ -152,6 +153,19 @@ public final class CustomInstructionSafetyValidator {
     private static String normalize(String content) {
         String normalized = Normalizer.normalize(content, Normalizer.Form.NFKC);
         String withoutControlChars = CONTROL_CHARS_PATTERN.matcher(normalized).replaceAll("");
-        return WHITESPACE_PATTERN.matcher(withoutControlChars).replaceAll(" ");
+        String homoglyphNormalized = normalizeHomoglyphs(withoutControlChars);
+        return WHITESPACE_PATTERN.matcher(homoglyphNormalized).replaceAll(" ");
+    }
+
+    private static String normalizeHomoglyphs(String text) {
+        return text
+            .replace('\u0456', 'i')  // Cyrillic і → i
+            .replace('\u0430', 'a')  // Cyrillic а → a
+            .replace('\u0435', 'e')  // Cyrillic е → e
+            .replace('\u043E', 'o')  // Cyrillic о → o
+            .replace('\u0440', 'p')  // Cyrillic р → p
+            .replace('\u0441', 'c')  // Cyrillic с → c
+            .replace('\u0443', 'y')  // Cyrillic у → y
+            .replace('\u0445', 'x'); // Cyrillic х → x
     }
 }

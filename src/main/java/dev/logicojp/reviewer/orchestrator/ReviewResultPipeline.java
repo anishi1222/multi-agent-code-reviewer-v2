@@ -25,6 +25,7 @@ final class ReviewResultPipeline {
                 ReviewResult result = future.getNow(null);
                 if (result == null) {
                     logger.warn("Review future completed without a result (null)");
+                    continue;
                 }
                 results.add(result);
             } catch (Exception e) {

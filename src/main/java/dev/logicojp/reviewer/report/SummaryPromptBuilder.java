@@ -21,6 +21,13 @@ final class SummaryPromptBuilder {
         var resultsSection = new StringBuilder(
             Math.min(results.size() * 8192, maxTotalPromptContent + 4096));
         int totalContentSize = 0;
+
+        // Pre-load templates once to avoid per-iteration regex/Matcher overhead
+        String successTemplate = templateService.loadTemplateContent(
+            templateService.getConfig().summary().resultEntry());
+        String errorTemplate = templateService.loadTemplateContent(
+            templateService.getConfig().summary().resultErrorEntry());
+
         for (ReviewResult result : results) {
             if (result.isSuccess()) {
                 int remaining = maxTotalPromptContent - totalContentSize;
@@ -29,9 +36,9 @@ final class SummaryPromptBuilder {
                 }
                 String content = clipContentForSummary(result.content(), remaining);
                 totalContentSize += content.length();
-                appendSuccessEntry(resultsSection, result, content);
+                appendSuccessEntry(resultsSection, result, content, successTemplate);
             } else {
-                appendErrorEntry(resultsSection, result);
+                appendErrorEntry(resultsSection, result, errorTemplate);
             }
         }
 
@@ -50,16 +57,17 @@ final class SummaryPromptBuilder {
         return safeContent.substring(0, maxAllowed) + "\n\n... (truncated for summary)";
     }
 
-    private void appendSuccessEntry(StringBuilder resultsSection, ReviewResult result, String content) {
-        resultsSection.append(templateService.getSummaryResultEntry(
+    private void appendSuccessEntry(StringBuilder resultsSection, ReviewResult result,
+                                     String content, String template) {
+        resultsSection.append(templateService.applyPlaceholders(template,
             Map.of(
                 "displayName", result.agentConfig().displayName(),
                 "content", content
             )));
     }
 
-    private void appendErrorEntry(StringBuilder resultsSection, ReviewResult result) {
-        resultsSection.append(templateService.getSummaryResultErrorEntry(
+    private void appendErrorEntry(StringBuilder resultsSection, ReviewResult result, String template) {
+        resultsSection.append(templateService.applyPlaceholders(template,
             Map.of(
                 "displayName", result.agentConfig().displayName(),
                 "errorMessage", result.errorMessage() != null ? result.errorMessage() : ""

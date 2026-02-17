@@ -35,10 +35,12 @@ class SummaryGeneratorTest {
             1,
             templateService,
             new SummaryConfig(0, 0, 0),
-            null,
-            null,
-            null,
-            (results, repository) -> "AI summary content"
+            new SummaryGenerator.SummaryCollaborators(
+                null,
+                null,
+                null,
+                (results, repository) -> "AI summary content"
+            )
         );
 
         List<ReviewResult> results = List.of(

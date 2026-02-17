@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.agent;
 
 import dev.logicojp.reviewer.config.SkillConfig;
+import dev.logicojp.reviewer.instruction.CustomInstructionSafetyValidator;
 import dev.logicojp.reviewer.skill.SkillDefinition;
 import dev.logicojp.reviewer.skill.SkillMarkdownParser;
 import org.slf4j.Logger;
@@ -134,6 +135,11 @@ public class AgentConfigLoader {
                 try {
                     AgentConfig config = markdownParser.parse(file);
                     if (config != null) {
+                        if (CustomInstructionSafetyValidator.containsSuspiciousPattern(config.systemPrompt())
+                            || CustomInstructionSafetyValidator.containsSuspiciousPattern(config.instruction())) {
+                            logger.warn("Agent file contains suspicious patterns, skipping: {}", file);
+                            continue;
+                        }
                         config = applySkills(config, globalSkills);
                         config.validateRequired();
                         agents.put(config.name(), config);

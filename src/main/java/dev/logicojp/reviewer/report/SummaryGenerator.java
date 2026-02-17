@@ -31,6 +31,28 @@ public class SummaryGenerator {
     interface AiSummaryBuilder {
         String build(List<ReviewResult> results, String repository);
     }
+
+    /// Groups collaborator dependencies for testability.
+    /// Use {@link SummaryCollaborators#defaults} to create production instances.
+    record SummaryCollaborators(
+        SummaryPromptBuilder summaryPromptBuilder,
+        FallbackSummaryBuilder fallbackSummaryBuilder,
+        SummaryFinalReportFormatter summaryFinalReportFormatter,
+        AiSummaryBuilder aiSummaryBuilder
+    ) {
+        static SummaryCollaborators defaults(TemplateService templateService,
+                                              SummaryConfig summaryConfig,
+                                              SummaryGenerator generator) {
+            SummaryConfig effective = summaryConfig != null ? summaryConfig : new SummaryConfig(0, 0, 0);
+            return new SummaryCollaborators(
+                new SummaryPromptBuilder(templateService,
+                    effective.maxContentPerAgent(), effective.maxTotalPromptContent()),
+                new FallbackSummaryBuilder(templateService, effective.fallbackExcerptLength()),
+                new SummaryFinalReportFormatter(templateService),
+                generator::buildSummaryWithAI
+            );
+        }
+    }
     
     private static final Logger logger = LoggerFactory.getLogger(SummaryGenerator.class);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
@@ -54,21 +76,11 @@ public class SummaryGenerator {
             long timeoutMinutes,
             TemplateService templateService,
             SummaryConfig summaryConfig) {
-        this(
-            outputDirectory,
-            client,
-            summaryModel,
-            reasoningEffort,
-            timeoutMinutes,
-            templateService,
-            summaryConfig,
-            null,
-            null,
-            null,
-            null
-        );
+        this(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, templateService,
+            summaryConfig, null);
     }
 
+    /// Full-parameter constructor for testing — all collaborators are injectable.
     SummaryGenerator(
             Path outputDirectory,
             CopilotClient client,
@@ -77,35 +89,25 @@ public class SummaryGenerator {
             long timeoutMinutes,
             TemplateService templateService,
             SummaryConfig summaryConfig,
-            SummaryPromptBuilder summaryPromptBuilder,
-            FallbackSummaryBuilder fallbackSummaryBuilder,
-            SummaryFinalReportFormatter summaryFinalReportFormatter,
-            AiSummaryBuilder aiSummaryBuilder) {
+            SummaryCollaborators collaborators) {
         this.outputDirectory = outputDirectory;
         this.client = client;
         this.summaryModel = summaryModel;
         this.reasoningEffort = reasoningEffort;
         this.timeoutMinutes = timeoutMinutes;
         this.templateService = templateService;
-        SummaryConfig effectiveSummaryConfig = summaryConfig != null
-            ? summaryConfig
-            : new SummaryConfig(0, 0, 0);
-        this.summaryPromptBuilder = summaryPromptBuilder != null
-            ? summaryPromptBuilder
-            : new SummaryPromptBuilder(
-                templateService,
-                effectiveSummaryConfig.maxContentPerAgent(),
-                effectiveSummaryConfig.maxTotalPromptContent()
-            );
-        this.fallbackSummaryBuilder = fallbackSummaryBuilder != null
-            ? fallbackSummaryBuilder
-            : new FallbackSummaryBuilder(templateService, effectiveSummaryConfig.fallbackExcerptLength());
-        this.summaryFinalReportFormatter = summaryFinalReportFormatter != null
-            ? summaryFinalReportFormatter
-            : new SummaryFinalReportFormatter(templateService);
-        this.aiSummaryBuilder = aiSummaryBuilder != null
-            ? aiSummaryBuilder
-            : this::buildSummaryWithAI;
+        SummaryCollaborators defaults = SummaryCollaborators.defaults(templateService, summaryConfig, this);
+        if (collaborators == null) {
+            collaborators = defaults;
+        }
+        this.summaryPromptBuilder = collaborators.summaryPromptBuilder() != null
+            ? collaborators.summaryPromptBuilder() : defaults.summaryPromptBuilder();
+        this.fallbackSummaryBuilder = collaborators.fallbackSummaryBuilder() != null
+            ? collaborators.fallbackSummaryBuilder() : defaults.fallbackSummaryBuilder();
+        this.summaryFinalReportFormatter = collaborators.summaryFinalReportFormatter() != null
+            ? collaborators.summaryFinalReportFormatter() : defaults.summaryFinalReportFormatter();
+        this.aiSummaryBuilder = collaborators.aiSummaryBuilder() != null
+            ? collaborators.aiSummaryBuilder() : defaults.aiSummaryBuilder();
     }
     
     /// Generates an executive summary from all review results.

@@ -125,6 +125,11 @@ public final class CliParsing {
     /// exposing the token in process listings or shell history.
     /// The returned `char[]` from `readPassword` is zero-filled after conversion
     /// to minimize the window where the token exists in plain text.
+    ///
+    /// **Security note**: The returned `String` is immutable and cannot be zeroed.
+    /// It will remain in the JVM heap until garbage collected. Callers should
+    /// minimize the scope of token references and prefer short-lived tokens
+    /// (e.g., fine-grained personal access tokens) to reduce exposure window.
     public static String readToken(String value) {
         if ("-".equals(value)) {
             try {

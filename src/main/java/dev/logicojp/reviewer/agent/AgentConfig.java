@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.agent;
 
 import dev.logicojp.reviewer.config.ModelConfig;
 import dev.logicojp.reviewer.skill.SkillDefinition;
+import io.micronaut.core.annotation.Nullable;
 
 import java.util.List;
 
@@ -14,9 +15,9 @@ public record AgentConfig(
     String name,
     String displayName,
     String model,
-    String systemPrompt,
-    String instruction,
-    String outputFormat,
+    @Nullable String systemPrompt,
+    @Nullable String instruction,
+    @Nullable String outputFormat,
     List<String> focusAreas,
     List<SkillDefinition> skills
 ) {

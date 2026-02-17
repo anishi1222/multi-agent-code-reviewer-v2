@@ -49,24 +49,24 @@ public class ReviewOptionsParser {
     }
 
     private static class ParseState {
-        String repository;
-        Path localDirectory;
-        boolean allAgents;
-        final List<String> agentNames = new ArrayList<>();
-        Path outputDirectory = Path.of("./reports");
-        final List<Path> additionalAgentDirs = new ArrayList<>();
-        String githubToken;
-        int parallelism;
-        boolean noSummary;
-        String reviewModel;
-        String reportModel;
-        String summaryModel;
-        String defaultModel;
-        final List<Path> instructionPaths = new ArrayList<>();
-        boolean noInstructions;
-        boolean noPrompts;
-        boolean trustTarget;
-        boolean helpRequested;
+        private String repository;
+        private Path localDirectory;
+        private boolean allAgents;
+        private final List<String> agentNames = new ArrayList<>();
+        private Path outputDirectory = Path.of("./reports");
+        private final List<Path> additionalAgentDirs = new ArrayList<>();
+        private String githubToken;
+        private int parallelism;
+        private boolean noSummary;
+        private String reviewModel;
+        private String reportModel;
+        private String summaryModel;
+        private String defaultModel;
+        private final List<Path> instructionPaths = new ArrayList<>();
+        private boolean noInstructions;
+        private boolean noPrompts;
+        private boolean trustTarget;
+        private boolean helpRequested;
 
         ParseState(int defaultParallelism) {
             this.parallelism = defaultParallelism;

@@ -47,9 +47,18 @@ public final class ContentSanitizer {
         "\\n{3,}"
     );
 
+    /// Pattern to match dangerous HTML elements that could enable XSS when rendered.
+    private static final Pattern DANGEROUS_HTML_PATTERN = Pattern.compile(
+        "<\\s*(script|iframe|object|embed|form|input|base|link|meta|style)\\b[^>]*>.*?</\\s*\\1\\s*>|" +
+        "<\\s*(script|iframe|object|embed|form|input|base|link|meta|style)\\b[^>]*/?>|" +
+        "\\bon\\w+\\s*=",
+        Pattern.DOTALL | Pattern.CASE_INSENSITIVE
+    );
+
     private static final ContentSanitizationPipeline PIPELINE = new ContentSanitizationPipeline(
         List.of(
             new ContentSanitizationRule(COT_BLOCK_PATTERN, ""),
+            new ContentSanitizationRule(DANGEROUS_HTML_PATTERN, ""),
             new ContentSanitizationRule(EXCESSIVE_BLANK_LINES, "\n\n")
         )
     );

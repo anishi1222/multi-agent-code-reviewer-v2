@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("CopilotCliHealthChecker")
 class CopilotCliHealthCheckerTest {
 
-    private final CopilotCliHealthChecker checker = new CopilotCliHealthChecker();
+    private final CopilotCliHealthChecker checker = new CopilotCliHealthChecker(new CopilotTimeoutResolver());
 
     @Test
     @DisplayName("cliPath が空の場合は何もしない")
