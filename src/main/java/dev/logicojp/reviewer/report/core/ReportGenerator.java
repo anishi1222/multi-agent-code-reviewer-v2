@@ -1,6 +1,9 @@
-package dev.logicojp.reviewer.report;
+package dev.logicojp.reviewer.report.core;
 
 import dev.logicojp.reviewer.agent.AgentConfig;
+import dev.logicojp.reviewer.report.formatter.ReportContentFormatter;
+import dev.logicojp.reviewer.report.util.ReportFileUtils;
+import dev.logicojp.reviewer.report.util.ReportFilenameUtils;
 import dev.logicojp.reviewer.service.TemplateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +33,7 @@ public class ReportGenerator {
     /// Generates a markdown report file for the given review result.
     /// @param result The review result to generate a report for
     /// @return Path to the generated report file
-    public Path generateReport(ReviewResult result) throws IOException {
+     Path generateReport(ReviewResult result) throws IOException {
         ensureOutputDirectory();
         AgentConfig config = result.agentConfig();
         String date = LocalDate.now().format(DATE_FORMATTER);

@@ -3,7 +3,7 @@ package dev.logicojp.reviewer.cli;
 import dev.logicojp.reviewer.agent.AgentConfig;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.ModelConfig;
-import dev.logicojp.reviewer.report.ReviewResult;
+import dev.logicojp.reviewer.report.core.ReviewResult;
 import dev.logicojp.reviewer.target.ReviewTarget;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -15,7 +15,7 @@ import java.util.Map;
 
 /// Formats and prints review command output for banners and completion summaries.
 @Singleton
-public class ReviewOutputFormatter {
+class ReviewOutputFormatter {
 
     private final CliOutput output;
     private final ExecutionConfig executionConfig;

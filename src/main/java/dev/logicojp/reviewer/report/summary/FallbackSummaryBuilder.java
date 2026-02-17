@@ -1,13 +1,13 @@
 package dev.logicojp.reviewer.report.summary;
 
-import dev.logicojp.reviewer.report.ReviewResult;
+import dev.logicojp.reviewer.report.core.ReviewResult;
 
 import dev.logicojp.reviewer.service.TemplateService;
 
 import java.util.List;
 import java.util.Map;
 
-public final class FallbackSummaryBuilder {
+final class FallbackSummaryBuilder {
 
     private final TemplateService templateService;
     private final int excerptLength;
