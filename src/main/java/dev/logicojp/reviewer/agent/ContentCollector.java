@@ -20,7 +20,7 @@ class ContentCollector {
     private static final int MAX_ACCUMULATED_SIZE = 4 * 1024 * 1024; // 4MB
 
     private final CompletableFuture<String> future = new CompletableFuture<>();
-    private final StringBuilder accumulatedBuilder = new StringBuilder(8192);
+    private final StringBuilder accumulatedBuilder = new StringBuilder(64 * 1024);
     private final Object accumulatedLock = new Object();
     private int accumulatedSize;
     private long accumulatedVersion;
@@ -117,22 +117,34 @@ class ContentCollector {
     }
 
     private String joinAccumulated() {
+        // Fast path: check cache without lock contention
+        String cached;
+        long version;
+        char[] snapshot;
         synchronized (accumulatedLock) {
-            int currentSize = accumulatedSize;
-            if (currentSize == 0) {
+            if (accumulatedSize == 0) {
                 joinedCache = "";
                 joinedCacheVersion = accumulatedVersion;
                 return "";
             }
-            String cached = joinedCache;
+            cached = joinedCache;
             if (cached != null && joinedCacheVersion == accumulatedVersion) {
                 return cached;
             }
-            String result = accumulatedBuilder.toString();
-            joinedCache = result;
-            joinedCacheVersion = accumulatedVersion;
-            return result;
+            // Copy char data under lock, then release lock before String construction
+            snapshot = new char[accumulatedSize];
+            accumulatedBuilder.getChars(0, accumulatedSize, snapshot, 0);
+            version = accumulatedVersion;
         }
+        // String construction outside lock to reduce lock hold time
+        String result = new String(snapshot);
+        synchronized (accumulatedLock) {
+            if (accumulatedVersion == version) {
+                joinedCache = result;
+                joinedCacheVersion = version;
+            }
+        }
+        return result;
     }
 
     String awaitResult(long maxTimeoutMs) throws Exception {

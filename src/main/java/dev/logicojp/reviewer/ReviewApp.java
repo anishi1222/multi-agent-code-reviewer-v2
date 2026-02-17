@@ -7,13 +7,9 @@ import dev.logicojp.reviewer.cli.ExitCodes;
 import dev.logicojp.reviewer.cli.ListAgentsCommand;
 import dev.logicojp.reviewer.cli.ReviewCommand;
 import dev.logicojp.reviewer.cli.SkillCommand;
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.LoggerContext;
 import io.micronaut.context.ApplicationContext;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -131,18 +127,10 @@ public class ReviewApp {
     }
 
     /// Enables debug-level logging at runtime.
-    /// Logback implementation direct dependency — SLF4J does not provide a dynamic log-level API.
-    /// This is an acceptable trade-off for implementing the --verbose CLI flag at runtime.
+    /// Delegates to {@link LogbackLevelSwitcher} to keep Logback-specific code isolated.
     private void enableVerboseLogging() {
-        try {
-            LoggerContext context =
-                (LoggerContext) LoggerFactory.getILoggerFactory();
-            context.getLogger(Logger.ROOT_LOGGER_NAME)
-                .setLevel(Level.DEBUG);
-            context.getLogger("dev.logicojp")
-                .setLevel(Level.DEBUG);
-        } catch (ClassCastException e) {
-            output.errorln("Failed to enable verbose logging (Logback not available): " + e.getMessage());
+        if (!LogbackLevelSwitcher.setDebug()) {
+            output.errorln("Failed to enable verbose logging (Logback not available)");
         }
     }
 }

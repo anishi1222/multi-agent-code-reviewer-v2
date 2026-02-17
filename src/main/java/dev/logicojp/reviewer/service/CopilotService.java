@@ -56,7 +56,7 @@ public class CopilotService {
     }
 
     /// Initializes the Copilot client.
-    public void initialize(String githubToken) throws ExecutionException, InterruptedException {
+    private void initialize(String githubToken) throws ExecutionException, InterruptedException {
         if (initialized) {
             return;
         }

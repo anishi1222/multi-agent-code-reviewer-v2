@@ -66,12 +66,16 @@ final class AgentReviewExecutor {
             }
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
-            return ReviewResult.builder()
-                .agentConfig(config)
-                .repository(target.displayName())
-                .success(false)
-                .errorMessage("Review interrupted while waiting for concurrency permit")
-                .build();
+            return failedResult(config, target, "Review interrupted while waiting for concurrency permit");
         }
+    }
+
+    private ReviewResult failedResult(AgentConfig config, ReviewTarget target, String errorMessage) {
+        return ReviewResult.builder()
+            .agentConfig(config)
+            .repository(target.displayName())
+            .success(false)
+            .errorMessage(errorMessage)
+            .build();
     }
 }

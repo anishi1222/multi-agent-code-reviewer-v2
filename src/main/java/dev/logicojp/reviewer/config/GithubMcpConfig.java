@@ -4,10 +4,13 @@ import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.core.annotation.Nullable;
 
 import java.net.URI;
+import java.util.AbstractMap;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /// Configuration for the GitHub MCP server connection.
 @ConfigurationProperties("reviewer.mcp.github")
@@ -98,11 +101,17 @@ public record GithubMcpConfig(
     }
 
     /// Builds a type-safe MCP server configuration, then converts to Map for SDK compatibility.
+    /// The returned Map wraps toString() to mask sensitive headers, preventing token leakage
+    /// via SDK/framework debug logging.
     public Map<String, Object> toMcpServer(String token) {
         Map<String, String> combinedHeaders = new HashMap<>(headers != null ? headers : Map.of());
         applyAuthHeader(token, combinedHeaders);
-
-        return new McpServerConfig(type, url, tools, combinedHeaders).toMap();
+        McpServerConfig config = new McpServerConfig(type, url, tools, combinedHeaders);
+        return Collections.unmodifiableMap(new AbstractMap<>() {
+            private final Map<String, Object> delegate = config.toMap();
+            @Override public Set<Entry<String, Object>> entrySet() { return delegate.entrySet(); }
+            @Override public String toString() { return config.toString(); }
+        });
     }
 
     private void applyAuthHeader(String token, Map<String, String> combinedHeaders) {
@@ -110,7 +119,6 @@ public record GithubMcpConfig(
             return;
         }
         String headerValue = authHeaderTemplate
-            .replace("${token}", token)
             .replace("{token}", token);
         combinedHeaders.put(authHeaderName, headerValue);
     }

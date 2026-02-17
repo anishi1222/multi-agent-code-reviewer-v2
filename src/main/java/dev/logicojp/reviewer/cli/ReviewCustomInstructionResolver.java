@@ -10,6 +10,7 @@ import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -79,7 +80,7 @@ public class ReviewCustomInstructionResolver {
             return Optional.of(new CustomInstruction(
                 path.toString(), content.trim(),
                 InstructionSource.LOCAL_FILE, null, null));
-        } catch (Exception e) {
+        } catch (IOException | SecurityException e) {
             logger.warn("Failed to read instruction file {}: {}", path, e.getMessage());
             return Optional.empty();
         }

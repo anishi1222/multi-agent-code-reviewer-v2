@@ -57,7 +57,7 @@ class ReportServiceTest {
 
         CopilotService copilotService = new CopilotService(
             new CopilotCliPathResolver(),
-            new CopilotCliHealthChecker(),
+            new CopilotCliHealthChecker(new CopilotTimeoutResolver()),
             new CopilotTimeoutResolver(),
             new CopilotStartupErrorFormatter(),
             new CopilotClientStarter()
@@ -114,7 +114,7 @@ class ReportServiceTest {
 
         CopilotService copilotService = new CopilotService(
             new CopilotCliPathResolver(),
-            new CopilotCliHealthChecker(),
+            new CopilotCliHealthChecker(new CopilotTimeoutResolver()),
             new CopilotTimeoutResolver(),
             new CopilotStartupErrorFormatter(),
             new CopilotClientStarter()

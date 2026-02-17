@@ -103,8 +103,8 @@ class GithubMcpConfigTest {
         }
 
         @Test
-        @DisplayName("${token}プレースホルダーも置換される")
-        void replaceDollarBraceTokenPlaceholder() {
+        @DisplayName("{token}プレースホルダーのみがサポートされている")
+        void onlySingleBraceTokenPlaceholderSupported() {
             GithubMcpConfig config = new GithubMcpConfig(
                 "http", "https://api.example.com/",
                 List.of("*"), Map.of(),
@@ -113,7 +113,8 @@ class GithubMcpConfigTest {
 
             @SuppressWarnings("unchecked")
             Map<String, String> headers = (Map<String, String>) server.get("headers");
-            assertThat(headers).containsEntry("Authorization", "token abc123");
+            // ${token} contains {token} which gets replaced, leaving the $ prefix
+            assertThat(headers).containsEntry("Authorization", "token $abc123");
         }
     }
 

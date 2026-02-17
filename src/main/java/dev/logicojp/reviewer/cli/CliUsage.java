@@ -4,50 +4,33 @@ public final class CliUsage {
     private CliUsage() {
     }
 
+    private static final String GENERAL_USAGE = """
+            Usage: review <command> [options]
+
+            Global options:
+                -v, --verbose               Enable verbose logging
+                --version                   Show version
+
+            Feature flags (env / JVM properties):
+                REVIEWER_STRUCTURED_CONCURRENCY=true
+                REVIEWER_STRUCTURED_CONCURRENCY_SKILLS=true
+                -Dreviewer.structuredConcurrency=true
+                -Dreviewer.structuredConcurrency.skills=true
+
+            Commands:
+                run    Execute a multi-agent code review
+                list   List available agents
+                skill  Execute a specific agent skill
+
+            Use 'review <command> --help' for command options.
+            """;
+
     public static void printGeneral(CliOutput output) {
-        output.out().print("""
-                Usage: review <command> [options]
-
-                Global options:
-                    -v, --verbose               Enable verbose logging
-                    --version                   Show version
-
-                Feature flags (env / JVM properties):
-                    REVIEWER_STRUCTURED_CONCURRENCY=true
-                    REVIEWER_STRUCTURED_CONCURRENCY_SKILLS=true
-                    -Dreviewer.structuredConcurrency=true
-                    -Dreviewer.structuredConcurrency.skills=true
-
-                Commands:
-                    run    Execute a multi-agent code review
-                    list   List available agents
-                    skill  Execute a specific agent skill
-
-                Use 'review <command> --help' for command options.
-                """);
+        output.out().print(GENERAL_USAGE);
     }
 
     public static void printGeneralError(CliOutput output) {
-        output.err().print("""
-                Usage: review <command> [options]
-
-                Global options:
-                    -v, --verbose               Enable verbose logging
-                    --version                   Show version
-
-                Feature flags (env / JVM properties):
-                    REVIEWER_STRUCTURED_CONCURRENCY=true
-                    REVIEWER_STRUCTURED_CONCURRENCY_SKILLS=true
-                    -Dreviewer.structuredConcurrency=true
-                    -Dreviewer.structuredConcurrency.skills=true
-
-                Commands:
-                    run    Execute a multi-agent code review
-                    list   List available agents
-                    skill  Execute a specific agent skill
-
-                Use 'review <command> --help' for command options.
-                """);
+        output.err().print(GENERAL_USAGE);
     }
 
     public static void printRun(CliOutput output) {

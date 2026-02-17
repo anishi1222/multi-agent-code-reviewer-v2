@@ -66,30 +66,57 @@ public record LocalFileConfig(
         "pem", "key", "p12", "pfx", "jks", "keystore", "cert"
     );
 
-    public static final List<String> DEFAULT_IGNORED_DIRECTORIES = ConfigDefaults.loadListFromResource(
-        "defaults/ignored-directories.txt",
-        FALLBACK_IGNORED_DIRECTORIES
-    );
-    public static final List<String> DEFAULT_SOURCE_EXTENSIONS = ConfigDefaults.loadListFromResource(
-        "defaults/source-extensions.txt",
-        FALLBACK_SOURCE_EXTENSIONS
-    );
-    public static final List<String> DEFAULT_SENSITIVE_FILE_PATTERNS = ConfigDefaults.loadListFromResource(
-        "defaults/sensitive-file-patterns.txt",
-        FALLBACK_SENSITIVE_FILE_PATTERNS
-    );
-    public static final List<String> DEFAULT_SENSITIVE_EXTENSIONS = ConfigDefaults.loadListFromResource(
-        "defaults/sensitive-extensions.txt",
-        FALLBACK_SENSITIVE_EXTENSIONS
-    );
+    public static final List<String> DEFAULT_IGNORED_DIRECTORIES = FALLBACK_IGNORED_DIRECTORIES;
+    public static final List<String> DEFAULT_SOURCE_EXTENSIONS = FALLBACK_SOURCE_EXTENSIONS;
+    public static final List<String> DEFAULT_SENSITIVE_FILE_PATTERNS = FALLBACK_SENSITIVE_FILE_PATTERNS;
+    public static final List<String> DEFAULT_SENSITIVE_EXTENSIONS = FALLBACK_SENSITIVE_EXTENSIONS;
+
+    /// Lazily loaded resource-based defaults, resolved on first constructor invocation.
+    /// Avoids I/O during static class loading for GraalVM Native Image compatibility.
+    private static volatile List<String> resourceIgnoredDirs;
+    private static volatile List<String> resourceSourceExts;
+    private static volatile List<String> resourceSensitivePatterns;
+    private static volatile List<String> resourceSensitiveExts;
+
+    private static List<String> resolvedIgnoredDirectories() {
+        if (resourceIgnoredDirs == null) {
+            resourceIgnoredDirs = ConfigDefaults.loadListFromResource(
+                "defaults/ignored-directories.txt", FALLBACK_IGNORED_DIRECTORIES);
+        }
+        return resourceIgnoredDirs;
+    }
+
+    private static List<String> resolvedSourceExtensions() {
+        if (resourceSourceExts == null) {
+            resourceSourceExts = ConfigDefaults.loadListFromResource(
+                "defaults/source-extensions.txt", FALLBACK_SOURCE_EXTENSIONS);
+        }
+        return resourceSourceExts;
+    }
+
+    private static List<String> resolvedSensitiveFilePatterns() {
+        if (resourceSensitivePatterns == null) {
+            resourceSensitivePatterns = ConfigDefaults.loadListFromResource(
+                "defaults/sensitive-file-patterns.txt", FALLBACK_SENSITIVE_FILE_PATTERNS);
+        }
+        return resourceSensitivePatterns;
+    }
+
+    private static List<String> resolvedSensitiveExtensions() {
+        if (resourceSensitiveExts == null) {
+            resourceSensitiveExts = ConfigDefaults.loadListFromResource(
+                "defaults/sensitive-extensions.txt", FALLBACK_SENSITIVE_EXTENSIONS);
+        }
+        return resourceSensitiveExts;
+    }
 
     public LocalFileConfig {
         maxFileSize = ConfigDefaults.defaultIfNonPositive(maxFileSize, DEFAULT_MAX_FILE_SIZE);
         maxTotalSize = ConfigDefaults.defaultIfNonPositive(maxTotalSize, DEFAULT_MAX_TOTAL_SIZE);
-        ignoredDirectories = ConfigDefaults.defaultListIfEmpty(ignoredDirectories, DEFAULT_IGNORED_DIRECTORIES);
-        sourceExtensions = ConfigDefaults.defaultListIfEmpty(sourceExtensions, DEFAULT_SOURCE_EXTENSIONS);
-        sensitiveFilePatterns = ConfigDefaults.defaultListIfEmpty(sensitiveFilePatterns, DEFAULT_SENSITIVE_FILE_PATTERNS);
-        sensitiveExtensions = ConfigDefaults.defaultListIfEmpty(sensitiveExtensions, DEFAULT_SENSITIVE_EXTENSIONS);
+        ignoredDirectories = ConfigDefaults.defaultListIfEmpty(ignoredDirectories, resolvedIgnoredDirectories());
+        sourceExtensions = ConfigDefaults.defaultListIfEmpty(sourceExtensions, resolvedSourceExtensions());
+        sensitiveFilePatterns = ConfigDefaults.defaultListIfEmpty(sensitiveFilePatterns, resolvedSensitiveFilePatterns());
+        sensitiveExtensions = ConfigDefaults.defaultListIfEmpty(sensitiveExtensions, resolvedSensitiveExtensions());
     }
 
     public LocalFileConfig(long maxFileSize, long maxTotalSize) {

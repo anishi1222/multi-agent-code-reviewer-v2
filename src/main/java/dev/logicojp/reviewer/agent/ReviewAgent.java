@@ -71,7 +71,8 @@ public class ReviewAgent {
             new ReviewSystemPromptFormatter(),
             AgentPromptBuilder.DEFAULT_FOCUS_AREAS_GUIDANCE,
             AgentPromptBuilder.DEFAULT_LOCAL_SOURCE_HEADER,
-            DEFAULT_LOCAL_REVIEW_RESULT_PROMPT
+            DEFAULT_LOCAL_REVIEW_RESULT_PROMPT,
+            defaultCollaborators(config, ctx)
         );
     }
 
@@ -87,29 +88,12 @@ public class ReviewAgent {
             new ReviewSystemPromptFormatter(),
             focusAreasGuidance,
             localSourceHeaderPrompt,
-            localReviewResultPrompt
-        );
-    }
-
-    ReviewAgent(AgentConfig config,
-                ReviewContext ctx,
-                IdleTimeoutScheduler idleTimeoutScheduler,
-                ReviewSystemPromptFormatter reviewSystemPromptFormatter,
-                String focusAreasGuidance,
-                String localSourceHeaderPrompt,
-                String localReviewResultPrompt) {
-        this(
-            config,
-            ctx,
-            idleTimeoutScheduler,
-            reviewSystemPromptFormatter,
-            focusAreasGuidance,
-            localSourceHeaderPrompt,
             localReviewResultPrompt,
             defaultCollaborators(config, ctx)
         );
     }
 
+    /// Full-parameter constructor for testing — all collaborators are injectable.
     ReviewAgent(AgentConfig config,
                 ReviewContext ctx,
                 IdleTimeoutScheduler idleTimeoutScheduler,

@@ -1490,6 +1490,15 @@
       ]
     },
     {
+      "type": "dev.logicojp.reviewer.config.$SummaryConfig$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "dev.logicojp.reviewer.config.$TemplateConfig$Definition",
       "methods": [
         {

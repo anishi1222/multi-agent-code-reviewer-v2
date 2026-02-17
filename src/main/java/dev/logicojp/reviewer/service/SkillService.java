@@ -32,6 +32,7 @@ import java.util.function.Function;
 public class SkillService {
 
     private static final Logger logger = LoggerFactory.getLogger(SkillService.class);
+    private static final int MAX_EXECUTOR_CACHE_SIZE = 16;
 
     private final SkillRegistry skillRegistry;
     private final CopilotService copilotService;
@@ -124,16 +125,29 @@ public class SkillService {
             secureHash(githubToken),
             model
         );
-        return executorCache.computeIfAbsent(key, ignored -> new SkillExecutor(
-            copilotService.getClient(),
-            githubToken,
-            githubMcpConfig,
-            model,
-            executionConfig.skillTimeoutMinutes(),
-            executorService,
-            false,
+        return executorCache.computeIfAbsent(key, ignored -> {
+            evictIfNecessary();
+            return new SkillExecutor(
+                copilotService.getClient(),
+                githubToken,
+                githubMcpConfig,
+                model,
+                executionConfig.skillTimeoutMinutes(),
+                executorService,
+                false,
                 featureFlags.structuredConcurrencySkills()
-        ));
+            );
+        });
+    }
+
+    private void evictIfNecessary() {
+        while (executorCache.size() >= MAX_EXECUTOR_CACHE_SIZE) {
+            var oldest = executorCache.keySet().iterator().next();
+            SkillExecutor removed = executorCache.remove(oldest);
+            if (removed != null) {
+                removed.shutdown();
+            }
+        }
     }
 
     private static String secureHash(String token) {

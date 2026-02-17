@@ -145,14 +145,14 @@ public final class ReviewResultMerger {
                 String key = findingKeyResolver.resolve(block);
                 AggregatedFinding existingExact = aggregatedFindings.get(key);
                 if (existingExact != null) {
-                    aggregatedFindings.put(key, existingExact.withPass(passNumber));
+                    existingExact.addPass(passNumber);
                     continue;
                 }
 
                 String nearDuplicateKey = findNearDuplicateKey(aggregatedFindings, findingKeysByPriority, normalized);
                 if (nearDuplicateKey != null) {
                     AggregatedFinding nearExisting = aggregatedFindings.get(nearDuplicateKey);
-                    aggregatedFindings.put(nearDuplicateKey, nearExisting.withPass(passNumber));
+                    nearExisting.addPass(passNumber);
                     continue;
                 }
 
@@ -176,16 +176,9 @@ public final class ReviewResultMerger {
     private static String findNearDuplicateKey(Map<String, AggregatedFinding> existing,
                                                Map<String, Set<String>> findingKeysByPriority,
                                                AggregatedFinding.NormalizedFinding incoming) {
-        if (incoming.priority().isBlank()) {
-            for (var entry : existing.entrySet()) {
-                if (entry.getValue().isNearDuplicateOf(incoming)) {
-                    return entry.getKey();
-                }
-            }
-            return null;
-        }
-
-        Set<String> keys = findingKeysByPriority.getOrDefault(incoming.priority(), Set.of());
+        // Use index for both priority-specified and priority-blank findings
+        String priorityKey = incoming.priority().isBlank() ? "" : incoming.priority();
+        Set<String> keys = findingKeysByPriority.getOrDefault(priorityKey, Set.of());
         for (String key : keys) {
             AggregatedFinding candidate = existing.get(key);
             if (candidate != null && candidate.isNearDuplicateOf(incoming)) {
@@ -199,10 +192,9 @@ public final class ReviewResultMerger {
     private static void indexByPriority(Map<String, Set<String>> findingKeysByPriority,
                                         String priority,
                                         String key) {
-        if (priority == null || priority.isBlank()) {
-            return;
-        }
-        findingKeysByPriority.computeIfAbsent(priority, _ -> new LinkedHashSet<>()).add(key);
+        // Index all findings including those with blank priority (keyed as "")
+        String indexKey = (priority == null || priority.isBlank()) ? "" : priority;
+        findingKeysByPriority.computeIfAbsent(indexKey, _ -> new LinkedHashSet<>()).add(key);
     }
 
     private static String normalizeText(String value) {

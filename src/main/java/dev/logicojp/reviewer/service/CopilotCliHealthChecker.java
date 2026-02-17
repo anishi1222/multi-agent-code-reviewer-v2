@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.service;
 
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,13 @@ public class CopilotCliHealthChecker {
     private static final String CLI_HEALTHCHECK_ENV = "COPILOT_CLI_HEALTHCHECK_SECONDS";
     private static final String CLI_AUTH_CHECK_ENV = "COPILOT_CLI_AUTHCHECK_SECONDS";
     private static final long DEFAULT_CLI_AUTHCHECK_SECONDS = 15;
+
+    private final CopilotTimeoutResolver timeoutResolver;
+
+    @Inject
+    public CopilotCliHealthChecker(CopilotTimeoutResolver timeoutResolver) {
+        this.timeoutResolver = timeoutResolver;
+    }
 
     public void verifyCliHealthy(String cliPath, boolean tokenProvided) throws InterruptedException {
         if (cliPath == null || cliPath.isBlank()) {
@@ -91,24 +99,10 @@ public class CopilotCliHealthChecker {
     }
 
     private long resolveCliHealthcheckSeconds() {
-        return resolveEnvTimeout(CLI_HEALTHCHECK_ENV, DEFAULT_CLI_HEALTHCHECK_SECONDS);
+        return timeoutResolver.resolveEnvTimeout(CLI_HEALTHCHECK_ENV, DEFAULT_CLI_HEALTHCHECK_SECONDS);
     }
 
     private long resolveCliAuthcheckSeconds() {
-        return resolveEnvTimeout(CLI_AUTH_CHECK_ENV, DEFAULT_CLI_AUTHCHECK_SECONDS);
-    }
-
-    private long resolveEnvTimeout(String envVar, long defaultValue) {
-        String value = System.getenv(envVar);
-        if (value == null || value.isBlank()) {
-            return defaultValue;
-        }
-        try {
-            long parsed = Long.parseLong(value.trim());
-            return parsed >= 0 ? parsed : defaultValue;
-        } catch (NumberFormatException _) {
-            logger.warn("Invalid {} value: {}. Using default.", envVar, value);
-            return defaultValue;
-        }
+        return timeoutResolver.resolveEnvTimeout(CLI_AUTH_CHECK_ENV, DEFAULT_CLI_AUTHCHECK_SECONDS);
     }
 }
