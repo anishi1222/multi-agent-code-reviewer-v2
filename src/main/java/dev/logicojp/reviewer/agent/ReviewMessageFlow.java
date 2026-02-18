@@ -77,23 +77,23 @@ final class ReviewMessageFlow {
     private String sendForLocalReview(String instruction,
                                       String localSourceContent,
                                       PromptSender promptSender) throws Exception {
-        String instructionPrompt = new StringBuilder(
-            instruction.length() + localSourceHeaderPrompt.length() + instructionBufferExtraCapacity
+        String combinedPrompt = new StringBuilder(
+            instruction.length()
+                + localSourceHeaderPrompt.length()
+                + localSourceContent.length()
+                + localReviewResultPrompt.length()
+                + instructionBufferExtraCapacity
         )
             .append(instruction)
             .append("\n\n")
             .append(localSourceHeaderPrompt)
+            .append("\n\n")
+            .append(localSourceContent)
+            .append("\n\n")
+            .append(localReviewResultPrompt)
             .toString();
 
-        // Instruction prompt establishes context; its response is not used because
-        // the actual review content comes from the subsequent source content message.
-        promptSender.send(instructionPrompt);
-
-        String sourceResponse = promptSender.send(localSourceContent);
-        if (sourceResponse != null && !sourceResponse.isBlank()) {
-            return sourceResponse;
-        }
-        return promptSender.send(localReviewResultPrompt);
+        return promptSender.send(combinedPrompt);
     }
 
     private String sendForRemoteReview(String instruction,
