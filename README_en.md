@@ -49,6 +49,16 @@ Reference checklist: `reports/anishi1222/multi-agent-code-reviewer/documentation
 3. Publish a GitHub Release from the tag and include EN/JA notes summary.
 4. Update `README_en.md` and `README_ja.md` with release references and URLs.
 
+## Release Operation Checklist
+
+- [ ] Add the same release date section to `RELEASE_NOTES_en.md` and `RELEASE_NOTES_ja.md`.
+- [ ] Update release references in `README_en.md` and `README_ja.md`.
+- [ ] Commit on a feature/docs branch and open a PR (do not push directly to `main`).
+- [ ] Confirm required checks are green (Supply Chain Guard, Build and Test, Build Native Image, dependency-review, submit-maven).
+- [ ] Merge the PR and fast-forward local `main`.
+- [ ] Create and push an annotated tag: `git tag -a vYYYY.MM.DD-notes -m "Release notes update for YYYY-MM-DD"` then `git push origin vYYYY.MM.DD-notes`.
+- [ ] Create GitHub Release from the tag with EN/JA summary notes.
+
 ## Requirements
 
 - **GraalVM 26** (Java 26)
