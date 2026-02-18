@@ -28,14 +28,11 @@ class ReviewContextTest {
             try {
                 var context = new ReviewContext(
                     client,
-                    5,
-                    3,
+                    new ReviewContext.TimeoutConfig(5, 3, 2),
                     List.of(),
                     null,
-                    2,
                     null,
-                    null,
-                    null,
+                    new ReviewContext.CachedResources(null, null),
                     new LocalFileConfig(),
                     scheduler);
 
@@ -62,14 +59,11 @@ class ReviewContextTest {
             try {
                 var context = new ReviewContext(
                     client,
-                    5,
-                    3,
-                    null,
-                    null,
-                    2,
+                    new ReviewContext.TimeoutConfig(5, 3, 2),
                     null,
                     null,
                     null,
+                    new ReviewContext.CachedResources(null, null),
                     new LocalFileConfig(),
                     scheduler);
 
@@ -94,9 +88,9 @@ class ReviewContextTest {
                 .build();
 
             try {
-                assertThat(context.timeoutMinutes()).isEqualTo(5);
-                assertThat(context.idleTimeoutMinutes()).isEqualTo(3);
-                assertThat(context.maxRetries()).isEqualTo(2);
+                assertThat(context.timeoutConfig().timeoutMinutes()).isEqualTo(5);
+                assertThat(context.timeoutConfig().idleTimeoutMinutes()).isEqualTo(3);
+                assertThat(context.timeoutConfig().maxRetries()).isEqualTo(2);
                 assertThat(context.customInstructions()).isEmpty();
                 assertThat(context.localFileConfig()).isNotNull();
             } finally {

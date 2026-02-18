@@ -40,6 +40,7 @@ public class SkillService {
     private final ExecutionConfig executionConfig;
     private final FeatureFlags featureFlags;
     private final ExecutorService executorService;
+    /// LRU access-order map — all access must be guarded by {@code synchronized(executorCache)}.
     private final Map<ExecutorCacheKey, SkillExecutor> executorCache;
 
     @Inject

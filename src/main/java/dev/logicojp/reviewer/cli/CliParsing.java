@@ -7,6 +7,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
 
+/// Stateless CLI argument parsing utilities.
+///
+/// **Visibility policy**: {@code hasHelpFlag} is {@code public} — it is the public API.
+/// All other parsing methods are package-private (used only within the {@code cli} package).
 public final class CliParsing {
     private static final int MAX_STDIN_TOKEN_BYTES = 256;
 

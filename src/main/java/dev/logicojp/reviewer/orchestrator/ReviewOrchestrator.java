@@ -64,13 +64,24 @@ public class ReviewOrchestrator implements AutoCloseable {
         LocalSourceCollector create(Path directory, LocalFileConfig localFileConfig);
     }
 
-    record OrchestratorCollaborators(
-        AgentReviewerFactory reviewerFactory,
-        LocalSourceCollectorFactory localSourceCollectorFactory,
-        Semaphore concurrencyLimit,
+    /// Grouping of executor and concurrency resources used by the orchestrator.
+    record ExecutorResources(
         @Nullable ExecutorService executorService,
         ExecutorService agentExecutionExecutor,
         ScheduledExecutorService sharedScheduler,
+        Semaphore concurrencyLimit
+    ) {
+        ExecutorResources {
+            agentExecutionExecutor = Objects.requireNonNull(agentExecutionExecutor);
+            sharedScheduler = Objects.requireNonNull(sharedScheduler);
+            concurrencyLimit = Objects.requireNonNull(concurrencyLimit);
+        }
+    }
+
+    record OrchestratorCollaborators(
+        AgentReviewerFactory reviewerFactory,
+        LocalSourceCollectorFactory localSourceCollectorFactory,
+        ExecutorResources executorResources,
         Map<String, Object> cachedMcpServers,
         ReviewResultPipeline reviewResultPipeline,
         AgentReviewExecutor agentReviewExecutor,
@@ -81,9 +92,7 @@ public class ReviewOrchestrator implements AutoCloseable {
         OrchestratorCollaborators {
             reviewerFactory = Objects.requireNonNull(reviewerFactory);
             localSourceCollectorFactory = Objects.requireNonNull(localSourceCollectorFactory);
-            concurrencyLimit = Objects.requireNonNull(concurrencyLimit);
-            agentExecutionExecutor = Objects.requireNonNull(agentExecutionExecutor);
-            sharedScheduler = Objects.requireNonNull(sharedScheduler);
+            executorResources = Objects.requireNonNull(executorResources);
             cachedMcpServers = cachedMcpServers != null ? Map.copyOf(cachedMcpServers) : Map.of();
             reviewResultPipeline = Objects.requireNonNull(reviewResultPipeline);
             agentReviewExecutor = Objects.requireNonNull(agentReviewExecutor);
@@ -169,9 +178,10 @@ public class ReviewOrchestrator implements AutoCloseable {
         this.executionConfig = orchestratorConfig.executionConfig();
         this.customInstructions = orchestratorConfig.customInstructions();
         this.structuredConcurrencyEnabled = orchestratorConfig.featureFlags().structuredConcurrency();
-        this.executorService = collaborators.executorService();
-        this.agentExecutionExecutor = collaborators.agentExecutionExecutor();
-        this.sharedScheduler = collaborators.sharedScheduler();
+        var resources = collaborators.executorResources();
+        this.executorService = resources.executorService();
+        this.agentExecutionExecutor = resources.agentExecutionExecutor();
+        this.sharedScheduler = resources.sharedScheduler();
         this.agentReviewExecutor = collaborators.agentReviewExecutor();
         this.reviewExecutionModeRunner = collaborators.reviewExecutionModeRunner();
         this.reviewContextFactory = collaborators.reviewContextFactory();
@@ -247,13 +257,17 @@ public class ReviewOrchestrator implements AutoCloseable {
                 orchestratorConfig.localFileConfig()
             );
 
-            return new OrchestratorCollaborators(
-                reviewerFactory,
-                localSourceCollectorFactory,
-                concurrencyLimit,
+            var executorResources = new ExecutorResources(
                 executorService,
                 agentExecutionExecutor,
                 sharedScheduler,
+                concurrencyLimit
+            );
+
+            return new OrchestratorCollaborators(
+                reviewerFactory,
+                localSourceCollectorFactory,
+                executorResources,
                 cachedMcpServers,
                 reviewResultPipeline,
                 agentReviewExecutor,

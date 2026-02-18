@@ -282,7 +282,7 @@ class AgentConfigTest {
                 VALID_OUTPUT_FORMAT, List.of(), List.of()
             );
             
-            String result = config.buildFullSystemPrompt();
+            String result = AgentPromptBuilder.buildFullSystemPrompt(config);
             
             assertThat(result).contains(VALID_SYSTEM_PROMPT);
         }
@@ -295,7 +295,7 @@ class AgentConfigTest {
                 VALID_OUTPUT_FORMAT, List.of("Security", "Performance"), List.of()
             );
             
-            String result = config.buildFullSystemPrompt();
+            String result = AgentPromptBuilder.buildFullSystemPrompt(config);
             
             assertThat(result).contains("## Focus Areas");
             assertThat(result).contains("- Security");
@@ -311,7 +311,7 @@ class AgentConfigTest {
                 customFormat, List.of(), List.of()
             );
             
-            String result = config.buildFullSystemPrompt();
+            String result = AgentPromptBuilder.buildFullSystemPrompt(config);
             
             assertThat(result).contains(customFormat);
         }
@@ -324,7 +324,7 @@ class AgentConfigTest {
                 VALID_OUTPUT_FORMAT, List.of(), List.of()
             );
             
-            String result = config.buildFullSystemPrompt();
+            String result = AgentPromptBuilder.buildFullSystemPrompt(config);
             
             assertThat(result).doesNotContain("## Focus Areas");
         }
@@ -343,7 +343,7 @@ class AgentConfigTest {
                 VALID_OUTPUT_FORMAT, List.of(), List.of()
             );
             
-            String result = config.buildInstruction("my-org/my-repo");
+            String result = AgentPromptBuilder.buildInstruction(config, "my-org/my-repo");
             
             assertThat(result).contains("my-org/my-repo");
             assertThat(result).doesNotContain("${repository}");
@@ -358,7 +358,7 @@ class AgentConfigTest {
                 VALID_OUTPUT_FORMAT, List.of(), List.of()
             );
             
-            String result = config.buildInstruction("repo");
+            String result = AgentPromptBuilder.buildInstruction(config, "repo");
             
             assertThat(result).contains("Security Reviewer");
             assertThat(result).doesNotContain("${displayName}");
@@ -373,7 +373,7 @@ class AgentConfigTest {
                 VALID_OUTPUT_FORMAT, List.of(), List.of()
             );
             
-            String result = config.buildInstruction("repo");
+            String result = AgentPromptBuilder.buildInstruction(config, "repo");
             
             assertThat(result).contains("agent-id");
             assertThat(result).doesNotContain("${name}");
@@ -388,7 +388,7 @@ class AgentConfigTest {
                 VALID_OUTPUT_FORMAT, List.of("SQL Injection", "XSS"), List.of()
             );
             
-            String result = config.buildInstruction("repo");
+            String result = AgentPromptBuilder.buildInstruction(config, "repo");
             
             assertThat(result).contains("- SQL Injection");
             assertThat(result).contains("- XSS");
@@ -403,7 +403,7 @@ class AgentConfigTest {
                 VALID_OUTPUT_FORMAT, List.of(), List.of()
             );
             
-            assertThatThrownBy(() -> config.buildInstruction("repo"))
+            assertThatThrownBy(() -> AgentPromptBuilder.buildInstruction(config, "repo"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(VALID_NAME);
         }
@@ -422,7 +422,7 @@ class AgentConfigTest {
             );
             
             String sourceCode = "public class Test {}";
-            String result = config.buildLocalInstruction("MyProject", sourceCode);
+            String result = AgentPromptBuilder.buildLocalInstruction(config, "MyProject", sourceCode);
             
             assertThat(result).contains(sourceCode);
             assertThat(result).contains("以下は対象ディレクトリのソースコードです");
@@ -437,7 +437,7 @@ class AgentConfigTest {
                 VALID_OUTPUT_FORMAT, List.of(), List.of()
             );
             
-            String result = config.buildLocalInstruction("LocalDir", "code");
+            String result = AgentPromptBuilder.buildLocalInstruction(config, "LocalDir", "code");
             
             assertThat(result).contains("LocalDir");
             assertThat(result).contains("Code Reviewer");

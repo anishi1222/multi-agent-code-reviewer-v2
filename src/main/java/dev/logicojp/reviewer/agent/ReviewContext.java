@@ -17,34 +17,39 @@ import java.util.concurrent.ScheduledExecutorService;
 /// ({@code AgentConfig} + {@code ReviewContext}).
 ///
 /// @param client              The Copilot SDK client
-/// @param timeoutMinutes      Per-attempt timeout in minutes
-/// @param idleTimeoutMinutes  Idle timeout in minutes (no-event threshold)
+/// @param timeoutConfig       Timeout and retry configuration
 /// @param customInstructions  Custom instructions to inject into agent prompts
 /// @param reasoningEffort     Reasoning effort level for reasoning models (nullable)
-/// @param maxRetries          Maximum number of retries on failure
 /// @param outputConstraints   Output constraints template content (nullable)
-/// @param cachedMcpServers    Pre-built MCP server configuration map (nullable, cached for reuse)
-/// @param cachedSourceContent Pre-computed source content for local reviews (nullable, shared across agents)
+/// @param cachedResources     Pre-computed cached resources for reuse across agents (nullable fields)
 /// @param localFileConfig     Local file collection configuration (used by fallback path)
 /// @param sharedScheduler     Shared ScheduledExecutorService for idle-timeout scheduling
 public record ReviewContext(
     CopilotClient client,
-    long timeoutMinutes,
-    long idleTimeoutMinutes,
+    TimeoutConfig timeoutConfig,
     List<CustomInstruction> customInstructions,
     @Nullable String reasoningEffort,
-    int maxRetries,
     @Nullable String outputConstraints,
-    @Nullable Map<String, Object> cachedMcpServers,
-    @Nullable String cachedSourceContent,
+    CachedResources cachedResources,
     LocalFileConfig localFileConfig,
     ScheduledExecutorService sharedScheduler
 ) {
 
+    /// Groups timeout and retry parameters.
+    public record TimeoutConfig(long timeoutMinutes, long idleTimeoutMinutes, int maxRetries) {}
+
+    /// Groups pre-computed resources that are shared across agents.
+    public record CachedResources(
+        @Nullable Map<String, Object> mcpServers,
+        @Nullable String sourceContent
+    ) {}
+
     public ReviewContext {
         Objects.requireNonNull(client, "client must not be null");
         Objects.requireNonNull(sharedScheduler, "sharedScheduler must not be null");
+        timeoutConfig = timeoutConfig != null ? timeoutConfig : new TimeoutConfig(0, 0, 0);
         customInstructions = customInstructions != null ? List.copyOf(customInstructions) : List.of();
+        cachedResources = cachedResources != null ? cachedResources : new CachedResources(null, null);
     }
 
     public static Builder builder() {
@@ -129,14 +134,11 @@ public record ReviewContext(
 
             return new ReviewContext(
                 client,
-                timeoutMinutes,
-                idleTimeoutMinutes,
+                new TimeoutConfig(timeoutMinutes, idleTimeoutMinutes, maxRetries),
                 customInstructions,
                 reasoningEffort,
-                maxRetries,
                 outputConstraints,
-                cachedMcpServers,
-                cachedSourceContent,
+                new CachedResources(cachedMcpServers, cachedSourceContent),
                 effectiveLocalFileConfig,
                 sharedScheduler
             );
@@ -159,7 +161,11 @@ public record ReviewContext(
     @Override
     public String toString() {
         return "ReviewContext{cachedMcpServers=%s, timeoutMinutes=%d, idleTimeoutMinutes=%d, maxRetries=%d, localFileConfig=%s}"
-            .formatted(cachedMcpServers != null ? "(configured)" : "(null)", timeoutMinutes, idleTimeoutMinutes, maxRetries,
+            .formatted(
+                cachedResources.mcpServers() != null ? "(configured)" : "(null)",
+                timeoutConfig.timeoutMinutes(),
+                timeoutConfig.idleTimeoutMinutes(),
+                timeoutConfig.maxRetries(),
                 localFileConfig != null ? "(configured)" : "(null)");
     }
 }

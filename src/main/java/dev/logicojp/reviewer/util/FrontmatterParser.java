@@ -137,17 +137,14 @@ public final class FrontmatterParser {
     private static Map<String, String> parseFields(String frontmatter) {
         try {
             var yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
-            @SuppressWarnings("unchecked")
-            Map<String, Object> parsed = yaml.load(frontmatter);
+            Map<?, ?> parsed = yaml.loadAs(frontmatter, Map.class);
             if (parsed == null) {
                 return Map.of();
             }
             Map<String, String> fields = new HashMap<>();
             for (var entry : parsed.entrySet()) {
-                if (entry.getValue() instanceof String s) {
-                    fields.put(entry.getKey(), s);
-                } else if (entry.getValue() != null) {
-                    fields.put(entry.getKey(), entry.getValue().toString());
+                if (entry.getKey() instanceof String key && entry.getValue() != null) {
+                    fields.put(key, entry.getValue().toString());
                 }
             }
             return fields;

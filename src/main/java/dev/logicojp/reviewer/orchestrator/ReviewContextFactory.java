@@ -40,11 +40,6 @@ final class ReviewContextFactory {
     }
 
     ReviewContext create(String cachedSourceContent) {
-        return buildContext(cachedSourceContent)
-            .build();
-    }
-
-    private ReviewContext.Builder buildContext(String cachedSourceContent) {
         return ReviewContext.builder()
             .client(client)
             .timeoutMinutes(executionConfig.agentTimeoutMinutes())
@@ -56,6 +51,7 @@ final class ReviewContextFactory {
             .cachedMcpServers(cachedMcpServers)
             .cachedSourceContent(cachedSourceContent)
             .localFileConfig(localFileConfig)
-            .sharedScheduler(sharedScheduler);
+            .sharedScheduler(sharedScheduler)
+            .build();
     }
 }
