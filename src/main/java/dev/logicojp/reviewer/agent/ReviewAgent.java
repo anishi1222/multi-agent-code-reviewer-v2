@@ -205,16 +205,36 @@ public class ReviewAgent {
             List<ReviewResult> results = new ArrayList<>(reviewPasses);
             for (int pass = 1; pass <= reviewPasses; pass++) {
                 int passNumber = pass;
+                String localSourceContentForPass = resolveLocalSourceContentForPass(
+                    target,
+                    localSourceContent,
+                    passNumber
+                );
                 logger.debug("Agent {}: executing pass {}/{} on shared session",
                     config.name(), passNumber, reviewPasses);
                 ReviewResult result = reviewRetryExecutor.execute(
-                    () -> executeReviewWithSession(displayName, instruction, localSourceContent, mcpServers, session),
+                    () -> executeReviewWithSession(
+                        displayName,
+                        instruction,
+                        localSourceContentForPass,
+                        mcpServers,
+                        session
+                    ),
                     e -> reviewResultFactory.fromException(config, displayName, e)
                 );
                 results.add(result);
             }
             return results;
         }
+    }
+
+    static String resolveLocalSourceContentForPass(ReviewTarget target,
+                                                   String localSourceContent,
+                                                   int passNumber) {
+        if (!target.isLocal() || passNumber <= 1) {
+            return localSourceContent;
+        }
+        return null;
     }
 
     private ReviewTargetInstructionResolver.ResolvedInstruction resolveTargetInstruction(ReviewTarget target) {
