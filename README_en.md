@@ -526,6 +526,11 @@ Please output the review results in the following format.
 | `code-quality` | Readability, complexity, SOLID principles, tests |
 | `performance` | N+1 queries, memory leaks, algorithm efficiency |
 | `best-practices` | Language/framework-specific best practices |
+| `waf-reliability` | Azure WAF Reliability — retry, circuit breaker, timeout, disaster recovery |
+| `waf-security` | Azure WAF Security — managed identity, Key Vault, zero trust, RBAC |
+| `waf-cost-optimization` | Azure WAF Cost Optimization — SKU selection, autoscaling, idle resources |
+| `waf-operational-excellence` | Azure WAF Operational Excellence — IaC, CI/CD, structured logging, Application Insights |
+| `waf-performance-efficiency` | Azure WAF Performance Efficiency — caching, async messaging, connection pooling |
 
 ## Review Result Format
 
@@ -841,7 +846,12 @@ multi-agent-reviewer/
 │   ├── security.agent.md
 │   ├── code-quality.agent.md
 │   ├── performance.agent.md
-│   └── best-practices.agent.md
+│   ├── best-practices.agent.md
+│   ├── waf-reliability.agent.md
+│   ├── waf-security.agent.md
+│   ├── waf-cost-optimization.agent.md
+│   ├── waf-operational-excellence.agent.md
+│   └── waf-performance-efficiency.agent.md
 ├── templates/                           # Template files
 │   ├── summary-system.md
 │   ├── summary-prompt.md

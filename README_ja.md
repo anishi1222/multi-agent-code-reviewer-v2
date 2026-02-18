@@ -526,6 +526,11 @@ ${focusAreas}
 | `code-quality` | 可読性、複雑度、SOLID原則、テスト |
 | `performance` | N+1クエリ、メモリリーク、アルゴリズム効率 |
 | `best-practices` | 言語・フレームワーク固有のベストプラクティス |
+| `waf-reliability` | Azure WAF 信頼性 — リトライ、サーキットブレーカー、タイムアウト、障害復旧 |
+| `waf-security` | Azure WAF セキュリティ — マネージドID、Key Vault、ゼロトラスト、RBAC |
+| `waf-cost-optimization` | Azure WAF コスト最適化 — SKU選択、自動スケーリング、アイドルリソース |
+| `waf-operational-excellence` | Azure WAF オペレーショナルエクセレンス — IaC、CI/CD、構造化ログ、Application Insights |
+| `waf-performance-efficiency` | Azure WAF パフォーマンス効率 — キャッシュ、非同期メッセージング、コネクションプーリング |
 
 ## レビュー結果フォーマット
 
@@ -841,7 +846,12 @@ multi-agent-reviewer/
 │   ├── security.agent.md
 │   ├── code-quality.agent.md
 │   ├── performance.agent.md
-│   └── best-practices.agent.md
+│   ├── best-practices.agent.md
+│   ├── waf-reliability.agent.md
+│   ├── waf-security.agent.md
+│   ├── waf-cost-optimization.agent.md
+│   ├── waf-operational-excellence.agent.md
+│   └── waf-performance-efficiency.agent.md
 ├── templates/                           # テンプレートファイル
 │   ├── summary-system.md
 │   ├── summary-prompt.md
