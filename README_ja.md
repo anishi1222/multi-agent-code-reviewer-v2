@@ -49,6 +49,16 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 3. タグから GitHub Release を作成し、EN/JA の要約を本文に含める。
 4. `README_en.md` と `README_ja.md` にリリース参照とURLを追記する。
 
+## リリース作業チェックリスト
+
+- [ ] `RELEASE_NOTES_en.md` と `RELEASE_NOTES_ja.md` に同じ日付のセクションを追加する。
+- [ ] `README_en.md` と `README_ja.md` のリリース参照を更新する。
+- [ ] 作業ブランチでコミットし、PRを作成する（`main` へ直接 push しない）。
+- [ ] 必須チェックがすべて成功していることを確認する（Supply Chain Guard / Build and Test / Build Native Image / dependency-review / submit-maven）。
+- [ ] PRをマージし、ローカル `main` を fast-forward で同期する。
+- [ ] 注釈付きタグを作成して push する（`git tag -a vYYYY.MM.DD-notes -m "Release notes update for YYYY-MM-DD"` → `git push origin vYYYY.MM.DD-notes`）。
+- [ ] タグから GitHub Release を作成し、EN/JA の要約を記載する。
+
 ## 要件
 
 - **GraalVM 26** (Java 26)
