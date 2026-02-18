@@ -49,13 +49,13 @@ class ReviewContextFactoryTest {
             var context = factory.create("SOURCE_CONTENT");
 
             assertThat(context.client()).isSameAs(client);
-            assertThat(context.timeoutMinutes()).isEqualTo(5);
-            assertThat(context.idleTimeoutMinutes()).isEqualTo(3);
-            assertThat(context.maxRetries()).isEqualTo(2);
+            assertThat(context.timeoutConfig().timeoutMinutes()).isEqualTo(5);
+            assertThat(context.timeoutConfig().idleTimeoutMinutes()).isEqualTo(3);
+            assertThat(context.timeoutConfig().maxRetries()).isEqualTo(2);
             assertThat(context.reasoningEffort()).isEqualTo("high");
             assertThat(context.outputConstraints()).isEqualTo("constraints");
-            assertThat(context.cachedMcpServers()).isEqualTo(cachedMcp);
-            assertThat(context.cachedSourceContent()).isEqualTo("SOURCE_CONTENT");
+            assertThat(context.cachedResources().mcpServers()).isEqualTo(cachedMcp);
+            assertThat(context.cachedResources().sourceContent()).isEqualTo("SOURCE_CONTENT");
             assertThat(context.customInstructions()).hasSize(1);
             assertThat(context.sharedScheduler()).isSameAs(scheduler);
         } finally {

@@ -47,7 +47,7 @@ final class ReviewTargetInstructionResolver {
                                                         Path directory,
                                                         @Nullable String cachedSourceContent) {
         String sourceContent = resolveLocalSourceContent(directory, cachedSourceContent);
-        String instruction = config.buildLocalInstructionBase(target.displayName());
+        String instruction = AgentPromptBuilder.buildLocalInstructionBase(config, target.displayName());
         return new ResolvedInstruction(instruction, sourceContent, null);
     }
 
@@ -63,6 +63,6 @@ final class ReviewTargetInstructionResolver {
 
     private ResolvedInstruction resolveGitHubInstruction(String repository,
                                                          @Nullable Map<String, Object> cachedMcpServers) {
-        return new ResolvedInstruction(config.buildInstruction(repository), null, cachedMcpServers);
+        return new ResolvedInstruction(AgentPromptBuilder.buildInstruction(config, repository), null, cachedMcpServers);
     }
 }

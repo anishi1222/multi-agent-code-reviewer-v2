@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @Singleton
@@ -64,7 +63,7 @@ public class CopilotCliHealthChecker {
         builder.redirectErrorStream(true);
         try {
             Process process = builder.start();
-            var drainFuture = CompletableFuture.runAsync(() -> {
+            var drainThread = Thread.ofVirtual().name("cli-drain").start(() -> {
                 try (var in = process.getInputStream()) {
                     in.transferTo(OutputStream.nullOutputStream());
                 } catch (IOException _) {
@@ -72,9 +71,9 @@ public class CopilotCliHealthChecker {
             });
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
-                handleTimeout(process, drainFuture, timeoutSeconds, timeoutMessage, remediationMessage);
+                handleTimeout(process, drainThread, timeoutSeconds, timeoutMessage, remediationMessage);
             }
-            drainFuture.join();
+            drainThread.join();
             if (process.exitValue() != 0) {
                 throw exitFailure(exitMessage, process.exitValue(), remediationMessage);
             }
@@ -84,12 +83,12 @@ public class CopilotCliHealthChecker {
     }
 
     private void handleTimeout(Process process,
-                               CompletableFuture<Void> drainFuture,
+                               Thread drainThread,
                                long timeoutSeconds,
                                String timeoutMessage,
                                String remediationMessage) {
         process.destroyForcibly();
-        drainFuture.cancel(true);
+        drainThread.interrupt();
         throw new CopilotCliException(timeoutMessage + timeoutSeconds + "s. " + remediationMessage);
     }
 

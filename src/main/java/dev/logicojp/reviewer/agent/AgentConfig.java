@@ -133,34 +133,6 @@ public record AgentConfig(
         return "## Output Format\n\n" + trimmed;
     }
 
-    /// Builds the complete system prompt including output format instructions.
-    /// Delegates to {@link AgentPromptBuilder}.
-    public String buildFullSystemPrompt() {
-        return AgentPromptBuilder.buildFullSystemPrompt(this, AgentPromptBuilder.DEFAULT_FOCUS_AREAS_GUIDANCE);
-    }
-
-    /// Builds the instruction for a GitHub repository review.
-    /// Delegates to {@link AgentPromptBuilder}.
-    public String buildInstruction(String repository) {
-        return AgentPromptBuilder.buildInstruction(this, repository);
-    }
-
-    /// Builds the instruction for a local directory review.
-    /// Delegates to {@link AgentPromptBuilder}.
-    public String buildLocalInstruction(String targetName, String sourceContent) {
-        return AgentPromptBuilder.buildLocalInstruction(
-            this,
-            targetName,
-            sourceContent,
-            AgentPromptBuilder.DEFAULT_LOCAL_SOURCE_HEADER
-        );
-    }
-
-    /// Builds the local instruction without embedding source content.
-    public String buildLocalInstructionBase(String targetName) {
-        return AgentPromptBuilder.buildLocalInstructionBase(this, targetName);
-    }
-
     @Override
     public String toString() {
         return "AgentConfig{name='" + name + "', displayName='" + displayName + "'}";

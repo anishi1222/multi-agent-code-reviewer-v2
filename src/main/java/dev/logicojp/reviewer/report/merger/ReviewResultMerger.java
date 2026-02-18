@@ -9,8 +9,6 @@ import dev.logicojp.reviewer.report.formatter.ReviewMergedContentFormatter;
 import dev.logicojp.reviewer.agent.AgentConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -175,7 +173,6 @@ public final class ReviewResultMerger {
             .repository(repository)
             .content(content)
             .success(true)
-            .timestamp(Instant.now())
             .build();
     }
 

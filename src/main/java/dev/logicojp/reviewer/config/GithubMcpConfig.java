@@ -116,7 +116,10 @@ public record GithubMcpConfig(
         private final Map<String, Object> delegate;
         private final String maskedString;
 
+        /// @param delegate     source map (defensive copy via {@link Map#copyOf}; {@code put()} correctly throws {@link UnsupportedOperationException})
+        /// @param maskedString the string returned by {@link #toString()} to mask sensitive headers
         MaskedToStringMap(Map<String, Object> delegate, String maskedString) {
+            // delegate is already immutable (Map.copyOf); put() correctly throws UnsupportedOperationException
             this.delegate = Map.copyOf(delegate);
             this.maskedString = maskedString;
         }

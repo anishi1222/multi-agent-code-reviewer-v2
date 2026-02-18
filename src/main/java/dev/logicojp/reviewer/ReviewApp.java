@@ -41,7 +41,9 @@ public class ReviewApp {
         try (var context = ApplicationContext.run()) {
             var app = context.getBean(ReviewApp.class);
             int exitCode = app.execute(args);
-            System.exit(exitCode);
+            if (exitCode != 0) {
+                System.exit(exitCode);
+            }
         }
     }
 

@@ -73,7 +73,7 @@ public class ReviewAgent {
                 () -> logger.debug("Computed source content locally for agent: {}", config.name())
             ),
             new ReviewSessionMessageSender(config.name()),
-            new ReviewRetryExecutor(config.name(), ctx.maxRetries()),
+            new ReviewRetryExecutor(config.name(), ctx.timeoutConfig().maxRetries()),
             new ReviewSessionConfigFactory(),
             new ReviewResultFactory()
         );
@@ -147,8 +147,8 @@ public class ReviewAgent {
     private ReviewTargetInstructionResolver.ResolvedInstruction resolveTargetInstruction(ReviewTarget target) {
         return reviewTargetInstructionResolver.resolve(
             target,
-            ctx.cachedSourceContent(),
-            ctx.cachedMcpServers()
+            ctx.cachedResources().sourceContent(),
+            ctx.cachedResources().mcpServers()
         );
     }
 
@@ -166,7 +166,7 @@ public class ReviewAgent {
         );
 
         try (var session = ctx.client().createSession(sessionConfig)
-            .get(ctx.timeoutMinutes(), TimeUnit.MINUTES)) {
+            .get(ctx.timeoutConfig().timeoutMinutes(), TimeUnit.MINUTES)) {
             String content = sendAndCollectContent(session, instruction, localSourceContent);
 
             if (content == null || content.isBlank()) {
@@ -217,11 +217,11 @@ public class ReviewAgent {
     }
 
     private long resolveIdleTimeoutMs() {
-        return TimeUnit.MINUTES.toMillis(ctx.idleTimeoutMinutes());
+        return TimeUnit.MINUTES.toMillis(ctx.timeoutConfig().idleTimeoutMinutes());
     }
 
     private long resolveMaxTimeoutMs() {
-        return TimeUnit.MINUTES.toMillis(ctx.timeoutMinutes());
+        return TimeUnit.MINUTES.toMillis(ctx.timeoutConfig().timeoutMinutes());
     }
 
     private ReviewMessageFlow createReviewMessageFlow() {
@@ -252,7 +252,7 @@ public class ReviewAgent {
     private String sendWithActivityTimeout(CopilotSession session, String prompt,
                                            long idleTimeoutMs, long maxTimeoutMs) throws Exception {
         logger.debug("Agent {}: sending prompt asynchronously (idle timeout: {} min, max: {} min)",
-            config.name(), ctx.idleTimeoutMinutes(), ctx.timeoutMinutes());
+            config.name(), ctx.timeoutConfig().idleTimeoutMinutes(), ctx.timeoutConfig().timeoutMinutes());
         return reviewSessionMessageSender.sendWithActivityTimeout(
             prompt,
             maxTimeoutMs,
