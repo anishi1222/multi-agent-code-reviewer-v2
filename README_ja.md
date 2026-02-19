@@ -327,29 +327,31 @@ agent: 'agent'
 
 ### 出力例
 
-レポートは出力ベースディレクトリの下に、レビュー対象のサブディレクトリを作成して出力されます。
+レポートは出力ベースディレクトリの下に、レビュー対象 + CLI呼び出し時刻のサブディレクトリを作成して出力されます。
 
 **GitHubリポジトリの場合**（`--repo owner/repository`）:
 ```
 ./reports/
 └── owner/
     └── repository/
-        ├── security_2026-02-14.md
-        ├── code-quality_2026-02-14.md
-        ├── performance_2026-02-14.md
-        ├── best-practices_2026-02-14.md
-        └── executive_summary_2026-02-14.md
+    └── 2026-02-19-18-38-42/
+      ├── security-report.md
+      ├── code-quality-report.md
+      ├── performance-report.md
+      ├── best-practices-report.md
+      └── executive_summary_2026-02-19-18-38-42.md
 ```
 
 **ローカルディレクトリの場合**（`--local /path/to/my-project`）:
 ```
 ./reports/
 └── my-project/
-    ├── security_2026-02-14.md
-    ├── code-quality_2026-02-14.md
-    ├── performance_2026-02-14.md
-    ├── best-practices_2026-02-14.md
-    └── executive_summary_2026-02-14.md
+  └── 2026-02-19-18-38-42/
+    ├── security-report.md
+    ├── code-quality-report.md
+    ├── performance-report.md
+    ├── best-practices-report.md
+    └── executive_summary_2026-02-19-18-38-42.md
 ```
 
 `-o` / `--output` オプションで出力ベースディレクトリを変更できます（デフォルト: `./reports`）。
