@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -73,7 +73,8 @@ public class SummaryGenerator {
     }
     
     private static final Logger logger = LoggerFactory.getLogger(SummaryGenerator.class);
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss");
     
     private final Path outputDirectory;
     private final CopilotClient client;
@@ -81,7 +82,7 @@ public class SummaryGenerator {
     private final String reasoningEffort;
     private final long timeoutMinutes;
     private final TemplateService templateService;
-    private final Clock clock;
+    private final String invocationTimestamp;
     private final SummaryPromptBuilder summaryPromptBuilder;
     private final FallbackSummaryBuilder fallbackSummaryBuilder;
     private final SummaryFinalReportFormatter summaryFinalReportFormatter;
@@ -116,7 +117,7 @@ public class SummaryGenerator {
         this.reasoningEffort = reasoningEffort;
         this.timeoutMinutes = timeoutMinutes;
         this.templateService = templateService;
-        this.clock = clock;
+        this.invocationTimestamp = LocalDateTime.now(clock).format(TIMESTAMP_FORMATTER);
         SummaryCollaborators defaults = SummaryCollaborators.defaults(templateService, summaryConfig, this);
         var effective = (collaborators != null ? collaborators : defaults).withDefaults(defaults);
         this.summaryPromptBuilder = effective.summaryPromptBuilder();
@@ -132,8 +133,8 @@ public class SummaryGenerator {
     public Path generateSummary(List<ReviewResult> results, String repository) throws IOException {
         ensureOutputDirectory();
 
-        String date = currentDate();
-        String filename = "executive_summary_%s.md".formatted(date);
+        String timestamp = invocationTimestamp;
+        String filename = "executive_summary_%s.md".formatted(timestamp);
         Path summaryPath = outputDirectory.resolve(filename);
         
         logger.info("Generating executive summary from {} review results", results.size());
@@ -142,7 +143,7 @@ public class SummaryGenerator {
         String summaryContent = aiSummaryBuilder.build(results, repository);
         
         // Build the final report
-        String finalReport = summaryFinalReportFormatter.format(summaryContent, repository, results, date);
+        String finalReport = summaryFinalReportFormatter.format(summaryContent, repository, results, timestamp);
         Files.writeString(summaryPath, finalReport);
         
         logger.info("Generated executive summary: {}", summaryPath);
@@ -205,10 +206,6 @@ public class SummaryGenerator {
         return fallbackSummaryBuilder.buildFallbackSummary(results);
     }
 
-    private String currentDate() {
-        return LocalDate.now(clock).format(DATE_FORMATTER);
-    }
-    
     private void ensureOutputDirectory() throws IOException {
         ReportFileUtils.ensureOutputDirectory(outputDirectory);
     }

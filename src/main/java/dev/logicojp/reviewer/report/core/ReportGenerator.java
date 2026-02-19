@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,11 +21,12 @@ import java.util.List;
 public class ReportGenerator {
     
     private static final Logger logger = LoggerFactory.getLogger(ReportGenerator.class);
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss");
     
     private final Path outputDirectory;
     private final ReportContentFormatter reportContentFormatter;
-    private final Clock clock;
+    private final String invocationTimestamp;
     
     public ReportGenerator(Path outputDirectory, TemplateService templateService) {
         this(outputDirectory, templateService, Clock.systemDefaultZone());
@@ -34,7 +35,7 @@ public class ReportGenerator {
     ReportGenerator(Path outputDirectory, TemplateService templateService, Clock clock) {
         this.outputDirectory = outputDirectory;
         this.reportContentFormatter = new ReportContentFormatter(templateService);
-        this.clock = clock;
+        this.invocationTimestamp = LocalDateTime.now(clock).format(TIMESTAMP_FORMATTER);
     }
     
     /// Generates a markdown report file for the given review result.
@@ -43,10 +44,9 @@ public class ReportGenerator {
      Path generateReport(ReviewResult result) throws IOException {
         ensureOutputDirectory();
         AgentConfig config = result.agentConfig();
-        String date = LocalDate.now(clock).format(DATE_FORMATTER);
-        Path reportPath = createReportPath(config, date);
+        Path reportPath = createReportPath(config, invocationTimestamp);
         
-        String reportContent = reportContentFormatter.format(result, date);
+        String reportContent = reportContentFormatter.format(result, invocationTimestamp);
         Files.writeString(reportPath, reportContent);
         
         logger.info("Generated report: {}", reportPath);
