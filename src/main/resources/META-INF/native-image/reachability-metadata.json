@@ -2102,6 +2102,15 @@
       "type": "jdk.internal.jrtfs.JrtFileSystemProvider"
     },
     {
+      "type": "sun.security.provider.SHA2$SHA256",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "sun.text.resources.cldr.FormatData"
     },
     {
