@@ -28,6 +28,41 @@ Reference checklist: `reports/anishi1222/multi-agent-code-reviewer/documentation
 
 ---
 
+## 2026-02-19 (v6)
+
+### Summary
+- Applied remediations for four deduplicated security themes from the 2026-02-19 security review.
+- Hardened token handling, prompt-injection resilience, TOCTOU safety for local file reads, and sanitizer URI filtering.
+- Merged all changes to `main` via PR #85.
+
+### Highlights
+
+#### PR #85: Security Hardening (Token Handling, Normalization, TOCTOU, XSS)
+- `CopilotService`:
+  - Replaced long-lived raw token comparison state with SHA-256 fingerprint state.
+- `CustomInstructionSafetyValidator`:
+  - Expanded homoglyph normalization coverage (major Greek confusables in addition to Cyrillic).
+- `LocalFileCandidateProcessor`:
+  - Replaced bulk `readString` with bounded streaming read and enforced `maxFileSize` / `maxTotalSize` during reads.
+  - Added skip/stop behavior for stale-size TOCTOU over-limit paths.
+- `ContentSanitizer`:
+  - Added `vbscript:` URI scheme filtering to dangerous URI detection.
+- Regression tests added/updated:
+  - `CopilotServiceTest`
+  - `CustomInstructionSafetyValidatorTest`
+  - `LocalFileCandidateProcessorTest`
+  - `ContentSanitizerTest`
+
+### Validation
+- Focused tests passed: `mvn -Dtest=CopilotServiceTest,CustomInstructionSafetyValidatorTest,LocalFileCandidateProcessorTest,ContentSanitizerTest test`
+- Result: 33 tests run, 0 failures, 0 errors
+- PR #85 required checks passed: `CI/Build Native Image`, `CI/Build and Test`, `CI/Supply Chain Guard`, `Dependency Review`, `Automatic Dependency Submission`
+
+### Merged PRs
+- [#85](https://github.com/anishi1222/multi-agent-code-reviewer/pull/85): security hardening for token handling, sanitizer URI filtering, and TOCTOU checks
+
+---
+
 ## 2026-02-19 (v5)
 
 ### Summary
