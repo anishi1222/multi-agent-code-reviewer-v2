@@ -514,6 +514,14 @@
           "parameterTypes": []
         },
         {
+          "name": "<init>",
+          "parameterTypes": [
+            "double",
+            "double",
+            "double"
+          ]
+        },
+        {
           "name": "setCachedInput",
           "parameterTypes": [
             "double"
@@ -539,6 +547,23 @@
         {
           "name": "<init>",
           "parameterTypes": []
+        },
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "boolean",
+            "java.lang.String",
+            "java.lang.Double",
+            "java.lang.Double",
+            "java.lang.Double",
+            "java.lang.Double",
+            "java.lang.Double",
+            "java.lang.String",
+            "java.lang.Double",
+            "java.lang.String",
+            "com.github.copilot.sdk.events.SessionCompactionCompleteEvent$CompactionTokensUsed",
+            "java.lang.String"
+          ]
         },
         {
           "name": "setCheckpointNumber",

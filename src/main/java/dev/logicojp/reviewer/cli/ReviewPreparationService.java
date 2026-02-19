@@ -8,11 +8,17 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
 @Singleton
 class ReviewPreparationService {
+
+    private static final DateTimeFormatter OUTPUT_TIMESTAMP_FORMATTER =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss");
 
     @FunctionalInterface
     interface BannerPrinter {
@@ -34,16 +40,20 @@ class ReviewPreparationService {
 
     private final BannerPrinter bannerPrinter;
     private final InstructionResolver instructionResolver;
+    private final Clock clock;
 
     @Inject
     public ReviewPreparationService(ReviewOutputFormatter outputFormatter,
                                     ReviewCustomInstructionResolver customInstructionResolver) {
-        this(outputFormatter::printBanner, customInstructionResolver::resolve);
+        this(outputFormatter::printBanner, customInstructionResolver::resolve, Clock.systemDefaultZone());
     }
 
-    ReviewPreparationService(BannerPrinter bannerPrinter, InstructionResolver instructionResolver) {
+    ReviewPreparationService(BannerPrinter bannerPrinter,
+                             InstructionResolver instructionResolver,
+                             Clock clock) {
         this.bannerPrinter = bannerPrinter;
         this.instructionResolver = instructionResolver;
+        this.clock = clock;
     }
 
     public PreparedData prepare(ReviewCommand.ParsedOptions options,
@@ -61,7 +71,10 @@ class ReviewPreparationService {
     }
 
     private Path resolveOutputDirectory(ReviewCommand.ParsedOptions options, ReviewTarget target) {
-        return options.outputDirectory().resolve(target.repositorySubPath());
+        String invocationTimestamp = LocalDateTime.now(clock).format(OUTPUT_TIMESTAMP_FORMATTER);
+        return options.outputDirectory()
+            .resolve(target.repositorySubPath())
+            .resolve(invocationTimestamp);
     }
 
     private ReviewCustomInstructionResolver.InstructionOptions buildInstructionOptions(

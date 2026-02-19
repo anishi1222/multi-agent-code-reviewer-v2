@@ -9,6 +9,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -31,7 +34,8 @@ class ReviewPreparationServiceTest {
                 bannerCalled.set(true);
                 bannerOutputDirectory.set(outputDirectory);
             },
-            (target, options) -> List.of(instruction)
+            (target, options) -> List.of(instruction),
+            Clock.fixed(Instant.parse("2026-02-19T09:10:11Z"), ZoneId.of("UTC"))
         );
 
         ReviewCommand.ParsedOptions options = new ReviewCommand.ParsedOptions(
@@ -66,8 +70,8 @@ class ReviewPreparationServiceTest {
         );
 
         assertThat(bannerCalled.get()).isTrue();
-        assertThat(prepared.outputDirectory()).isEqualTo(Path.of("./reports/owner/repo"));
-        assertThat(bannerOutputDirectory.get()).isEqualTo(Path.of("./reports/owner/repo"));
+        assertThat(prepared.outputDirectory()).isEqualTo(Path.of("./reports/owner/repo/2026-02-19-09-10-11"));
+        assertThat(bannerOutputDirectory.get()).isEqualTo(Path.of("./reports/owner/repo/2026-02-19-09-10-11"));
         assertThat(prepared.customInstructions()).containsExactly(instruction);
     }
 }
