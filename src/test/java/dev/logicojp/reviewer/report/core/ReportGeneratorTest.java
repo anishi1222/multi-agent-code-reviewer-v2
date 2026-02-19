@@ -7,7 +7,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -43,6 +42,7 @@ class ReportGeneratorTest {
         Path output = generator.generateReport(result);
 
         assertThat(output).exists();
+        assertThat(output.getFileName().toString()).isEqualTo("security-report.md");
         String content = Files.readString(output);
         assertThat(content).contains("Security");
         assertThat(content).contains("review body");
@@ -64,6 +64,9 @@ class ReportGeneratorTest {
         List<Path> paths = generator.generateReports(List.of(result1, result2));
 
         assertThat(paths).hasSize(2);
+        assertThat(paths)
+            .extracting(path -> path.getFileName().toString())
+            .containsExactlyInAnyOrder("security-report.md", "quality-report.md");
         assertThat(paths).allSatisfy(p -> assertThat(p).exists());
     }
 

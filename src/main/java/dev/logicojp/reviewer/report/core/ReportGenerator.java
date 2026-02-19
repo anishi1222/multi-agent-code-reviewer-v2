@@ -44,7 +44,7 @@ public class ReportGenerator {
      Path generateReport(ReviewResult result) throws IOException {
         ensureOutputDirectory();
         AgentConfig config = result.agentConfig();
-        Path reportPath = createReportPath(config, invocationTimestamp);
+        Path reportPath = createReportPath(config);
         
         String reportContent = reportContentFormatter.format(result, invocationTimestamp);
         Files.writeString(reportPath, reportContent);
@@ -76,8 +76,8 @@ public class ReportGenerator {
         return List.copyOf(paths);
     }
 
-    private Path createReportPath(AgentConfig config, String date) throws IOException {
-        String filename = buildReportFilename(config, date);
+    private Path createReportPath(AgentConfig config) throws IOException {
+        String filename = buildReportFilename(config);
         Path reportPath = outputDirectory.resolve(filename).normalize();
         if (!reportPath.startsWith(outputDirectory.normalize())) {
             throw new IOException("Invalid agent name: path traversal detected in '" + config.name() + "'");
@@ -85,9 +85,9 @@ public class ReportGenerator {
         return reportPath;
     }
 
-    private String buildReportFilename(AgentConfig config, String date) {
+    private String buildReportFilename(AgentConfig config) {
         String safeName = ReportFilenameUtils.sanitizeAgentName(config.name());
-        return "%s_%s.md".formatted(safeName, date);
+        return "%s-report.md".formatted(safeName);
     }
     
     private void ensureOutputDirectory() throws IOException {

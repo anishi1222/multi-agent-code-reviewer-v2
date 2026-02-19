@@ -39,7 +39,7 @@ class ReviewRunExecutorTest {
             formatter,
             cliOutput,
             (resolvedToken, context) -> List.of(successResult("agent-a", context.target().displayName())),
-            (results, outputDirectory) -> List.of(outputDirectory.resolve("agent-a_2026-02-16.md")),
+            (results, outputDirectory) -> List.of(outputDirectory.resolve("agent-a-report.md")),
             (results, context) -> {
                 summaryCalled.set(true);
                 return context.outputDirectory().resolve("executive_summary_2026-02-16.md");
