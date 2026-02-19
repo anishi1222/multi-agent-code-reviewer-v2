@@ -150,42 +150,28 @@
 ### 概要
 - 3回目のフルレビューサイクル（best-practices、複数ラウンド）を実施し、PR #41〜#65 で全指摘事項に対応しました。
 - Azure WAF エージェント（`azure-waf.agent.md`）を Well-Architected Framework の5つのピラー別エージェントに分割しました。
-- report パッケージをサブパッケージに分割し、モジュール性と可視性制御を改善しました。
 - StepSecurity による CI セキュリティ強化と GitHub Actions 用 Dependabot 設定を追加しました。
 - `SkillService` のスレッドセーフティ問題を `Collections.synchronizedMap` で修正しました。
 - テスト数が 722 から 730 以上に増加（nullable・防御的コピーのテスト追加）。
 
-### 主な変更
-
-#### PR #65: WAF エージェントのピラー別分割
 - 単一の `azure-waf.agent.md` を5つのピラー別エージェントに分割:
   - `waf-reliability.agent.md`、`waf-security.agent.md`、`waf-cost-optimization.agent.md`、`waf-operational-excellence.agent.md`、`waf-performance-efficiency.agent.md`
 - 全 SKILL.md のエージェント参照を対応するピラー別エージェントに更新
 
-#### PR #44: Report パッケージのサブパッケージ分割
 - `report/` を `report/finding/`、`report/summary/`、`report/util/` サブパッケージに分割
-- 36ファイルでクラスの可視性を最適化
 
-#### PRs #42, #43, #46, #47, #48: ベストプラクティスレビュー対応（ラウンド1〜5）
 - `@Factory` + `@Named` PrintStream ビーンによる CLI 出力の統一
 - `AgentConfigLoader` に `LinkedHashMap` を使用し安定したエージェント順序を確保
-- `OrchestratorConfig` のプロンプトフィールドを `PromptTexts` レコードにグループ化
 - `ReviewContext` のフィールドを `TimeoutConfig` と `CachedResources` レコードにグループ化
-- `ContentCollector` のキャッシュフィールドに volatile を追加
 - 仮想スレッドに名前プレフィックスを追加（可観測性向上）
 - `FrontmatterParser` の catch 句を縮小、`loadAs()` で型安全性向上
 - `ReviewResult` のタイムスタンプを `LocalDateTime` から `Instant` に変更、テスト容易性のため `Clock` を注入
 - 全 `toLowerCase` 呼び出しに `Locale.ROOT` を追加
 - `AgentPromptBuilder` と `CustomInstruction` の文字列連結をテキストブロックに変換
 - 不要コード削除: 未使用の `CommandExecutor` オーバーロード、`CopilotService` の initialized フラグ、空の `FeatureFlags` コンストラクタ
-
-#### PRs #61, #62: ベストプラクティスフォローアップ対応
-- `ReviewCommand.ParsedOptions` にコンパクトコンストラクタ + ビルダーを追加
 - `SkillService` の LRU を `LinkedHashMap.removeEldestEntry` でイディオマティックに変更
 - `ContentCollector` の汎用 `RuntimeException` を `SessionEventException` に変更
-- `SkillResult` のタイムスタンプを `Instant` に移行、`Clock` ベースのオーバーロードを追加
 - `SkillConfig.defaults()` ファクトリメソッドを追加
-- 全 catch ブロックのログに例外オブジェクトを最終 SLF4J 引数として追加（14箇所）
 
 #### PR #56: SkillService スレッドセーフティ修正
 - `SkillService.executorCache` を `ConcurrentHashMap` から `Collections.synchronizedMap` に変更し `computeIfAbsent` デッドロックリスクを回避
