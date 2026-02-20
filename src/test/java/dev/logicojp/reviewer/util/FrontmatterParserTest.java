@@ -171,4 +171,34 @@ class FrontmatterParserTest {
             assertThat(parsed.getOrDefault("missing", "fallback")).isEqualTo("fallback");
         }
     }
+
+    @Nested
+    @DisplayName("YAMLセキュリティ制限")
+    class YamlSecurityLimits {
+
+        @Test
+        @DisplayName("LoaderOptions制限値が明示設定されている")
+        void hasExplicitLoaderLimits() {
+            assertThat(FrontmatterParser.MAX_ALIASES_FOR_COLLECTIONS).isEqualTo(10);
+            assertThat(FrontmatterParser.FRONTMATTER_CODEPOINT_LIMIT).isEqualTo(64 * 1024);
+        }
+
+        @Test
+        @DisplayName("エイリアス過多のYAMLでも例外を外部へ伝播しない")
+        void handlesTooManyAliasesSafely() {
+            String content = """
+                ---
+                name: test
+                a: &a ["x"]
+                b: [*a,*a,*a,*a,*a,*a,*a,*a,*a,*a,*a,*a]
+                ---
+                Body content here.""".stripIndent();
+
+            var parsed = FrontmatterParser.parse(content);
+
+            assertThat(parsed.hasFrontmatter()).isTrue();
+            assertThat(parsed.get("name")).isEqualTo("test");
+            assertThat(parsed.body()).isEqualTo("Body content here.");
+        }
+    }
 }
