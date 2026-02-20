@@ -37,8 +37,7 @@ logs/
 Thumbs.db
 
 # Reports (generated output)
-/report/
-/reports/
+/reports
 
 # Claude
 CLAUDE.md
