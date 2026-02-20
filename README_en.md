@@ -106,7 +106,7 @@ Reference checklist: `reports/anishi1222/multi-agent-code-reviewer/documentation
 
 ## Requirements
 
-- **GraalVM 25** (Java 25)
+- **GraalVM 26** (Java 26) — `.sdkmanrc` manages the version via SDKMAN
 - GitHub Copilot CLI 0.0.407 or later
 - GitHub token (for repository access)
 
@@ -132,8 +132,8 @@ Recommended branch protection required checks:
 Using SDKMAN:
 
 ```bash
-sdk install java 25.0.2-graal
-sdk use java 25.0.2-graal
+sdk install java 26.ea.13-graal
+sdk use java 26.ea.13-graal
 
 # Auto-switch in project directory
 cd multi-agent-reviewer  # GraalVM is automatically selected via .sdkmanrc
@@ -218,6 +218,7 @@ java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--instructions` | - | Custom instruction file (can be specified multiple times) | - |
 | `--no-instructions` | - | Disable automatic loading of custom instructions | false |
 | `--no-prompts` | - | Disable loading `.github/prompts/*.prompt.md` | false |
+| `--trust` | - | Trust and load instructions from the review target | false |
 | `--help` | `-h` | Show help | - |
 | `--version` | `-V` | Show version | - |
 | `--verbose` | `-v` | Enable verbose logging (debug level) | - |
@@ -280,7 +281,7 @@ Supported file extensions:
 - Build: `.gradle`, `.cmake`, `.makefile`
 - Docs: `.md`, `.rst`, `.adoc`
 
-> **Note**: Files up to 256 KB each are collected, with a 2 MB total limit. Files that may contain sensitive information (`application-prod`, `.env`, `keystore`, etc.) are automatically excluded.
+> **Note**: Files up to 256 KB each are collected, with a 2 MB total limit. Files named `Makefile`, `Dockerfile`, `Rakefile`, or `Gemfile` (without extension) are also collected as source. Files that may contain sensitive information (`application-prod`, `.env`, `keystore`, etc.) are automatically excluded.
 
 ### Custom Instructions
 
@@ -305,7 +306,7 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 
 #### Auto-detected Instruction Files
 
-During local directory review, custom instructions are automatically loaded from the following paths (in order of priority):
+When the `--trust` flag is specified, custom instructions are automatically loaded from the review target directory at the following paths (in order of priority):
 
 1. `.github/copilot-instructions.md`
 2. `.copilot/instructions.md`
@@ -413,6 +414,10 @@ reviewer:
     summary-timeout-minutes: 20 # Summary timeout (minutes)
     gh-auth-timeout-seconds: 30 # GitHub auth timeout (seconds)
     max-retries: 2              # Max retry count on review failure
+    summary:
+      max-content-per-agent: 50000     # Max characters per agent content for summary prompt
+      max-total-prompt-content: 200000 # Max total prompt characters for summary generation
+      fallback-excerpt-length: 180     # Excerpt length used by fallback summary formatter
   feature-flags:
     structured-concurrency: false       # Enable Structured Concurrency
     structured-concurrency-skills: false # Enable Structured Concurrency for skills only
@@ -430,19 +435,18 @@ reviewer:
       type: http
       url: https://api.githubcopilot.com/mcp/
       tools:
-        - "*"
+        - "get_file_contents"
+        - "search_code"
+        - "list_commits"
+        - "get_commit"
       auth-header-name: Authorization
       auth-header-template: "Bearer {token}"
   models:
-    default-model: claude-sonnet-4.5  # Default for all models (changeable without rebuild)
+    default-model: claude-opus-4.6    # Default for all models (changeable without rebuild)
     review-model: GPT-5.3-Codex      # Model for review
     report-model: claude-opus-4.6-fast  # Model for report generation
     summary-model: claude-sonnet-4.5 # Model for summary generation
     reasoning-effort: high           # Reasoning effort level (low/medium/high)
-  summary:
-    max-content-per-agent: 50000     # Max characters per agent content for summary prompt
-    max-total-prompt-content: 200000 # Max total prompt characters for summary generation
-    fallback-excerpt-length: 180     # Excerpt length used by fallback summary formatter
 ```
 
 ### External Configuration Override
@@ -749,42 +753,26 @@ flowchart TB
     %% ── Review flow ──
     subgraph ReviewFlow["Review Flow"]
         direction TB
-        ReviewCommand --> ReviewExecutionCoordinator
-        ReviewExecutionCoordinator --> ReviewRunExecutor
-
-        ReviewRunExecutor --> ReviewService
-        ReviewService --> CustomInstructionLoader
-        ReviewService --> ReviewOrchestratorFactory
+        ReviewCommand --> CustomInstructionLoader
+        ReviewCommand --> ReviewOrchestratorFactory
         ReviewOrchestratorFactory --> ReviewOrchestrator
 
         subgraph Orchestrator["ReviewOrchestrator"]
             direction TB
-            LocalSourcePrecomputer["LocalSourcePrecomputer
-            Local source pre-collection"]
-            ReviewContextFactory["ReviewContextFactory
-            Shared context creation"]
-            ReviewExecutionModeRunner["ReviewExecutionModeRunner
-            Async / Structured Concurrency"]
-            AgentReviewExecutor["AgentReviewExecutor
-            Semaphore control + Timeout"]
-            ReviewResultPipeline["ReviewResultPipeline
-            Result collection & merge"]
-
-            LocalSourcePrecomputer --> ReviewContextFactory
-            ReviewContextFactory --> ReviewExecutionModeRunner
-            ReviewExecutionModeRunner --> AgentReviewExecutor
-            AgentReviewExecutor --> ReviewAgent
-            ReviewAgent --> ContentSanitizer
-            ReviewExecutionModeRunner --> ReviewResultPipeline
-            ReviewResultPipeline --> ReviewResultMerger["ReviewResultMerger
+            ReviewAgent["ReviewAgent
+            Per-agent review + timeout"]
+            ContentSanitizer["ContentSanitizer
+            LLM preamble / CoT removal"]
+            ReviewResultMerger["ReviewResultMerger
             Multi-pass deduplication"]
+
+            ReviewAgent --> ContentSanitizer
+            ReviewAgent --> ReviewResultMerger
         end
 
-        ReviewRunExecutor --> ReportService
-        ReportService --> ReportGeneratorFactory["ReportGeneratorFactory
-        Report/summary generator factory"]
-        ReportGeneratorFactory --> ReportGenerator
-        ReportGeneratorFactory --> SummaryGenerator["SummaryGenerator
+        ReviewCommand --> ReportService
+        ReportService --> ReportGenerator
+        ReportService --> SummaryGenerator["SummaryGenerator
         AI-powered summary"]
     end
 
@@ -794,8 +782,7 @@ flowchart TB
     %% ── Skill flow ──
     subgraph SkillFlow["Skill Flow"]
         direction TB
-        SkillCommand --> SkillExecutionCoordinator
-        SkillExecutionCoordinator --> SkillService
+        SkillCommand --> SkillService
         SkillService --> SkillRegistry
         SkillService --> SkillExecutor["SkillExecutor
         Structured Concurrency"]
@@ -807,25 +794,19 @@ flowchart TB
         GitHubTarget
         LocalTarget --> LocalFileProvider
     end
-    ReviewService --> Target
+    ReviewOrchestrator --> Target
 
     %% ── Shared services ──
     subgraph Shared["Shared Services"]
         direction LR
         CopilotService["CopilotService
         SDK lifecycle management"]
-      CopilotClientStarter["CopilotClientStarter
-      SDK client bootstrap"]
-      CopilotCliHealthChecker["CopilotCliHealthChecker
-      gh copilot health/auth checks"]
         TemplateService
         SecurityAuditLogger["SecurityAuditLogger
         Structured security audit logging"]
     end
 
-    ReviewExecutionCoordinator --> CopilotService
-    CopilotService --> CopilotClientStarter
-    CopilotService --> CopilotCliHealthChecker
+    ReviewCommand --> CopilotService
 
     %% ── External ──
     subgraph External["External"]
@@ -900,7 +881,7 @@ Templates support `{{placeholder}}` format placeholders. See each template file 
 
 ## Project Structure
 
-The following tree is synchronized with the current source layout as of 2026-02-20 (v12).
+The following tree is synchronized with the current source layout.
 
 ```
 multi-agent-reviewer/
@@ -938,145 +919,57 @@ multi-agent-reviewer/
     ├── agent/
     │   ├── AgentConfig.java             # Config model
     │   ├── AgentConfigLoader.java       # Config loader
-    │   ├── AgentConfigValidator.java    # Config validation
     │   ├── AgentMarkdownParser.java     # .agent.md parser
     │   ├── AgentPromptBuilder.java      # Agent prompt builder
     │   ├── ContentCollector.java        # Review content collector
-    │   ├── EventSubscriptions.java      # Event subscriptions
-    │   ├── IdleTimeoutScheduler.java    # Idle timeout scheduler
     │   ├── ReviewAgent.java             # Review agent
     │   ├── ReviewContext.java           # Shared review context
-    │   ├── ReviewMessageFlow.java       # Review message flow
-    │   ├── ReviewResultFactory.java     # Review result factory
-    │   ├── ReviewRetryExecutor.java     # Review retry executor
-    │   ├── ReviewSessionConfigFactory.java # Session config factory
-    │   ├── ReviewSessionEvents.java     # Session event management
-    │   ├── ReviewSessionMessageSender.java # Session message sender
-    │   ├── ReviewSystemPromptFormatter.java # System prompt formatter
-    │   ├── ReviewTargetInstructionResolver.java # Target instruction resolver
     │   └── SessionEventException.java   # Session event exception
     ├── cli/
     │   ├── CliOutput.java               # CLI output utilities
-    │   ├── CliOutputFactory.java        # CLI output factory
     │   ├── CliParsing.java              # CLI option parsing
-    │   ├── CliUsage.java                # Help / usage display
     │   ├── CliValidationException.java  # CLI input validation exception
-    │   ├── CommandExecutor.java         # Command execution framework
     │   ├── ExitCodes.java               # Exit code constants
-    │   ├── LifecycleRunner.java         # Shared lifecycle executor helper
     │   ├── ListAgentsCommand.java       # list subcommand
-    │   ├── ReviewAgentConfigResolver.java # Agent config resolver
-    │   ├── ReviewCommand.java           # review subcommand
-    │   ├── ReviewCustomInstructionResolver.java # Custom instruction resolver
-    │   ├── ReviewExecutionCoordinator.java # Review execution coordinator
-    │   ├── ReviewModelConfigResolver.java # Model config resolver
-    │   ├── ReviewOptionsParser.java     # Review options parser
-    │   ├── ReviewOutputFormatter.java   # Review output formatter
-    │   ├── ReviewPreparationService.java # Review preparation service
-    │   ├── ReviewRunExecutor.java       # Review run executor
-    │   ├── ReviewRunRequestFactory.java # Review run request factory
-    │   ├── ReviewTargetResolver.java    # Review target resolver
-    │   ├── SkillCommand.java            # skill subcommand
-    │   ├── SkillExecutionCoordinator.java # Skill execution coordinator
-    │   ├── SkillExecutionPreparation.java # Skill execution preparation
-    │   ├── SkillOptionsParser.java      # Skill options parser
-    │   └── SkillOutputFormatter.java    # Skill output formatter
+    │   ├── ReviewCommand.java           # run subcommand
+    │   └── SkillCommand.java            # skill subcommand
     ├── config/
-    │   ├── AgentPathConfig.java         # Agent path config
     │   ├── ConfigDefaults.java          # Shared default normalization helpers
     │   ├── ExecutionConfig.java         # Execution config
     │   ├── GithubMcpConfig.java         # GitHub MCP config
-    │   ├── LocalFileConfig.java         # Local file config
     │   ├── ModelConfig.java             # LLM model config
-    │   ├── SkillConfig.java             # Skill config
-    │   ├── SummaryConfig.java           # Summary generation limits config
+    │   ├── ReviewerConfig.java          # Unified config (agents, local-files, skills)
     │   └── TemplateConfig.java          # Template config
     ├── instruction/
     │   ├── CustomInstruction.java       # Custom instruction model
     │   ├── CustomInstructionLoader.java # Instruction loader
-    │   ├── CustomInstructionSafetyValidator.java # Instruction safety validator
-    │   ├── InstructionFrontmatter.java  # Instruction frontmatter
-    │   ├── InstructionSource.java       # Source type
-    │   ├── PromptLoader.java            # Prompt file loader
-    │   └── ScopedInstructionLoader.java # Scoped instruction loader
+    │   └── CustomInstructionSafetyValidator.java # Instruction safety validator
     ├── orchestrator/
-    │   ├── AgentReviewExecutor.java     # Agent review executor
-    │   ├── AgentReviewer.java           # Agent reviewer interface
-    │   ├── AgentReviewerFactory.java    # Agent reviewer factory
-    │   ├── ExecutorResources.java       # Executor resource bundle
-    │   ├── LocalSourceCollector.java    # Local source collector interface
-    │   ├── LocalSourceCollectorFactory.java # Local source collector factory
-    │   ├── LocalSourcePrecomputer.java  # Local source precomputer
-    │   ├── OrchestratorCollaborators.java # Orchestrator collaborator interfaces
-    │   ├── OrchestratorConfig.java      # Orchestrator configuration record
-    │   ├── PromptTexts.java             # Prompt text record
-    │   ├── ReviewContextFactory.java    # Review context factory
-    │   ├── ReviewExecutionModeRunner.java # Execution mode runner
     │   ├── ReviewOrchestrator.java      # Parallel execution control
     │   ├── ReviewOrchestratorFactory.java # Orchestrator factory
-    │   └── ReviewResultPipeline.java    # Result pipeline
+    │   └── ReviewResultMerger.java      # Multi-pass result merger
     ├── report/
-    │   ├── core/
-    │   │   ├── ReportGenerator.java      # Individual report generation
-    │   │   └── ReviewResult.java         # Result model
-    │   ├── factory/
-    │   │   └── ReportGeneratorFactory.java # Report/summary generator factory
-    │   ├── finding/
-    │   │   ├── AggregatedFinding.java    # Aggregated finding
-    │   │   ├── FindingsExtractor.java    # Findings extraction
-    │   │   ├── FindingsParser.java       # Findings parser
-    │   │   ├── ReviewFindingParser.java  # Review finding parser
-    │   │   └── ReviewFindingSimilarity.java # Duplicate finding similarity
-    │   ├── formatter/
-    │   │   ├── FindingsSummaryFormatter.java # Findings summary formatter
-    │   │   ├── ReportContentFormatter.java # Report content formatter
-    │   │   ├── ReviewMergedContentFormatter.java # Merged content formatter
-    │   │   └── SummaryFinalReportFormatter.java # Summary final formatter
-    │   ├── merger/
-    │   │   └── ReviewResultMerger.java   # Multi-pass result merger
-    │   ├── sanitize/
-    │   │   ├── ContentSanitizationPipeline.java # Sanitization pipeline
-    │   │   ├── ContentSanitizationRule.java # Sanitization rule
-    │   │   └── ContentSanitizer.java     # LLM preamble / CoT removal
-    │   ├── summary/
-    │   │   ├── FallbackSummaryBuilder.java # Fallback summary builder
-    │   │   ├── SummaryGenerator.java     # Summary generation
-    │   │   └── SummaryPromptBuilder.java # Summary prompt builder
-    │   └── util/
-    │       ├── ReportFileUtils.java      # Report file utilities
-    │       └── ReportFilenameUtils.java  # Safe report filename helper
+    │   ├── ContentSanitizer.java        # LLM preamble / CoT removal
+    │   ├── FindingsExtractor.java       # Findings extraction
+    │   ├── ReportGenerator.java         # Individual report generation
+    │   ├── ReportService.java           # Report generation service
+    │   ├── ReviewResult.java            # Result model
+    │   └── SummaryGenerator.java        # Summary generation
     ├── service/
     │   ├── AgentService.java            # Agent management
-    │   ├── CopilotClientStarter.java    # Copilot client starter
-    │   ├── CopilotCliException.java     # Copilot CLI exception
-    │   ├── CopilotCliHealthChecker.java # Copilot CLI health checker
-    │   ├── CopilotCliPathResolver.java  # Copilot CLI path resolver
     │   ├── CopilotService.java          # Copilot SDK integration
-    │   ├── CopilotStartupErrorFormatter.java # Startup error formatter
-    │   ├── CopilotTimeoutResolver.java  # Timeout resolver
-    │   ├── ReportService.java           # Report generation
-    │   ├── ReviewService.java           # Review execution
     │   ├── SkillService.java            # Skill management
     │   └── TemplateService.java         # Template loading
     ├── skill/
     │   ├── SkillDefinition.java         # Skill definition model
     │   ├── SkillExecutor.java           # Skill executor
     │   ├── SkillMarkdownParser.java     # Skill markdown parser
-    │   ├── SkillParameter.java          # Skill parameter model
-    │   ├── SkillRegistry.java           # Skill registry
-    │   └── SkillResult.java             # Skill result model
+    │   └── SkillRegistry.java           # Skill registry
     ├── target/
-    │   ├── LocalFileCandidate.java      # Local file candidate
-    │   ├── LocalFileCandidateCollector.java # File candidate collector
-    │   ├── LocalFileCandidateProcessor.java # File candidate processor
-    │   ├── LocalFileContentFormatter.java # File content formatter
     │   ├── LocalFileProvider.java       # Local file collector
-    │   ├── LocalFileSelectionConfig.java # File selection config
     │   └── ReviewTarget.java            # Review target (sealed interface)
     └── util/
         ├── CliPathResolver.java         # CLI path resolver
-        ├── ExecutorUtils.java           # Executor utilities
-        ├── FeatureFlags.java            # Feature flag resolution
         ├── FrontmatterParser.java       # YAML frontmatter parser
         ├── GitHubTokenResolver.java     # GitHub token resolution
         ├── SecurityAuditLogger.java     # Structured security audit logging

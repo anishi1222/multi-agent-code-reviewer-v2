@@ -106,7 +106,7 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 
 ## 要件
 
-- **GraalVM 25** (Java 25)
+- **GraalVM 26** (Java 26)
 - GitHub Copilot CLI 0.0.407 以上
 - GitHub トークン（リポジトリアクセス用）
 
@@ -132,8 +132,8 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 SDKMAN を使用する場合:
 
 ```bash
-sdk install java 25.0.2-graal
-sdk use java 25.0.2-graal
+sdk install java 26.ea.13-graal
+sdk use java 26.ea.13-graal
 
 # プロジェクトディレクトリで自動切り替え
 cd multi-agent-reviewer  # .sdkmanrc により自動的にGraalVMが選択される
@@ -218,6 +218,7 @@ java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--instructions` | - | カスタムインストラクションファイル（複数指定可） | - |
 | `--no-instructions` | - | カスタムインストラクションの自動読込を無効化 | false |
 | `--no-prompts` | - | `.github/prompts/*.prompt.md` の読込を無効化 | false |
+| `--trust` | - | レビュー対象からのインストラクション読み込みを信頼して実行 | false |
 | `--help` | `-h` | ヘルプ表示 | - |
 | `--version` | `-V` | バージョン表示 | - |
 | `--verbose` | `-v` | 詳細ログ出力（debugレベル） | - |
@@ -280,6 +281,8 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 - ビルド: `.gradle`, `.cmake`, `.makefile`
 - ドキュメント: `.md`, `.rst`, `.adoc`
 
+> **注意**: 拡張子のないファイルのうち、`Makefile`、`Dockerfile`、`Rakefile`、`Gemfile` も自動的に収集対象に含まれます。
+
 > **注意**: 1ファイルあたり最大256KB、合計最大2MBまで収集されます。機密情報を含む可能性のあるファイル（`application-prod`、`.env`、`keystore`等）は自動的に除外されます。
 
 ### カスタムインストラクション
@@ -305,7 +308,8 @@ java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 
 #### 自動検出されるインストラクションファイル
 
-ローカルディレクトリレビュー時、以下のパスからカスタムインストラクションが自動的に読み込まれます（優先度順）:
+ローカルディレクトリレビュー時、以下のパスからカスタムインストラクションが自動的に読み込まれます（優先度順）。
+レビュー対象からのインストラクション読み込みには `--trust` フラグが必要です。
 
 1. `.github/copilot-instructions.md`
 2. `.copilot/instructions.md`
@@ -413,9 +417,10 @@ reviewer:
     summary-timeout-minutes: 20 # サマリータイムアウト（分）
     gh-auth-timeout-seconds: 30 # GitHub認証タイムアウト（秒）
     max-retries: 2              # レビュー失敗時の最大リトライ回数
-  feature-flags:
-    structured-concurrency: false       # Structured Concurrency の有効化
-    structured-concurrency-skills: false # スキル実行のみ Structured Concurrency を有効化
+    summary:                    # サマリー生成制限設定
+      max-content-per-agent: 50000     # エージェント別最大文字数
+      max-total-prompt-content: 200000 # 総プロンプト最大文字数
+      fallback-excerpt-length: 180     # フォールバック抜粋長
   local-files:
     max-file-size: 262144               # ローカルファイル最大サイズ（256KB）
     max-total-size: 2097152             # ローカルファイル合計最大サイズ（2MB）
@@ -430,19 +435,18 @@ reviewer:
       type: http
       url: https://api.githubcopilot.com/mcp/
       tools:
-        - "*"
+        - "get_file_contents"
+        - "search_code"
+        - "list_commits"
+        - "get_commit"
       auth-header-name: Authorization
       auth-header-template: "Bearer {token}"
   models:
-    default-model: claude-sonnet-4.5  # 全モデルのデフォルト（ビルド不要で変更可能）
+    default-model: claude-opus-4.6    # 全モデルのデフォルト（ビルド不要で変更可能）
     review-model: GPT-5.3-Codex      # レビュー用モデル
     report-model: claude-opus-4.6-fast  # レポート生成用モデル
     summary-model: claude-sonnet-4.5 # サマリー生成用モデル
     reasoning-effort: high           # 推論モデルのエフォートレベル (low/medium/high)
-  summary:
-    max-content-per-agent: 50000     # サマリープロンプト生成時のエージェント別最大文字数
-    max-total-prompt-content: 200000 # サマリー生成時の総プロンプト最大文字数
-    fallback-excerpt-length: 180     # フォールバックサマリーで使用する抜粋長
 ```
 
 ### 外部設定ファイルによる上書き
@@ -749,42 +753,26 @@ flowchart TB
     %% ── レビューフロー ──
     subgraph ReviewFlow["レビューフロー"]
         direction TB
-        ReviewCommand --> ReviewExecutionCoordinator
-        ReviewExecutionCoordinator --> ReviewRunExecutor
-
-        ReviewRunExecutor --> ReviewService
-        ReviewService --> CustomInstructionLoader
-        ReviewService --> ReviewOrchestratorFactory
+        ReviewCommand --> ReviewOrchestratorFactory
         ReviewOrchestratorFactory --> ReviewOrchestrator
+        ReviewCommand --> CustomInstructionLoader
 
         subgraph Orchestrator["ReviewOrchestrator"]
             direction TB
-            LocalSourcePrecomputer["LocalSourcePrecomputer
-            ローカルソース事前収集"]
-            ReviewContextFactory["ReviewContextFactory
-            共有コンテキスト生成"]
-            ReviewExecutionModeRunner["ReviewExecutionModeRunner
-            非同期 / Structured Concurrency"]
-            AgentReviewExecutor["AgentReviewExecutor
-            Semaphore制御 + タイムアウト"]
-            ReviewResultPipeline["ReviewResultPipeline
-            結果収集・マージ"]
-
-            LocalSourcePrecomputer --> ReviewContextFactory
-            ReviewContextFactory --> ReviewExecutionModeRunner
-            ReviewExecutionModeRunner --> AgentReviewExecutor
-            AgentReviewExecutor --> ReviewAgent
-            ReviewAgent --> ContentSanitizer
-            ReviewExecutionModeRunner --> ReviewResultPipeline
-            ReviewResultPipeline --> ReviewResultMerger["ReviewResultMerger
+            ReviewAgent["ReviewAgent
+            エージェント実行 + タイムアウト"]
+            ContentSanitizer["ContentSanitizer
+            LLM前置き文/CoT除去"]
+            ReviewResultMerger["ReviewResultMerger
             マルチパス重複排除"]
+
+            ReviewAgent --> ContentSanitizer
+            ReviewAgent --> ReviewResultMerger
         end
 
-        ReviewRunExecutor --> ReportService
-        ReportService --> ReportGeneratorFactory["ReportGeneratorFactory
-        レポート/サマリー生成ファクトリ"]
-        ReportGeneratorFactory --> ReportGenerator
-        ReportGeneratorFactory --> SummaryGenerator["SummaryGenerator
+        ReviewCommand --> ReportService
+        ReportService --> ReportGenerator
+        ReportService --> SummaryGenerator["SummaryGenerator
         AI要約生成"]
     end
 
@@ -794,8 +782,7 @@ flowchart TB
     %% ── スキルフロー ──
     subgraph SkillFlow["スキルフロー"]
         direction TB
-        SkillCommand --> SkillExecutionCoordinator
-        SkillExecutionCoordinator --> SkillService
+        SkillCommand --> SkillService
         SkillService --> SkillRegistry
         SkillService --> SkillExecutor["SkillExecutor
         Structured Concurrency"]
@@ -807,25 +794,19 @@ flowchart TB
         GitHubTarget
         LocalTarget --> LocalFileProvider
     end
-    ReviewService --> Target
+    ReviewOrchestrator --> Target
 
     %% ── 共有サービス ──
     subgraph Shared["共有サービス"]
         direction LR
         CopilotService["CopilotService
         SDK ライフサイクル管理"]
-      CopilotClientStarter["CopilotClientStarter
-      SDK クライアント起動"]
-      CopilotCliHealthChecker["CopilotCliHealthChecker
-      gh copilot ヘルス/認証チェック"]
         TemplateService
         SecurityAuditLogger["SecurityAuditLogger
         構造化セキュリティ監査ログ"]
     end
 
-    ReviewExecutionCoordinator --> CopilotService
-    CopilotService --> CopilotClientStarter
-    CopilotService --> CopilotCliHealthChecker
+    ReviewCommand --> CopilotService
 
     %% ── 外部サービス ──
     subgraph External["外部サービス"]
@@ -900,7 +881,7 @@ reviewer:
 
 ## プロジェクト構造
 
-以下のツリーは 2026-02-20 (v12) 時点の現行ソース構成に同期済みです。
+以下のツリーは現行ソース構成に同期済みです。
 
 ```
 multi-agent-reviewer/
@@ -938,145 +919,57 @@ multi-agent-reviewer/
     ├── agent/
     │   ├── AgentConfig.java             # 設定モデル
     │   ├── AgentConfigLoader.java       # 設定読込
-    │   ├── AgentConfigValidator.java    # 設定バリデーション
     │   ├── AgentMarkdownParser.java     # .agent.md パーサー
     │   ├── AgentPromptBuilder.java      # エージェントプロンプト構築
     │   ├── ContentCollector.java        # レビューコンテンツ収集
-    │   ├── EventSubscriptions.java      # イベントサブスクリプション
-    │   ├── IdleTimeoutScheduler.java    # アイドルタイムアウトスケジューラ
     │   ├── ReviewAgent.java             # レビューエージェント
     │   ├── ReviewContext.java           # 共有レビューコンテキスト
-    │   ├── ReviewMessageFlow.java       # レビューメッセージフロー
-    │   ├── ReviewResultFactory.java     # レビュー結果ファクトリ
-    │   ├── ReviewRetryExecutor.java     # レビューリトライ実行
-    │   ├── ReviewSessionConfigFactory.java # セッション設定ファクトリ
-    │   ├── ReviewSessionEvents.java     # セッションイベント管理
-    │   ├── ReviewSessionMessageSender.java # セッションメッセージ送信
-    │   ├── ReviewSystemPromptFormatter.java # システムプロンプト整形
-    │   ├── ReviewTargetInstructionResolver.java # ターゲットインストラクション解決
     │   └── SessionEventException.java   # セッションイベント例外
     ├── cli/
     │   ├── CliOutput.java               # CLI出力ユーティリティ
-    │   ├── CliOutputFactory.java        # CLI出力ファクトリ
     │   ├── CliParsing.java              # CLIオプション解析
-    │   ├── CliUsage.java                # ヘルプ・使い方表示
     │   ├── CliValidationException.java  # CLI入力バリデーション例外
-    │   ├── CommandExecutor.java         # コマンド実行基盤
     │   ├── ExitCodes.java               # 終了コード定数
-    │   ├── LifecycleRunner.java         # 共有ライフサイクル実行ヘルパー
     │   ├── ListAgentsCommand.java       # listサブコマンド
-    │   ├── ReviewAgentConfigResolver.java # エージェント設定解決
-    │   ├── ReviewCommand.java           # reviewサブコマンド
-    │   ├── ReviewCustomInstructionResolver.java # カスタムインストラクション解決
-    │   ├── ReviewExecutionCoordinator.java # レビュー実行調整
-    │   ├── ReviewModelConfigResolver.java # モデル設定解決
-    │   ├── ReviewOptionsParser.java     # レビューオプション解析
-    │   ├── ReviewOutputFormatter.java   # レビュー出力整形
-    │   ├── ReviewPreparationService.java # レビュー準備サービス
-    │   ├── ReviewRunExecutor.java       # レビュー実行
-    │   ├── ReviewRunRequestFactory.java # レビュー実行リクエストファクトリ
-    │   ├── ReviewTargetResolver.java    # レビューターゲット解決
-    │   ├── SkillCommand.java            # skillサブコマンド
-    │   ├── SkillExecutionCoordinator.java # スキル実行調整
-    │   ├── SkillExecutionPreparation.java # スキル実行準備
-    │   ├── SkillOptionsParser.java      # スキルオプション解析
-    │   └── SkillOutputFormatter.java    # スキル出力整形
+    │   ├── ReviewCommand.java           # runサブコマンド
+    │   └── SkillCommand.java            # skillサブコマンド
     ├── config/
-    │   ├── AgentPathConfig.java         # エージェントパス設定
     │   ├── ConfigDefaults.java          # 共通デフォルト正規化ヘルパー
     │   ├── ExecutionConfig.java         # 実行設定
     │   ├── GithubMcpConfig.java         # GitHub MCP設定
-    │   ├── LocalFileConfig.java         # ローカルファイル設定
     │   ├── ModelConfig.java             # LLMモデル設定
-    │   ├── SkillConfig.java             # スキル設定
-    │   ├── SummaryConfig.java           # サマリー生成制限設定
+    │   ├── ReviewerConfig.java          # 統合設定（agents, local-files, skills）
     │   └── TemplateConfig.java          # テンプレート設定
     ├── instruction/
     │   ├── CustomInstruction.java       # カスタムインストラクションモデル
     │   ├── CustomInstructionLoader.java # インストラクション読込
-    │   ├── CustomInstructionSafetyValidator.java # インストラクション安全性検証
-    │   ├── InstructionFrontmatter.java  # インストラクションフロントマター
-    │   ├── InstructionSource.java       # ソース種別
-    │   ├── PromptLoader.java            # プロンプトファイル読込
-    │   └── ScopedInstructionLoader.java # スコープ付きインストラクション読込
+    │   └── CustomInstructionSafetyValidator.java # インストラクション安全性検証
     ├── orchestrator/
-    │   ├── AgentReviewExecutor.java     # エージェントレビュー実行
-    │   ├── AgentReviewer.java           # エージェントレビューアーインターフェース
-    │   ├── AgentReviewerFactory.java    # エージェントレビューアーファクトリ
-    │   ├── ExecutorResources.java       # エグゼキュータリソースバンドル
-    │   ├── LocalSourceCollector.java    # ローカルソース収集インターフェース
-    │   ├── LocalSourceCollectorFactory.java # ローカルソース収集ファクトリ
-    │   ├── LocalSourcePrecomputer.java  # ローカルソース事前計算
-    │   ├── OrchestratorCollaborators.java # オーケストレータ協調インターフェース
-    │   ├── OrchestratorConfig.java      # オーケストレータ設定レコード
-    │   ├── PromptTexts.java             # プロンプトテキストレコード
-    │   ├── ReviewContextFactory.java    # レビューコンテキストファクトリ
-    │   ├── ReviewExecutionModeRunner.java # 実行モード選択
     │   ├── ReviewOrchestrator.java      # 並列実行制御
     │   ├── ReviewOrchestratorFactory.java # オーケストレータファクトリ
-    │   └── ReviewResultPipeline.java    # 結果パイプライン
+    │   └── ReviewResultMerger.java      # マルチパス結果マージ
     ├── report/
-    │   ├── core/
-    │   │   ├── ReportGenerator.java      # 個別レポート生成
-    │   │   └── ReviewResult.java         # 結果モデル
-    │   ├── factory/
-    │   │   └── ReportGeneratorFactory.java # レポート/サマリージェネレータファクトリ
-    │   ├── finding/
-    │   │   ├── AggregatedFinding.java    # 集約された指摘
-    │   │   ├── FindingsExtractor.java    # 指摘事項抽出
-    │   │   ├── FindingsParser.java       # 指摘事項パーサー
-    │   │   ├── ReviewFindingParser.java  # レビュー指摘パーサー
-    │   │   └── ReviewFindingSimilarity.java # 重複指摘類似度判定
-    │   ├── formatter/
-    │   │   ├── FindingsSummaryFormatter.java # 指摘サマリー整形
-    │   │   ├── ReportContentFormatter.java # レポートコンテンツ整形
-    │   │   ├── ReviewMergedContentFormatter.java # マージコンテンツ整形
-    │   │   └── SummaryFinalReportFormatter.java # サマリー最終整形
-    │   ├── merger/
-    │   │   └── ReviewResultMerger.java   # マルチパス結果マージ
-    │   ├── sanitize/
-    │   │   ├── ContentSanitizationPipeline.java # サニタイズパイプライン
-    │   │   ├── ContentSanitizationRule.java # サニタイズルール
-    │   │   └── ContentSanitizer.java     # LLM前置き文/CoT除去
-    │   ├── summary/
-    │   │   ├── FallbackSummaryBuilder.java # フォールバックサマリー構築
-    │   │   ├── SummaryGenerator.java     # サマリー生成
-    │   │   └── SummaryPromptBuilder.java # サマリープロンプト構築
-    │   └── util/
-    │       ├── ReportFileUtils.java      # レポートファイルユーティリティ
-    │       └── ReportFilenameUtils.java  # 安全なレポートファイル名ヘルパー
+    │   ├── ContentSanitizer.java        # LLM前置き文/CoT除去
+    │   ├── FindingsExtractor.java       # 指摘事項抽出
+    │   ├── ReportGenerator.java         # 個別レポート生成
+    │   ├── ReportService.java           # レポート生成サービス
+    │   ├── ReviewResult.java            # 結果モデル
+    │   └── SummaryGenerator.java        # サマリー生成
     ├── service/
     │   ├── AgentService.java            # エージェント管理
-    │   ├── CopilotClientStarter.java    # Copilotクライアント起動
-    │   ├── CopilotCliException.java     # Copilot CLI例外
-    │   ├── CopilotCliHealthChecker.java # Copilot CLIヘルスチェック
-    │   ├── CopilotCliPathResolver.java  # Copilot CLIパス解決
     │   ├── CopilotService.java          # Copilot SDK連携
-    │   ├── CopilotStartupErrorFormatter.java # 起動エラー整形
-    │   ├── CopilotTimeoutResolver.java  # タイムアウト解決
-    │   ├── ReportService.java           # レポート生成
-    │   ├── ReviewService.java           # レビュー実行
     │   ├── SkillService.java            # スキル管理
     │   └── TemplateService.java         # テンプレート読込
     ├── skill/
     │   ├── SkillDefinition.java         # スキル定義モデル
     │   ├── SkillExecutor.java           # スキル実行
     │   ├── SkillMarkdownParser.java     # スキルMarkdownパーサー
-    │   ├── SkillParameter.java          # スキルパラメータモデル
-    │   ├── SkillRegistry.java           # スキルレジストリ
-    │   └── SkillResult.java             # スキル結果モデル
+    │   └── SkillRegistry.java           # スキルレジストリ
     ├── target/
-    │   ├── LocalFileCandidate.java      # ローカルファイル候補
-    │   ├── LocalFileCandidateCollector.java # ファイル候補収集
-    │   ├── LocalFileCandidateProcessor.java # ファイル候補処理
-    │   ├── LocalFileContentFormatter.java # ファイルコンテンツ整形
     │   ├── LocalFileProvider.java       # ローカルファイル収集
-    │   ├── LocalFileSelectionConfig.java # ファイル選択設定
     │   └── ReviewTarget.java            # レビュー対象（sealed interface）
     └── util/
         ├── CliPathResolver.java         # CLIパス解決
-        ├── ExecutorUtils.java           # エグゼキュータユーティリティ
-        ├── FeatureFlags.java            # 機能フラグ解決
         ├── FrontmatterParser.java       # YAMLフロントマターパーサー
         ├── GitHubTokenResolver.java     # GitHubトークン解決
         ├── SecurityAuditLogger.java     # 構造化セキュリティ監査ログ

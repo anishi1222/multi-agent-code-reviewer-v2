@@ -20,9 +20,13 @@ reviewer:
     max-accumulated-size: 4194304
     initial-accumulated-capacity: 4096
     instruction-buffer-extra-capacity: 32
-  feature-flags:
-    structured-concurrency: ${REVIEWER_STRUCTURED_CONCURRENCY:false}
-    structured-concurrency-skills: ${REVIEWER_STRUCTURED_CONCURRENCY_SKILLS:${REVIEWER_STRUCTURED_CONCURRENCY:false}}
+    summary:
+      max-content-per-agent: 50000
+      max-total-prompt-content: 200000
+      fallback-excerpt-length: 180
+      average-result-content-estimate: 8192
+      initial-buffer-margin: 4096
+      excerpt-normalization-multiplier: 3
   local-files:
     max-file-size: 262144
     max-total-size: 2097152
@@ -65,10 +69,3 @@ reviewer:
     report-model: claude-opus-4.6-fast
     summary-model: claude-sonnet-4.5
     reasoning-effort: high
-  summary:
-    max-content-per-agent: 50000
-    max-total-prompt-content: 200000
-    fallback-excerpt-length: 180
-    average-result-content-estimate: 8192
-    initial-buffer-margin: 4096
-    excerpt-normalization-multiplier: 3

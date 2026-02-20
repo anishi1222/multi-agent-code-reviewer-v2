@@ -1,0 +1,168 @@
+package dev.logicojp.reviewer.skill;
+
+import dev.logicojp.reviewer.config.GithubMcpConfig;
+import dev.logicojp.reviewer.util.StructuredConcurrencyUtils;
+import com.github.copilot.sdk.CopilotClient;
+import com.github.copilot.sdk.SystemMessageMode;
+import com.github.copilot.sdk.json.MessageOptions;
+import com.github.copilot.sdk.json.SessionConfig;
+import com.github.copilot.sdk.json.SystemMessageConfig;
+import io.micronaut.core.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+/// Executes skills using the Copilot SDK with StructuredTaskScope for timeout control.
+public class SkillExecutor implements AutoCloseable {
+
+    private static final Logger logger = LoggerFactory.getLogger(SkillExecutor.class);
+
+    /// Result of a skill execution.
+    public record Result(
+        String skillId,
+        boolean success,
+        String content,
+        String errorMessage,
+        Instant timestamp
+    ) {
+        public Result {
+            timestamp = (timestamp == null) ? Instant.now() : timestamp;
+        }
+
+        public static Result success(String skillId, String content) {
+            return new Result(skillId, true, content, null, Instant.now(Clock.systemUTC()));
+        }
+
+        public static Result failure(String skillId, String errorMessage) {
+            return new Result(skillId, false, null, errorMessage, Instant.now(Clock.systemUTC()));
+        }
+
+        public static Result success(String skillId, String content, Clock clock) {
+            return new Result(skillId, true, content, null, Instant.now(clock));
+        }
+
+        public static Result failure(String skillId, String errorMessage, Clock clock) {
+            return new Result(skillId, false, null, errorMessage, Instant.now(clock));
+        }
+    }
+
+    /// Configuration values for {@link SkillExecutor} behavior.
+    public record Config(
+        String defaultModel,
+        long timeoutMinutes,
+        int maxParameterValueLength,
+        int executorShutdownTimeoutSeconds
+    ) {
+        public Config {
+            defaultModel = Objects.requireNonNull(defaultModel, "defaultModel must not be null");
+        }
+    }
+
+    private final CopilotClient client;
+    private final String defaultModel;
+    private final long timeoutMinutes;
+    private final int maxParameterValueLength;
+    private final Map<String, Object> cachedMcpServers;
+
+    public SkillExecutor(CopilotClient client, String githubToken,
+                         GithubMcpConfig githubMcpConfig,
+                         Config config) {
+        this.client = client;
+        this.defaultModel = config.defaultModel();
+        this.timeoutMinutes = config.timeoutMinutes();
+        this.maxParameterValueLength = config.maxParameterValueLength();
+        this.cachedMcpServers = GithubMcpConfig.buildMcpServers(githubToken, githubMcpConfig).orElse(Map.of());
+    }
+
+    /// Executes a skill with the given parameters.
+    public Result execute(SkillDefinition skill, Map<String, String> parameters) {
+        return execute(skill, parameters, null);
+    }
+
+    /// Executes a skill with the given parameters and optional system prompt.
+    public Result execute(SkillDefinition skill,
+                          Map<String, String> parameters,
+                          @Nullable String systemPrompt) {
+        try {
+            return executeWithTimeout(skill, parameters, systemPrompt);
+        } catch (Exception e) {
+            logger.error("Skill execution failed for {}: {}", skill.id(), e.getMessage(), e);
+            return Result.failure(skill.id(), e.getMessage());
+        }
+    }
+
+    private Result executeWithTimeout(SkillDefinition skill,
+                                      Map<String, String> parameters,
+                                      String systemPrompt) throws Exception {
+        try (var scope = StructuredTaskScope.<Result>open()) {
+            var task = scope.fork(() -> executeSync(skill, parameters, systemPrompt));
+            try {
+                StructuredConcurrencyUtils.joinWithTimeout(scope, timeoutMinutes, TimeUnit.MINUTES);
+            } catch (TimeoutException _) {
+                return Result.failure(skill.id(),
+                    "Skill timed out after " + timeoutMinutes + " minutes");
+            }
+
+            return switch (task.state()) {
+                case SUCCESS -> task.get();
+                case FAILED -> Result.failure(skill.id(),
+                    "Skill failed: " + (task.exception() != null ? task.exception().getMessage() : "unknown"));
+                case UNAVAILABLE -> Result.failure(skill.id(),
+                    "Skill cancelled after " + timeoutMinutes + " minutes");
+            };
+        }
+    }
+
+    private Result executeSync(SkillDefinition skill,
+                               Map<String, String> parameters,
+                               String systemPrompt) throws Exception {
+        logger.info("Executing skill: {} with parameters: {}", skill.id(), parameters.keySet());
+
+        skill.validateParameters(parameters);
+        String prompt = skill.buildPrompt(parameters, maxParameterValueLength);
+
+        var sessionConfigBuilder = new SessionConfig()
+            .setModel(defaultModel);
+
+        if (!cachedMcpServers.isEmpty()) {
+            sessionConfigBuilder.setMcpServers(cachedMcpServers);
+        }
+
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            sessionConfigBuilder.setSystemMessage(new SystemMessageConfig()
+                .setMode(SystemMessageMode.APPEND)
+                .setContent(systemPrompt));
+        }
+
+        long timeoutMs = TimeUnit.MINUTES.toMillis(timeoutMinutes);
+
+        try (var session = client.createSession(sessionConfigBuilder).get(timeoutMinutes, TimeUnit.MINUTES)) {
+            logger.debug("Sending skill prompt: {} (timeout: {} min)", skill.id(), timeoutMinutes);
+            var response = session
+                .sendAndWait(new MessageOptions().setPrompt(prompt), timeoutMs)
+                .get(timeoutMinutes, TimeUnit.MINUTES);
+
+            String content = response.getData().content();
+
+            if (content == null || content.isBlank()) {
+                logger.warn("Skill {} returned empty content", skill.id());
+                return Result.failure(skill.id(), "Skill returned empty content");
+            }
+
+            logger.info("Skill execution completed: {} (content length: {} chars)", skill.id(), content.length());
+            return Result.success(skill.id(), content);
+        }
+    }
+
+    @Override
+    public void close() {
+        // No owned executor to shut down in v2
+    }
+}
