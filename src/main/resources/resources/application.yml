@@ -1,0 +1,74 @@
+micronaut:
+  application:
+    name: multi-agent-reviewer
+
+reviewer:
+  agents:
+    directories:
+      - ./agents
+      - ./.github/agents
+  execution:
+    parallelism: 4
+    review-passes: 3
+    orchestrator-timeout-minutes: 45
+    agent-timeout-minutes: 20
+    idle-timeout-minutes: 5
+    skill-timeout-minutes: 20
+    summary-timeout-minutes: 20
+    gh-auth-timeout-seconds: 30
+    max-retries: 2
+    max-accumulated-size: 4194304
+    initial-accumulated-capacity: 4096
+    instruction-buffer-extra-capacity: 32
+  feature-flags:
+    structured-concurrency: ${REVIEWER_STRUCTURED_CONCURRENCY:false}
+    structured-concurrency-skills: ${REVIEWER_STRUCTURED_CONCURRENCY_SKILLS:${REVIEWER_STRUCTURED_CONCURRENCY:false}}
+  local-files:
+    max-file-size: 262144
+    max-total-size: 2097152
+  templates:
+    directory: templates
+    default-output-format: default-output-format.md
+    report: report.md
+    local-review-content: local-review-content.md
+    output-constraints: output-constraints.md
+    summary:
+      system-prompt: summary-system.md
+      user-prompt: summary-prompt.md
+      executive-summary: executive-summary.md
+    fallback:
+      summary: fallback-summary.md
+  skills:
+    filename: SKILL.md
+    directory: .github/skills
+    max-parameter-value-length: 10000
+    max-executor-cache-size: 16
+    executor-cache-initial-capacity: 16
+    executor-cache-load-factor: 0.75
+    service-shutdown-timeout-seconds: 60
+    executor-shutdown-timeout-seconds: 30
+  mcp:
+    github:
+      type: http
+      url: https://api.githubcopilot.com/mcp/
+      tools:
+        - "get_file_contents"
+        - "search_code"
+        - "list_commits"
+        - "get_commit"
+      auth-header-name: Authorization
+      # Token value is injected at runtime from environment/CLI; no secret is stored in this file.
+      auth-header-template: "Bearer {token}"
+  models:
+    default-model: claude-opus-4.6
+    review-model: GPT-5.3-Codex
+    report-model: claude-opus-4.6-fast
+    summary-model: claude-sonnet-4.5
+    reasoning-effort: high
+  summary:
+    max-content-per-agent: 50000
+    max-total-prompt-content: 200000
+    fallback-excerpt-length: 180
+    average-result-content-estimate: 8192
+    initial-buffer-margin: 4096
+    excerpt-normalization-multiplier: 3

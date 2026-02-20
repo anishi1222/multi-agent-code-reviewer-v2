@@ -1,0 +1,3 @@
+# Enable auto-env through sdkman_auto_env config
+# GraalVM 26 for Java 26
+java=26.ea.13-graal
