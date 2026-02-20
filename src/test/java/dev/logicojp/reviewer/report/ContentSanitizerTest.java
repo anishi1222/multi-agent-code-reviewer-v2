@@ -77,5 +77,23 @@ class ContentSanitizerTest {
             String result = ContentSanitizer.sanitize(input);
             assertThat(result).doesNotContain("javascript:");
         }
+
+        @Test
+        @DisplayName("HTML数値エンティティでエンコードされたjavascriptプロトコルを除去する")
+        void removesEncodedJavascriptProtocol() {
+            String input = "<a href=\"jav&#97;script:alert(1)\">click</a>";
+            String result = ContentSanitizer.sanitize(input);
+            assertThat(result).doesNotContain("javascript:");
+            assertThat(result).doesNotContain("alert(1)");
+        }
+
+        @Test
+        @DisplayName("HTML数値エンティティでエンコードされたイベントハンドラを除去する")
+        void removesEncodedEventHandler() {
+            String input = "<img src=x on&#101;rror=alert(1)>";
+            String result = ContentSanitizer.sanitize(input);
+            assertThat(result).doesNotContain("onerror=");
+            assertThat(result).doesNotContain("alert(1)");
+        }
     }
 }

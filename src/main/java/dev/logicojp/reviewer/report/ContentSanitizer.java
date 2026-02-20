@@ -40,13 +40,16 @@ public final class ContentSanitizer {
     /// Pattern to collapse three or more consecutive blank lines into two.
     private static final Pattern EXCESSIVE_BLANK_LINES = Pattern.compile("\\n{3,}");
 
+    /// Pattern to match numeric HTML entities (decimal/hex), e.g. &#97; or &#x61;.
+    private static final Pattern NUMERIC_HTML_ENTITY_PATTERN = Pattern.compile("&#(x[0-9a-fA-F]+|\\d+);");
+
     /// Pattern to match dangerous HTML elements that could enable XSS when rendered.
     private static final Pattern DANGEROUS_HTML_PATTERN = Pattern.compile(
         "<\\s*(script|iframe|object|embed|form|input|base|link|meta|style)\\b[^>]*>.*?</\\s*\\1\\s*>|" +
         "<\\s*(script|iframe|object|embed|form|input|base|link|meta|style)\\b[^>]*/?>|" +
-        "\\bon\\w+\\s*=|" +
-        "javascript\\s*:|" +
-        "vbscript\\s*:|" +
+        "\\bon\\w+\\s*=\\s*(?:\"[^\"]*\"|'[^']*'|[^\\s>]+)|" +
+        "javascript\\s*:[^\\s\"'>]+|" +
+        "vbscript\\s*:[^\\s\"'>]+|" +
         "data\\s*:[^,]*;base64",
         Pattern.DOTALL | Pattern.CASE_INSENSITIVE
     );
@@ -77,10 +80,34 @@ public final class ContentSanitizer {
         if (content == null) {
             return null;
         }
-        String result = content;
+        String result = decodeNumericHtmlEntities(content);
         for (Rule rule : RULES) {
             result = rule.apply(result);
         }
         return result.strip();
+    }
+
+    private static String decodeNumericHtmlEntities(String input) {
+        Matcher matcher = NUMERIC_HTML_ENTITY_PATTERN.matcher(input);
+        StringBuffer decoded = new StringBuffer(input.length());
+
+        while (matcher.find()) {
+            String entityValue = matcher.group(1);
+            String replacement = matcher.group();
+            try {
+                int codePoint = entityValue.startsWith("x") || entityValue.startsWith("X")
+                    ? Integer.parseInt(entityValue.substring(1), 16)
+                    : Integer.parseInt(entityValue, 10);
+                if (Character.isValidCodePoint(codePoint)) {
+                    replacement = new String(Character.toChars(codePoint));
+                }
+            } catch (IllegalArgumentException _) {
+                replacement = matcher.group();
+            }
+            matcher.appendReplacement(decoded, Matcher.quoteReplacement(replacement));
+        }
+
+        matcher.appendTail(decoded);
+        return decoded.toString();
     }
 }

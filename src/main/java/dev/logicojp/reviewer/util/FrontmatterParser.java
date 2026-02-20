@@ -22,6 +22,9 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 /// ```
 public final class FrontmatterParser {
 
+    static final int MAX_ALIASES_FOR_COLLECTIONS = 10;
+    static final int FRONTMATTER_CODEPOINT_LIMIT = 64 * 1024;
+
     private static final Pattern FRONTMATTER_PATTERN = Pattern.compile(
         "^---\\s*\\n(.*?)\\n---\\s*\\n(.*)$",
         Pattern.DOTALL
@@ -110,7 +113,7 @@ public final class FrontmatterParser {
     /// Falls back to manual parsing for YAML special characters.
     private static Map<String, String> parseFields(String frontmatter) {
         try {
-            var yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
+            var yaml = new Yaml(new SafeConstructor(buildLoaderOptions()));
             Map<?, ?> parsed = yaml.loadAs(frontmatter, Map.class);
             if (parsed == null) {
                 return Map.of();
@@ -125,6 +128,13 @@ public final class FrontmatterParser {
         } catch (org.yaml.snakeyaml.error.YAMLException | ClassCastException _) {
             return parseFieldsManually(frontmatter);
         }
+    }
+
+    private static LoaderOptions buildLoaderOptions() {
+        var options = new LoaderOptions();
+        options.setMaxAliasesForCollections(MAX_ALIASES_FOR_COLLECTIONS);
+        options.setCodePointLimit(FRONTMATTER_CODEPOINT_LIMIT);
+        return options;
     }
 
     private static Map<String, String> parseFieldsManually(String frontmatter) {
