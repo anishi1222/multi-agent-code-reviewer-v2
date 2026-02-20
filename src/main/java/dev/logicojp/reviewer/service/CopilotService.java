@@ -144,11 +144,8 @@ public class CopilotService {
         clientStarter.start(new CopilotClientStarter.StartableClient() {
             @Override
             public void start(long timeoutSeconds) throws ExecutionException, TimeoutException, InterruptedException {
-                if (timeoutSeconds > 0) {
-                    createdClient.start().get(timeoutSeconds, TimeUnit.SECONDS);
-                } else {
-                    createdClient.start().get();
-                }
+                long effectiveTimeoutSeconds = timeoutSeconds > 0 ? timeoutSeconds : DEFAULT_START_TIMEOUT_SECONDS;
+                createdClient.start().get(effectiveTimeoutSeconds, TimeUnit.SECONDS);
             }
 
             @Override

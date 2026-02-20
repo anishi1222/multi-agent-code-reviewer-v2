@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,7 +60,7 @@ class ReviewRetryExecutorTest {
         ReviewResult result = executor.execute(
             () -> {
                 attempts.incrementAndGet();
-                throw new IllegalStateException("boom");
+                throw new TimeoutException("boom");
             },
             this::failureFromException
         );
@@ -68,6 +69,27 @@ class ReviewRetryExecutorTest {
         assertThat(result.errorMessage()).isEqualTo("boom");
         assertThat(attempts.get()).isEqualTo(2);
         assertThat(sleeps.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("非一時的な例外は再試行せずに失敗を返す")
+    void doesNotRetryOnNonTransientException() {
+        var attempts = new AtomicInteger();
+        var sleeps = new AtomicInteger();
+        var executor = new ReviewRetryExecutor("security", 2, 1, 4, _ -> sleeps.incrementAndGet());
+
+        ReviewResult result = executor.execute(
+            () -> {
+                attempts.incrementAndGet();
+                throw new IllegalArgumentException("invalid model");
+            },
+            this::failureFromException
+        );
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.errorMessage()).isEqualTo("invalid model");
+        assertThat(attempts.get()).isEqualTo(1);
+        assertThat(sleeps.get()).isZero();
     }
 
     private ReviewResult successResult() {

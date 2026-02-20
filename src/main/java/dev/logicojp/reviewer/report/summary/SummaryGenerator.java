@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
@@ -77,6 +78,9 @@ public class SummaryGenerator {
         DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss");
     private static final Pattern INVOCATION_TIMESTAMP_PATTERN =
         Pattern.compile("\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}");
+    private static final int AI_SUMMARY_MAX_RETRIES = 1;
+    private static final long RETRY_BACKOFF_BASE_MS = 1_000L;
+    private static final long RETRY_BACKOFF_MAX_MS = 4_000L;
     
     private final Path outputDirectory;
     private final CopilotClient client;
@@ -154,34 +158,81 @@ public class SummaryGenerator {
     }
     
     private String buildSummaryWithAI(List<ReviewResult> results, String repository) {
-        // Create a new session for summary generation
         logger.info("Using model for summary: {}", summaryModel);
-        var sessionConfig = createSummarySessionConfig();
+        int totalAttempts = AI_SUMMARY_MAX_RETRIES + 1;
 
-        long timeoutMs = TimeUnit.MINUTES.toMillis(timeoutMinutes);
+        for (int attempt = 1; attempt <= totalAttempts; attempt++) {
+            var sessionConfig = createSummarySessionConfig();
+            long timeoutMs = TimeUnit.MINUTES.toMillis(timeoutMinutes);
 
-        try (CopilotSession session = client.createSession(sessionConfig)
-            .get(timeoutMinutes, TimeUnit.MINUTES)) {
-            String prompt = summaryPromptBuilder.buildSummaryPrompt(results, repository);
-            // Pass the configured timeout to sendAndWait explicitly.
-            // The SDK default (60s) is too short for summarizing large review results.
-            var response = session
-                .sendAndWait(new MessageOptions().setPrompt(prompt), timeoutMs)
-                .get(timeoutMinutes, TimeUnit.MINUTES);
-            String content = response.getData().content();
-            if (content == null || content.isBlank()) {
-                return fallbackSummary(results, "AI summary response was empty");
+            try (CopilotSession session = client.createSession(sessionConfig)
+                .get(timeoutMinutes, TimeUnit.MINUTES)) {
+                String prompt = summaryPromptBuilder.buildSummaryPrompt(results, repository);
+                var response = session
+                    .sendAndWait(new MessageOptions().setPrompt(prompt), timeoutMs)
+                    .get(timeoutMinutes, TimeUnit.MINUTES);
+                String content = response.getData().content();
+                if (content == null || content.isBlank()) {
+                    if (attempt < totalAttempts) {
+                        waitRetryBackoff(attempt);
+                        logger.warn("Summary generation returned empty content on attempt {}/{}. Retrying...",
+                            attempt, totalAttempts);
+                        continue;
+                    }
+                    return fallbackSummary(results, "AI summary response was empty");
+                }
+                return content;
+            } catch (ExecutionException | TimeoutException e) {
+                boolean retryable = isTransientFailure(e);
+                if (retryable && attempt < totalAttempts) {
+                    waitRetryBackoff(attempt);
+                    logger.warn("Summary generation failed on attempt {}/{}: {}. Retrying...",
+                        attempt, totalAttempts, e.getMessage(), e);
+                    continue;
+                }
+                return fallbackSummary(results,
+                    "Failed to create or execute summary session: " + e.getMessage());
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new CopilotCliException("Summary generation interrupted", ex);
             }
-            return content;
-        } catch (ExecutionException e) {
-            return fallbackSummary(results,
-                "Failed to create or execute summary session: " + e.getMessage());
-        } catch (TimeoutException ex) {
-            return fallbackSummary(results, "Summary generation timed out: " + ex.getMessage());
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new CopilotCliException("Summary generation interrupted", ex);
         }
+
+        return fallbackSummary(results, "Summary generation exhausted all attempts");
+    }
+
+    private void waitRetryBackoff(int attempt) {
+        long baseBackoffMs = Math.min(RETRY_BACKOFF_BASE_MS << Math.max(0, attempt - 1), RETRY_BACKOFF_MAX_MS);
+        long jitterMs = ThreadLocalRandom.current().nextLong((baseBackoffMs / 2) + 1);
+        long backoffMs = Math.min(baseBackoffMs + jitterMs, RETRY_BACKOFF_MAX_MS);
+        try {
+            Thread.sleep(backoffMs);
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private boolean isTransientFailure(Exception exception) {
+        Throwable cause = exception;
+        if (exception instanceof ExecutionException executionException && executionException.getCause() != null) {
+            cause = executionException.getCause();
+        }
+
+        String message = cause.getMessage();
+        if (message == null || message.isBlank()) {
+            return cause instanceof TimeoutException;
+        }
+
+        String lower = message.toLowerCase();
+        return cause instanceof TimeoutException
+            || lower.contains("timeout")
+            || lower.contains("temporarily")
+            || lower.contains("rate limit")
+            || lower.contains("too many requests")
+            || lower.contains("429")
+            || lower.contains("503")
+            || lower.contains("connection reset")
+            || lower.contains("network");
     }
 
     private SessionConfig createSummarySessionConfig() {

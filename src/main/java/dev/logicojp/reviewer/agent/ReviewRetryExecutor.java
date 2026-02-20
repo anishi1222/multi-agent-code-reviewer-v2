@@ -4,11 +4,21 @@ import dev.logicojp.reviewer.report.core.ReviewResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+
 /// Executes review attempts with retry/backoff behavior.
 final class ReviewRetryExecutor {
 
     static final long DEFAULT_BACKOFF_BASE_MS = 1000L;
     static final long DEFAULT_BACKOFF_MAX_MS = 8000L;
+    static final int DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 8;
+    static final long DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT_MS = 30_000L;
+
+    private static final SharedCircuitBreaker GLOBAL_CIRCUIT_BREAKER =
+        new SharedCircuitBreaker(DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD, DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT_MS);
 
     @FunctionalInterface
     interface AttemptExecutor {
@@ -32,16 +42,18 @@ final class ReviewRetryExecutor {
     private final long backoffBaseMs;
     private final long backoffMaxMs;
     private final SleepStrategy sleepStrategy;
+    private final SharedCircuitBreaker circuitBreaker;
 
     ReviewRetryExecutor(String agentName,
                         int maxRetries,
                         long backoffBaseMs,
                         long backoffMaxMs) {
-        this(agentName, maxRetries, backoffBaseMs, backoffMaxMs, Thread::sleep);
+        this(agentName, maxRetries, backoffBaseMs, backoffMaxMs, Thread::sleep, GLOBAL_CIRCUIT_BREAKER);
     }
 
     ReviewRetryExecutor(String agentName, int maxRetries) {
-        this(agentName, maxRetries, DEFAULT_BACKOFF_BASE_MS, DEFAULT_BACKOFF_MAX_MS, Thread::sleep);
+        this(agentName, maxRetries, DEFAULT_BACKOFF_BASE_MS, DEFAULT_BACKOFF_MAX_MS, Thread::sleep,
+            GLOBAL_CIRCUIT_BREAKER);
     }
 
     ReviewRetryExecutor(String agentName,
@@ -49,14 +61,29 @@ final class ReviewRetryExecutor {
                         long backoffBaseMs,
                         long backoffMaxMs,
                         SleepStrategy sleepStrategy) {
+        this(agentName, maxRetries, backoffBaseMs, backoffMaxMs, sleepStrategy, GLOBAL_CIRCUIT_BREAKER);
+    }
+
+    ReviewRetryExecutor(String agentName,
+                        int maxRetries,
+                        long backoffBaseMs,
+                        long backoffMaxMs,
+                        SleepStrategy sleepStrategy,
+                        SharedCircuitBreaker circuitBreaker) {
         this.agentName = agentName;
         this.maxRetries = maxRetries;
         this.backoffBaseMs = backoffBaseMs;
         this.backoffMaxMs = backoffMaxMs;
         this.sleepStrategy = sleepStrategy;
+        this.circuitBreaker = circuitBreaker;
     }
 
     ReviewResult execute(AttemptExecutor attemptExecutor, ExceptionMapper exceptionMapper) {
+        if (!circuitBreaker.allowRequest()) {
+            logger.warn("Agent {} skipped by open circuit breaker", agentName);
+            return exceptionMapper.map(new IllegalStateException("Circuit breaker is open for Copilot calls"));
+        }
+
         int totalAttempts = maxRetries + 1;
         ReviewResult lastResult = null;
 
@@ -64,24 +91,39 @@ final class ReviewRetryExecutor {
             try {
                 lastResult = attemptExecutor.execute();
                 if (lastResult.success()) {
+                    circuitBreaker.onSuccess();
                     logRetrySuccess(attempt, totalAttempts);
                     return lastResult;
                 }
 
-                if (shouldRetry(attempt, totalAttempts)) {
+                circuitBreaker.onFailure();
+                boolean retryableFailure = isRetryableFailure(lastResult);
+                if (shouldRetry(attempt, totalAttempts, retryableFailure)) {
                     waitRetryBackoff(attempt);
                     logResultFailureRetry(attempt, totalAttempts, lastResult.errorMessage());
                 } else {
                     logResultFailureFinal(attempt, totalAttempts, lastResult.errorMessage());
+                    if (!retryableFailure) {
+                        logger.info("Agent {} encountered non-retryable failure on attempt {}/{}",
+                            agentName, attempt, totalAttempts);
+                    }
+                    break;
                 }
             } catch (Exception e) {
                 lastResult = exceptionMapper.map(e);
+                circuitBreaker.onFailure();
 
-                if (shouldRetry(attempt, totalAttempts)) {
+                boolean transientException = isTransientException(e);
+                if (shouldRetry(attempt, totalAttempts, transientException)) {
                     waitRetryBackoff(attempt);
                     logExceptionRetry(attempt, totalAttempts, e);
                 } else {
                     logExceptionFinal(attempt, totalAttempts, e);
+                    if (!transientException) {
+                        logger.info("Agent {} encountered non-transient exception and will not retry: {}",
+                            agentName, e.getClass().getSimpleName());
+                    }
+                    break;
                 }
             }
         }
@@ -89,8 +131,8 @@ final class ReviewRetryExecutor {
         return lastResult;
     }
 
-    private boolean shouldRetry(int attempt, int totalAttempts) {
-        return attempt < totalAttempts;
+    private boolean shouldRetry(int attempt, int totalAttempts, boolean retryable) {
+        return retryable && attempt < totalAttempts;
     }
 
     private void logRetrySuccess(int attempt, int totalAttempts) {
@@ -120,11 +162,102 @@ final class ReviewRetryExecutor {
     }
 
     private void waitRetryBackoff(int attempt) {
-        long backoffMs = Math.min(backoffBaseMs << Math.max(0, attempt - 1), backoffMaxMs);
+        long baseBackoffMs = Math.min(backoffBaseMs << Math.max(0, attempt - 1), backoffMaxMs);
+        long jitterMs = ThreadLocalRandom.current().nextLong((baseBackoffMs / 2) + 1);
+        long backoffMs = Math.min(baseBackoffMs + jitterMs, backoffMaxMs);
         try {
             sleepStrategy.sleep(backoffMs);
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private boolean isTransientException(Exception exception) {
+        if (exception instanceof TimeoutException) {
+            return true;
+        }
+        if (exception instanceof IOException) {
+            return true;
+        }
+        if (exception instanceof SessionEventException) {
+            return true;
+        }
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        String lower = message.toLowerCase();
+        return lower.contains("timeout")
+            || lower.contains("temporarily")
+            || lower.contains("rate limit")
+            || lower.contains("too many requests")
+            || lower.contains("429")
+            || lower.contains("503")
+            || lower.contains("connection reset")
+            || lower.contains("network");
+    }
+
+    private boolean isRetryableFailure(ReviewResult result) {
+        String message = result.errorMessage();
+        if (message == null || message.isBlank()) {
+            return true;
+        }
+        String lower = message.toLowerCase();
+        if (lower.contains("unauthorized")
+            || lower.contains("forbidden")
+            || lower.contains("invalid token")
+            || lower.contains("authentication")
+            || lower.contains("invalid model")
+            || lower.contains("bad request")
+            || lower.contains("400")
+            || lower.contains("401")
+            || lower.contains("403")
+            || lower.contains("404")) {
+            return false;
+        }
+        return true;
+    }
+
+    static final class SharedCircuitBreaker {
+        private final int failureThreshold;
+        private final long resetTimeoutMs;
+        private final AtomicInteger consecutiveFailures = new AtomicInteger();
+        private volatile long openedAtMs = -1L;
+
+        SharedCircuitBreaker(int failureThreshold, long resetTimeoutMs) {
+            this.failureThreshold = failureThreshold;
+            this.resetTimeoutMs = resetTimeoutMs;
+        }
+
+        boolean allowRequest() {
+            int failures = consecutiveFailures.get();
+            if (failures < failureThreshold) {
+                return true;
+            }
+
+            long openedAt = openedAtMs;
+            if (openedAt < 0) {
+                return true;
+            }
+            long elapsedMs = System.currentTimeMillis() - openedAt;
+            if (elapsedMs >= resetTimeoutMs) {
+                consecutiveFailures.set(Math.max(0, failureThreshold - 1));
+                openedAtMs = -1L;
+                return true;
+            }
+            return false;
+        }
+
+        void onSuccess() {
+            consecutiveFailures.set(0);
+            openedAtMs = -1L;
+        }
+
+        void onFailure() {
+            int failures = consecutiveFailures.incrementAndGet();
+            if (failures >= failureThreshold && openedAtMs < 0) {
+                openedAtMs = System.currentTimeMillis();
+            }
         }
     }
 }
