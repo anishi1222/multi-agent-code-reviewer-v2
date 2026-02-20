@@ -1,12 +1,15 @@
 package dev.logicojp.reviewer.report.util;
 
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Set;
+import java.util.UUID;
 
 /// Shared file helpers for report generation.
 public final class ReportFileUtils {
@@ -40,9 +43,26 @@ public final class ReportFileUtils {
     }
 
     public static void writeSecureString(Path filePath, String content) throws IOException {
-        Files.writeString(filePath, content);
-        if (supportsPosix(filePath)) {
-            Files.setPosixFilePermissions(filePath, OWNER_FILE_PERMISSIONS);
+        Path tempFilePath = filePath.resolveSibling(filePath.getFileName() + ".tmp." + UUID.randomUUID());
+        try {
+            Files.writeString(tempFilePath, content);
+            if (supportsPosix(tempFilePath)) {
+                Files.setPosixFilePermissions(tempFilePath, OWNER_FILE_PERMISSIONS);
+            }
+            moveAtomically(tempFilePath, filePath);
+            if (supportsPosix(filePath)) {
+                Files.setPosixFilePermissions(filePath, OWNER_FILE_PERMISSIONS);
+            }
+        } finally {
+            Files.deleteIfExists(tempFilePath);
+        }
+    }
+
+    private static void moveAtomically(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException _) {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 

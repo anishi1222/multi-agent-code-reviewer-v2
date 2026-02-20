@@ -12,12 +12,15 @@ import io.micronaut.core.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -25,6 +28,9 @@ import java.util.concurrent.TimeoutException;
 public class SkillExecutor implements AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(SkillExecutor.class);
+    private static final int MAX_RETRIES = 1;
+    private static final long BACKOFF_BASE_MS = 500L;
+    private static final long BACKOFF_MAX_MS = 2_000L;
     private final CopilotClient client;
     private final String defaultModel;
     private final long timeoutMinutes;
@@ -79,15 +85,111 @@ public class SkillExecutor implements AutoCloseable {
     private SkillResult executeSafely(SkillDefinition skill,
                                       Map<String, String> parameters,
                                       String systemPrompt) {
-        try {
-            if (structuredConcurrencyEnabled) {
-                return executeWithStructuredConcurrency(skill, parameters, systemPrompt);
+        int totalAttempts = MAX_RETRIES + 1;
+        SkillResult lastResult = SkillResult.failure(skill.id(), "Skill execution did not produce a result");
+
+        for (int attempt = 1; attempt <= totalAttempts; attempt++) {
+            try {
+                SkillResult result;
+                if (structuredConcurrencyEnabled) {
+                    result = executeWithStructuredConcurrency(skill, parameters, systemPrompt);
+                } else {
+                    result = executeSync(skill, parameters, systemPrompt);
+                }
+
+                if (result.success()) {
+                    if (attempt > 1) {
+                        logger.info("Skill {} succeeded on retry attempt {}/{}", skill.id(), attempt, totalAttempts);
+                    }
+                    return result;
+                }
+
+                lastResult = result;
+                boolean retryableFailure = isRetryableFailure(result);
+                if (shouldRetry(attempt, totalAttempts, retryableFailure)) {
+                    waitRetryBackoff(attempt);
+                    logger.warn("Skill {} failed on attempt {}/{}: {}. Retrying...",
+                        skill.id(), attempt, totalAttempts, result.errorMessage());
+                    continue;
+                }
+                return result;
+            } catch (Exception e) {
+                lastResult = SkillResult.failure(skill.id(), e.getMessage());
+                boolean transientException = isTransientException(e);
+                if (shouldRetry(attempt, totalAttempts, transientException)) {
+                    waitRetryBackoff(attempt);
+                    logger.warn("Skill {} threw exception on attempt {}/{}: {}. Retrying...",
+                        skill.id(), attempt, totalAttempts, e.getMessage(), e);
+                    continue;
+                }
+                logger.error("Skill execution failed for {}: {}", skill.id(), e.getMessage(), e);
+                return lastResult;
             }
-            return executeSync(skill, parameters, systemPrompt);
-        } catch (Exception e) {
-            logger.error("Skill execution failed for {}: {}", skill.id(), e.getMessage(), e);
-            return SkillResult.failure(skill.id(), e.getMessage());
         }
+
+        return lastResult;
+    }
+
+    private boolean shouldRetry(int attempt, int totalAttempts, boolean retryable) {
+        return retryable && attempt < totalAttempts;
+    }
+
+    private void waitRetryBackoff(int attempt) {
+        long baseBackoffMs = Math.min(BACKOFF_BASE_MS << Math.max(0, attempt - 1), BACKOFF_MAX_MS);
+        long jitterMs = ThreadLocalRandom.current().nextLong((baseBackoffMs / 2) + 1);
+        long backoffMs = Math.min(baseBackoffMs + jitterMs, BACKOFF_MAX_MS);
+        try {
+            Thread.sleep(backoffMs);
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private boolean isRetryableFailure(SkillResult result) {
+        String errorMessage = result.errorMessage();
+        if (errorMessage == null || errorMessage.isBlank()) {
+            return true;
+        }
+        String lower = errorMessage.toLowerCase();
+        return !(lower.contains("missing required parameter")
+            || lower.contains("validation")
+            || lower.contains("unauthorized")
+            || lower.contains("forbidden")
+            || lower.contains("invalid token")
+            || lower.contains("invalid model")
+            || lower.contains("bad request")
+            || lower.contains("400")
+            || lower.contains("401")
+            || lower.contains("403")
+            || lower.contains("404"));
+    }
+
+    private boolean isTransientException(Exception exception) {
+        Throwable rootCause = exception;
+        if (exception instanceof ExecutionException executionException && executionException.getCause() != null) {
+            rootCause = executionException.getCause();
+        }
+
+        if (rootCause instanceof TimeoutException) {
+            return true;
+        }
+        if (rootCause instanceof IOException) {
+            return true;
+        }
+
+        String message = rootCause.getMessage();
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        String lower = message.toLowerCase();
+        return lower.contains("timeout")
+            || lower.contains("temporarily")
+            || lower.contains("rate limit")
+            || lower.contains("too many requests")
+            || lower.contains("429")
+            || lower.contains("503")
+            || lower.contains("connection reset")
+            || lower.contains("network");
     }
 
     private SkillResult executeWithStructuredConcurrency(SkillDefinition skill,
