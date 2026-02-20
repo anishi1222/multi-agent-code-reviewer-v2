@@ -23,6 +23,9 @@
       "allPublicConstructors": true
     },
     {
+      "type": "ch.qos.logback.core.FileAppender"
+    },
+    {
       "type": "ch.qos.logback.core.OutputStreamAppender",
       "methods": [
         {
@@ -59,6 +62,62 @@
       ]
     },
     {
+      "type": "ch.qos.logback.core.rolling.RollingFileAppender",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "setFile",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "setRollingPolicy",
+          "parameterTypes": [
+            "ch.qos.logback.core.rolling.RollingPolicy"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ch.qos.logback.core.rolling.RollingPolicy"
+    },
+    {
+      "type": "ch.qos.logback.core.rolling.RollingPolicyBase",
+      "methods": [
+        {
+          "name": "setFileNamePattern",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "setParent",
+          "parameterTypes": [
+            "ch.qos.logback.core.FileAppender"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ch.qos.logback.core.rolling.TimeBasedRollingPolicy",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "setMaxHistory",
+          "parameterTypes": [
+            "int"
+          ]
+        }
+      ]
+    },
+    {
       "type": "ch.qos.logback.core.spi.ContextAware"
     },
     {
@@ -87,6 +146,82 @@
     },
     {
       "type": "com.fasterxml.jackson.databind.ser.Serializers[]"
+    },
+    {
+      "type": "com.github.benmanes.caffeine.cache.BLCHeader$DrainStatusRef",
+      "fields": [
+        {
+          "name": "drainStatus"
+        }
+      ]
+    },
+    {
+      "type": "com.github.benmanes.caffeine.cache.BaseMpscLinkedArrayQueueColdProducerFields",
+      "fields": [
+        {
+          "name": "producerLimit"
+        }
+      ]
+    },
+    {
+      "type": "com.github.benmanes.caffeine.cache.BaseMpscLinkedArrayQueueConsumerFields",
+      "fields": [
+        {
+          "name": "consumerIndex"
+        }
+      ]
+    },
+    {
+      "type": "com.github.benmanes.caffeine.cache.BaseMpscLinkedArrayQueueProducerFields",
+      "fields": [
+        {
+          "name": "producerIndex"
+        }
+      ]
+    },
+    {
+      "type": "com.github.benmanes.caffeine.cache.BoundedLocalCache",
+      "fields": [
+        {
+          "name": "refreshes"
+        }
+      ]
+    },
+    {
+      "type": "com.github.benmanes.caffeine.cache.PS",
+      "fields": [
+        {
+          "name": "key"
+        },
+        {
+          "name": "value"
+        }
+      ]
+    },
+    {
+      "type": "com.github.benmanes.caffeine.cache.PSMS",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "com.github.benmanes.caffeine.cache.SSLMS",
+      "fields": [
+        {
+          "name": "FACTORY"
+        }
+      ]
+    },
+    {
+      "type": "com.github.benmanes.caffeine.cache.StripedBuffer",
+      "fields": [
+        {
+          "name": "tableBusy"
+        }
+      ]
     },
     {
       "type": "com.github.copilot.sdk.SystemMessageMode",
@@ -660,6 +795,16 @@
         {
           "name": "<init>",
           "parameterTypes": []
+        },
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.String",
+            "java.lang.Double",
+            "java.lang.String"
+          ]
         },
         {
           "name": "setErrorType",
@@ -1652,6 +1797,15 @@
       ]
     },
     {
+      "type": "dev.logicojp.reviewer.config.$ExecutionConfig$SummarySettings$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "dev.logicojp.reviewer.config.$GithubMcpConfig$Definition",
       "methods": [
         {
@@ -1680,6 +1834,42 @@
     },
     {
       "type": "dev.logicojp.reviewer.config.$OrchestratorConfig$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.config.$ReviewerConfig$AgentPaths$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.config.$ReviewerConfig$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.config.$ReviewerConfig$LocalFiles$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.config.$ReviewerConfig$Skills$Definition",
       "methods": [
         {
           "name": "<init>",
@@ -1733,6 +1923,21 @@
       ]
     },
     {
+      "type": "dev.logicojp.reviewer.config.GithubMcpConfig",
+      "methods": [
+        {
+          "name": "maskedToStringMap",
+          "parameterTypes": [
+            "java.util.Map",
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.config.GithubMcpConfig$1"
+    },
+    {
       "type": "dev.logicojp.reviewer.config.GithubMcpConfig$MaskedToStringMap"
     },
     {
@@ -1773,6 +1978,15 @@
     },
     {
       "type": "dev.logicojp.reviewer.report.$ReportGeneratorFactory$Definition",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "dev.logicojp.reviewer.report.$ReportService$Definition",
       "methods": [
         {
           "name": "<init>",
@@ -2125,6 +2339,26 @@
     },
     {
       "type": "jdk.internal.jrtfs.JrtFileSystemProvider"
+    },
+    {
+      "type": "sun.security.provider.NativePRNG",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.security.SecureRandomParameters"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sun.security.provider.SHA",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "sun.security.provider.SHA2$SHA256",
