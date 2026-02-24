@@ -44,4 +44,21 @@ class BackoffUtilsTest {
 
         assertThat(elapsedNs).isGreaterThanOrEqualTo(TimeUnit.MILLISECONDS.toNanos(14));
     }
+
+    @Test
+    @DisplayName("retryableメッセージの代表パターンを検出する")
+    void detectsRetryableMessages() {
+        assertThat(BackoffUtils.isRetryableMessage("network timeout while calling API")).isTrue();
+        assertThat(BackoffUtils.isRetryableMessage("HTTP 429 Too Many Requests")).isTrue();
+        assertThat(BackoffUtils.isRetryableMessage("Service temporarily unavailable")).isTrue();
+        assertThat(BackoffUtils.isRetryableMessage("CONNECTION RESET")).isTrue();
+    }
+
+    @Test
+    @DisplayName("retryableでないメッセージはfalseを返す")
+    void returnsFalseForNonRetryableMessages() {
+        assertThat(BackoffUtils.isRetryableMessage(null)).isFalse();
+        assertThat(BackoffUtils.isRetryableMessage("validation error: missing required field")).isFalse();
+        assertThat(BackoffUtils.isRetryableMessage("permission denied")).isFalse();
+    }
 }

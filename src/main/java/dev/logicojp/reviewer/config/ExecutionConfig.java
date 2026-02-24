@@ -58,22 +58,128 @@ public record ExecutionConfig(
     /// Returns a copy with the parallelism value replaced.
     /// Uses named field access to prevent positional copy errors when fields are added.
     public ExecutionConfig withParallelism(int newParallelism) {
-        return new ExecutionConfig(
-            newParallelism,
-            this.reviewPasses,
-            this.orchestratorTimeoutMinutes,
-            this.agentTimeoutMinutes,
-            this.idleTimeoutMinutes,
-            this.skillTimeoutMinutes,
-            this.summaryTimeoutMinutes,
-            this.ghAuthTimeoutSeconds,
-            this.maxRetries,
-            this.maxAccumulatedSize,
-            this.initialAccumulatedCapacity,
-            this.instructionBufferExtraCapacity,
-            this.checkpointDirectory,
-            this.summary
-        );
+        return Builder.from(this)
+            .parallelism(newParallelism)
+            .build();
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private int parallelism = DEFAULT_PARALLELISM;
+        private int reviewPasses = DEFAULT_REVIEW_PASSES;
+        private long orchestratorTimeoutMinutes = DEFAULT_ORCHESTRATOR_TIMEOUT_MINUTES;
+        private long agentTimeoutMinutes = DEFAULT_AGENT_TIMEOUT_MINUTES;
+        private long idleTimeoutMinutes = DEFAULT_IDLE_TIMEOUT_MINUTES;
+        private long skillTimeoutMinutes = DEFAULT_SKILL_TIMEOUT_MINUTES;
+        private long summaryTimeoutMinutes = DEFAULT_SUMMARY_TIMEOUT_MINUTES;
+        private long ghAuthTimeoutSeconds = DEFAULT_GH_AUTH_TIMEOUT_SECONDS;
+        private int maxRetries = DEFAULT_MAX_RETRIES;
+        private int maxAccumulatedSize = DEFAULT_MAX_ACCUMULATED_SIZE;
+        private int initialAccumulatedCapacity = DEFAULT_INITIAL_ACCUMULATED_CAPACITY;
+        private int instructionBufferExtraCapacity = DEFAULT_INSTRUCTION_BUFFER_EXTRA_CAPACITY;
+        private String checkpointDirectory = DEFAULT_CHECKPOINT_DIRECTORY;
+        private SummarySettings summary = new SummarySettings(0, 0, 0, 0, 0, 0);
+
+        private Builder() {
+        }
+
+        public static Builder from(ExecutionConfig source) {
+            return new Builder()
+                .parallelism(source.parallelism)
+                .reviewPasses(source.reviewPasses)
+                .orchestratorTimeoutMinutes(source.orchestratorTimeoutMinutes)
+                .agentTimeoutMinutes(source.agentTimeoutMinutes)
+                .idleTimeoutMinutes(source.idleTimeoutMinutes)
+                .skillTimeoutMinutes(source.skillTimeoutMinutes)
+                .summaryTimeoutMinutes(source.summaryTimeoutMinutes)
+                .ghAuthTimeoutSeconds(source.ghAuthTimeoutSeconds)
+                .maxRetries(source.maxRetries)
+                .maxAccumulatedSize(source.maxAccumulatedSize)
+                .initialAccumulatedCapacity(source.initialAccumulatedCapacity)
+                .instructionBufferExtraCapacity(source.instructionBufferExtraCapacity)
+                .checkpointDirectory(source.checkpointDirectory)
+                .summary(source.summary);
+        }
+
+        public Builder parallelism(int parallelism) { this.parallelism = parallelism; return this; }
+        public Builder reviewPasses(int reviewPasses) { this.reviewPasses = reviewPasses; return this; }
+        public Builder orchestratorTimeoutMinutes(long orchestratorTimeoutMinutes) {
+            this.orchestratorTimeoutMinutes = orchestratorTimeoutMinutes;
+            return this;
+        }
+
+        public Builder agentTimeoutMinutes(long agentTimeoutMinutes) {
+            this.agentTimeoutMinutes = agentTimeoutMinutes;
+            return this;
+        }
+
+        public Builder idleTimeoutMinutes(long idleTimeoutMinutes) {
+            this.idleTimeoutMinutes = idleTimeoutMinutes;
+            return this;
+        }
+
+        public Builder skillTimeoutMinutes(long skillTimeoutMinutes) {
+            this.skillTimeoutMinutes = skillTimeoutMinutes;
+            return this;
+        }
+
+        public Builder summaryTimeoutMinutes(long summaryTimeoutMinutes) {
+            this.summaryTimeoutMinutes = summaryTimeoutMinutes;
+            return this;
+        }
+
+        public Builder ghAuthTimeoutSeconds(long ghAuthTimeoutSeconds) {
+            this.ghAuthTimeoutSeconds = ghAuthTimeoutSeconds;
+            return this;
+        }
+
+        public Builder maxRetries(int maxRetries) { this.maxRetries = maxRetries; return this; }
+        public Builder maxAccumulatedSize(int maxAccumulatedSize) {
+            this.maxAccumulatedSize = maxAccumulatedSize;
+            return this;
+        }
+
+        public Builder initialAccumulatedCapacity(int initialAccumulatedCapacity) {
+            this.initialAccumulatedCapacity = initialAccumulatedCapacity;
+            return this;
+        }
+
+        public Builder instructionBufferExtraCapacity(int instructionBufferExtraCapacity) {
+            this.instructionBufferExtraCapacity = instructionBufferExtraCapacity;
+            return this;
+        }
+
+        public Builder checkpointDirectory(String checkpointDirectory) {
+            this.checkpointDirectory = checkpointDirectory;
+            return this;
+        }
+
+        public Builder summary(SummarySettings summary) {
+            this.summary = summary;
+            return this;
+        }
+
+        public ExecutionConfig build() {
+            return new ExecutionConfig(
+                parallelism,
+                reviewPasses,
+                orchestratorTimeoutMinutes,
+                agentTimeoutMinutes,
+                idleTimeoutMinutes,
+                skillTimeoutMinutes,
+                summaryTimeoutMinutes,
+                ghAuthTimeoutSeconds,
+                maxRetries,
+                maxAccumulatedSize,
+                initialAccumulatedCapacity,
+                instructionBufferExtraCapacity,
+                checkpointDirectory,
+                summary
+            );
+        }
     }
 
     /// Executive summary generation settings.

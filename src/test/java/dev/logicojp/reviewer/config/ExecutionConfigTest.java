@@ -183,13 +183,24 @@ class ExecutionConfigTest {
         @Test
         @DisplayName("parallelismのみを変更した新しいインスタンスを返す")
         void changesOnlyParallelism() {
-            var original = create(4, 1, 10, 5, 5, 5, 5, 10, 2);
+            var original = new ExecutionConfig(4, 3, 20, 15, 6, 7, 8, 30, 5,
+                9_999, 2_048, 99, "reports/custom", DEFAULT_SUMMARY);
             var updated = original.withParallelism(8);
 
             assertThat(updated.parallelism()).isEqualTo(8);
+            assertThat(updated.reviewPasses()).isEqualTo(original.reviewPasses());
             assertThat(updated.orchestratorTimeoutMinutes()).isEqualTo(original.orchestratorTimeoutMinutes());
             assertThat(updated.agentTimeoutMinutes()).isEqualTo(original.agentTimeoutMinutes());
+            assertThat(updated.idleTimeoutMinutes()).isEqualTo(original.idleTimeoutMinutes());
+            assertThat(updated.skillTimeoutMinutes()).isEqualTo(original.skillTimeoutMinutes());
+            assertThat(updated.summaryTimeoutMinutes()).isEqualTo(original.summaryTimeoutMinutes());
+            assertThat(updated.ghAuthTimeoutSeconds()).isEqualTo(original.ghAuthTimeoutSeconds());
             assertThat(updated.maxRetries()).isEqualTo(original.maxRetries());
+            assertThat(updated.maxAccumulatedSize()).isEqualTo(original.maxAccumulatedSize());
+            assertThat(updated.initialAccumulatedCapacity()).isEqualTo(original.initialAccumulatedCapacity());
+            assertThat(updated.instructionBufferExtraCapacity()).isEqualTo(original.instructionBufferExtraCapacity());
+            assertThat(updated.checkpointDirectory()).isEqualTo(original.checkpointDirectory());
+            assertThat(updated.summary()).isEqualTo(original.summary());
         }
 
         @Test
@@ -206,6 +217,37 @@ class ExecutionConfigTest {
             var original = create(4, 1, 10, 5, 5, 5, 5, 10, 2);
             var updated = original.withParallelism(0);
             assertThat(updated.parallelism()).isEqualTo(ExecutionConfig.DEFAULT_PARALLELISM);
+        }
+    }
+
+    @Nested
+    @DisplayName("Builder")
+    class BuilderTests {
+
+        @Test
+        @DisplayName("fromは元の値を引き継ぎ1項目だけ上書きできる")
+        void fromCopiesAndAllowsSingleOverride() {
+            var original = new ExecutionConfig(6, 2, 30, 12, 7, 8, 9, 40, 3,
+                7_000, 3_000, 48, "reports/from", DEFAULT_SUMMARY);
+
+            var copied = ExecutionConfig.Builder.from(original)
+                .parallelism(10)
+                .build();
+
+            assertThat(copied.parallelism()).isEqualTo(10);
+            assertThat(copied.reviewPasses()).isEqualTo(original.reviewPasses());
+            assertThat(copied.orchestratorTimeoutMinutes()).isEqualTo(original.orchestratorTimeoutMinutes());
+            assertThat(copied.agentTimeoutMinutes()).isEqualTo(original.agentTimeoutMinutes());
+            assertThat(copied.idleTimeoutMinutes()).isEqualTo(original.idleTimeoutMinutes());
+            assertThat(copied.skillTimeoutMinutes()).isEqualTo(original.skillTimeoutMinutes());
+            assertThat(copied.summaryTimeoutMinutes()).isEqualTo(original.summaryTimeoutMinutes());
+            assertThat(copied.ghAuthTimeoutSeconds()).isEqualTo(original.ghAuthTimeoutSeconds());
+            assertThat(copied.maxRetries()).isEqualTo(original.maxRetries());
+            assertThat(copied.maxAccumulatedSize()).isEqualTo(original.maxAccumulatedSize());
+            assertThat(copied.initialAccumulatedCapacity()).isEqualTo(original.initialAccumulatedCapacity());
+            assertThat(copied.instructionBufferExtraCapacity()).isEqualTo(original.instructionBufferExtraCapacity());
+            assertThat(copied.checkpointDirectory()).isEqualTo(original.checkpointDirectory());
+            assertThat(copied.summary()).isEqualTo(original.summary());
         }
     }
 

@@ -16,7 +16,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 /// Reads candidate files with size budget enforcement and optional parallelism.
-final class LocalFileContentReader {
+final class LocalFileReader {
 
     private static final int PARALLEL_PROCESSING_THRESHOLD = 24;
 
@@ -59,10 +59,10 @@ final class LocalFileContentReader {
     private final LocalFileSelectionConfig selectionConfig;
     private final Logger logger;
 
-    LocalFileContentReader(Path baseDirectory,
-                           Path realBaseDirectory,
-                           LocalFileSelectionConfig selectionConfig,
-                           Logger logger) {
+    LocalFileReader(Path baseDirectory,
+                    Path realBaseDirectory,
+                    LocalFileSelectionConfig selectionConfig,
+                    Logger logger) {
         this.baseDirectory = baseDirectory;
         this.realBaseDirectory = realBaseDirectory;
         this.selectionConfig = selectionConfig;

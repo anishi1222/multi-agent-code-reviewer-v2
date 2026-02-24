@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.skill;
 
 import dev.logicojp.reviewer.util.ApiCircuitBreaker;
 import dev.logicojp.reviewer.util.BackoffUtils;
+import dev.logicojp.reviewer.util.RetryExecutor;
 import dev.logicojp.reviewer.util.StructuredConcurrencyUtils;
 import com.github.copilot.sdk.CopilotClient;
 import com.github.copilot.sdk.SystemMessageMode;
@@ -108,37 +109,31 @@ public class SkillExecutor {
     public Result execute(SkillDefinition skill,
                           Map<String, String> parameters,
                           @Nullable String systemPrompt) {
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            if (!apiCircuitBreaker.isRequestAllowed()) {
-                return Result.failure(skill.id(),
-                    "Copilot API circuit breaker is open (remaining "
-                        + apiCircuitBreaker.remainingOpenMs() + " ms)");
-            }
-            try {
-                Result result = executeWithTimeout(skill, parameters, systemPrompt);
-                if (result.success()) {
-                    apiCircuitBreaker.recordSuccess();
-                    return result;
-                }
-                apiCircuitBreaker.recordFailure();
-                if (attempt < maxAttempts && BackoffUtils.isRetryableMessage(result.errorMessage())) {
-                    BackoffUtils.sleepWithJitterQuietly(attempt, backoffBaseMs, backoffMaxMs);
-                    continue;
-                }
-                return result;
-            } catch (Exception e) {
-                apiCircuitBreaker.recordFailure();
-                if (attempt < maxAttempts && BackoffUtils.isRetryableMessage(e.getMessage())) {
-                    logger.warn("Skill {} attempt {}/{} failed: {}",
-                        skill.id(), attempt, maxAttempts, e.getMessage());
-                    BackoffUtils.sleepWithJitterQuietly(attempt, backoffBaseMs, backoffMaxMs);
-                    continue;
-                }
+        return RetryExecutor.executeWithGate(
+            () -> executeWithTimeout(skill, parameters, systemPrompt),
+            e -> {
                 logger.error("Skill execution failed for {}: {}", skill.id(), e.getMessage(), e);
                 return Result.failure(skill.id(), e.getMessage());
-            }
-        }
-        return Result.failure(skill.id(), "Skill execution exhausted retry attempts");
+            },
+            Result::success,
+            Result::errorMessage,
+            result -> BackoffUtils.isRetryableMessage(result.errorMessage()),
+            exception -> BackoffUtils.isRetryableMessage(exception.getMessage()),
+            result -> !isCircuitOpenError(result.errorMessage()),
+            _ -> true,
+            maxAttempts,
+            backoffBaseMs,
+            backoffMaxMs,
+            apiCircuitBreaker,
+            logger,
+            "Skill " + skill.id(),
+            remainingMs -> Result.failure(skill.id(),
+                "Copilot API circuit breaker is open (remaining " + remainingMs + " ms)")
+        );
+    }
+
+    private static boolean isCircuitOpenError(String errorMessage) {
+        return errorMessage != null && errorMessage.startsWith("Copilot API circuit breaker is open");
     }
 
     private Result executeWithTimeout(SkillDefinition skill,
