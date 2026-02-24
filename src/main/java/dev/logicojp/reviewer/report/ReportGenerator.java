@@ -161,7 +161,7 @@ public class ReportGenerator {
 
     /// Writes content to a file with owner-only permissions on POSIX systems.
     /// Package-private — also used by SummaryGenerator.
-    static void writeSecureString(Path filePath, String content) throws IOException {
+    public static void writeSecureString(Path filePath, String content) throws IOException {
         ensureOutputDirectory(filePath.getParent());
 
         Path tempFile = Files.createTempFile(filePath.getParent(), ".tmp-", ".part");

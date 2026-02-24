@@ -95,5 +95,23 @@ class ContentSanitizerTest {
             assertThat(result).doesNotContain("onerror=");
             assertThat(result).doesNotContain("alert(1)");
         }
+
+        @Test
+        @DisplayName("名前付きHTMLエンティティでエンコードされたscriptタグを除去する")
+        void removesNamedEntityEncodedScriptTag() {
+            String input = "&lt;script&gt;alert(1)&lt;/script&gt;";
+            String result = ContentSanitizer.sanitize(input);
+            assertThat(result).doesNotContain("<script>");
+            assertThat(result).doesNotContain("alert(1)");
+        }
+
+        @Test
+        @DisplayName("名前付きHTMLエンティティでエンコードされたjavascriptプロトコルを除去する")
+        void removesNamedEntityEncodedJavascriptProtocol() {
+            String input = "&lt;a href=&quot;javascript:alert(1)&quot;&gt;x&lt;/a&gt;";
+            String result = ContentSanitizer.sanitize(input);
+            assertThat(result).doesNotContain("javascript:");
+            assertThat(result).doesNotContain("alert(1)");
+        }
     }
 }

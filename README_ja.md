@@ -25,7 +25,7 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 
 ## 最新リメディエーション状況
 
-2026-02-16 〜 2026-02-20 のレビューサイクルで検出された全指摘事項は対応済みです。
+2026-02-16 〜 2026-02-24 のレビューサイクルで検出された全指摘事項は対応済みです。
 
 変更履歴の詳細は [`RELEASE_NOTES_en.md`](RELEASE_NOTES_en.md) を参照してください。
 
@@ -33,7 +33,7 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 
 ## 運用完了チェック（2026-02-20）
 
-- 最終更新: 2026-02-20
+- 最終更新: 2026-02-24
 
 - [x] 全レビュー指摘事項を対応完了（WAF Reliability 7件含む）
 - [x] 全テストスイート合格（0失敗）
@@ -76,6 +76,15 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 - [x] `CopilotService.startClient()` の無期限待機を解消（常時タイムアウト境界を適用）
 - [x] `ResilienceConfig` と `application.yml` `reviewer.resilience` で回復性パラメータを外部化
 - [x] `SummaryGenerator` / `SkillExecutor` に専用CB・再試行設定を適用
+- [x] エグゼクティブサマリーのファイル名日時をアプリケーション呼び出し日時へ統一（レポートディレクトリ時刻と整合）
+- [x] `SummaryGenerator` でセッション生成失敗も再試行対象に拡張
+- [x] `ReviewAgent` のマルチパス実行をパス単位セッション分離に変更し、セッション障害の波及を抑制
+- [x] `BackoffUtils` のリトライ戦略を Equal Jitter 化し、最小待機時間を保証
+- [x] `ApiCircuitBreaker` で half-open 連続失敗時のオープン期間段階延長を実装
+- [x] `ReviewOrchestrator` の idle-timeout scheduler を単一スレッドから有界プールへ変更
+- [x] `ReviewOrchestrator` 起動時にタイムアウト階層の不整合を検知して警告出力
+- [x] `ContentSanitizer` で名前付きHTMLエンティティのデコードを追加し、XSSバイパス耐性を強化
+- [x] 中間チェックポイント書き込みに owner-only 権限適用の安全書き込みを統一
 
 ## リリース更新手順（テンプレート）
 
@@ -408,7 +417,7 @@ reviewer:
   execution:
     parallelism: 4              # デフォルトの並列実行数
     review-passes: 3            # エージェントごとのレビュー回数（マルチパスレビュー）
-    orchestrator-timeout-minutes: 45  # オーケストレータタイムアウト（分）
+    orchestrator-timeout-minutes: 200  # オーケストレータタイムアウト（分）
     agent-timeout-minutes: 20   # エージェントタイムアウト（分）
     idle-timeout-minutes: 5     # アイドルタイムアウト（分）— イベントなしで自動終了
     skill-timeout-minutes: 20   # スキルタイムアウト（分）

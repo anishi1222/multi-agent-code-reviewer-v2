@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.LinkOption;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
@@ -441,7 +442,7 @@ public class LocalFileProvider {
 
     private ReadResult readUtf8WithLimit(Path path, long maxBytes, long expectedSize) throws IOException {
         int initialCapacity = (int) Math.min(expectedSize, maxBytes);
-        try (InputStream inputStream = Files.newInputStream(path);
+        try (InputStream inputStream = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS);
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream(Math.max(initialCapacity, 32))) {
             byte[] buffer = new byte[8192];
             long totalRead = 0;

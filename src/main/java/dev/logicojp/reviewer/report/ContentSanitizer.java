@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.report;
 
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,6 +43,17 @@ public final class ContentSanitizer {
 
     /// Pattern to match numeric HTML entities (decimal/hex), e.g. &#97; or &#x61;.
     private static final Pattern NUMERIC_HTML_ENTITY_PATTERN = Pattern.compile("&#(x[0-9a-fA-F]+|\\d+);");
+    private static final Pattern NAMED_HTML_ENTITY_PATTERN = Pattern.compile(
+        "&(lt|gt|amp|quot|apos);",
+        Pattern.CASE_INSENSITIVE
+    );
+    private static final Map<String, String> NAMED_ENTITIES = Map.of(
+        "lt", "<",
+        "gt", ">",
+        "amp", "&",
+        "quot", "\"",
+        "apos", "'"
+    );
 
     /// Pattern to match dangerous HTML elements that could enable XSS when rendered.
     private static final Pattern DANGEROUS_HTML_PATTERN = Pattern.compile(
@@ -81,6 +93,7 @@ public final class ContentSanitizer {
             return null;
         }
         String result = decodeNumericHtmlEntities(content);
+        result = decodeNamedHtmlEntities(result);
         for (Rule rule : RULES) {
             result = rule.apply(result);
         }
@@ -89,7 +102,7 @@ public final class ContentSanitizer {
 
     private static String decodeNumericHtmlEntities(String input) {
         Matcher matcher = NUMERIC_HTML_ENTITY_PATTERN.matcher(input);
-        StringBuffer decoded = new StringBuffer(input.length());
+        StringBuilder decoded = new StringBuilder(input.length());
 
         while (matcher.find()) {
             String entityValue = matcher.group(1);
@@ -104,6 +117,20 @@ public final class ContentSanitizer {
             } catch (IllegalArgumentException _) {
                 replacement = matcher.group();
             }
+            matcher.appendReplacement(decoded, Matcher.quoteReplacement(replacement));
+        }
+
+        matcher.appendTail(decoded);
+        return decoded.toString();
+    }
+
+    private static String decodeNamedHtmlEntities(String input) {
+        Matcher matcher = NAMED_HTML_ENTITY_PATTERN.matcher(input);
+        StringBuilder decoded = new StringBuilder(input.length());
+
+        while (matcher.find()) {
+            String entityName = matcher.group(1).toLowerCase();
+            String replacement = NAMED_ENTITIES.getOrDefault(entityName, matcher.group());
             matcher.appendReplacement(decoded, Matcher.quoteReplacement(replacement));
         }
 
