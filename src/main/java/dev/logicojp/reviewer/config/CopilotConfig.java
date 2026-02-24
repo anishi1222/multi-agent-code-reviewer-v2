@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.ConfigurationProperties;
 @ConfigurationProperties("reviewer.copilot")
 public record CopilotConfig(
     String cliPath,
+    String githubToken,
     long healthcheckSeconds,
     long authcheckSeconds,
     long startTimeoutSeconds
@@ -18,6 +19,7 @@ public record CopilotConfig(
 
     public CopilotConfig {
         cliPath = cliPath != null ? cliPath.trim() : "";
+        githubToken = githubToken != null ? githubToken.trim() : "";
         healthcheckSeconds = ConfigDefaults.defaultIfNonPositive(
             healthcheckSeconds, DEFAULT_HEALTHCHECK_SECONDS);
         authcheckSeconds = ConfigDefaults.defaultIfNonPositive(

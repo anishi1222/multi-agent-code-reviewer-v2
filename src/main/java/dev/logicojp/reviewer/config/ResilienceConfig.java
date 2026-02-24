@@ -1,13 +1,17 @@
 package dev.logicojp.reviewer.config;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
+import io.micronaut.core.annotation.Nullable;
 
 /// Resilience settings for circuit breakers and retries.
 /// Bound to `reviewer.resilience` in YAML.
 @ConfigurationProperties("reviewer.resilience")
 public record ResilienceConfig(
+    @Nullable
     OperationSettings review,
+    @Nullable
     OperationSettings summary,
+    @Nullable
     OperationSettings skill
 ) {
 
@@ -17,7 +21,6 @@ public record ResilienceConfig(
         skill = skill != null ? skill : OperationSettings.skillDefaults();
     }
 
-    @ConfigurationProperties("operation")
     public record OperationSettings(
         int failureThreshold,
         long openDurationSeconds,

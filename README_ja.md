@@ -29,7 +29,7 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 
 変更履歴の詳細は [`RELEASE_NOTES_en.md`](RELEASE_NOTES_en.md) を参照してください。
 
-- 最新: [v2026.02.20-reliability](https://github.com/anishi1222/multi-agent-code-reviewer-v2/releases/tag/v2026.02.20-reliability) — WAF Reliability対応（Circuit Breaker分離・再試行制御・チェックポイント復旧）
+- 最新: [v2026.02.20-reliability](https://github.com/anishi1222/multi-agent-code-reviewer-v2/releases/tag/v2026.02.20-reliability) — WAF Reliability対応（Circuit Breaker分離・再試行制御・チェックポイント書き込み）
 
 ## 運用完了チェック（2026-02-20）
 
@@ -72,7 +72,7 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 - [x] `ApiCircuitBreaker` にhalf-openプローブを導入し段階的回復を実現
 - [x] Circuit Breakerを用途別（review/summary/skill）に分離して障害分離を強化
 - [x] `ReviewAgent` に `isRetryable()` を追加し一時障害のみリトライ
-- [x] `ReviewOrchestrator` にチェックポイント復旧パスを追加（成功済みpass再利用）
+- [x] `ReviewOrchestrator` のチェックポイント再利用を廃止し、常に最新ソースを再レビュー
 - [x] `CopilotService.startClient()` の無期限待機を解消（常時タイムアウト境界を適用）
 - [x] `ResilienceConfig` と `application.yml` `reviewer.resilience` で回復性パラメータを外部化
 - [x] `SummaryGenerator` / `SkillExecutor` に専用CB・再試行設定を適用
@@ -397,6 +397,7 @@ agent: 'agent'
 reviewer:
   copilot:
     cli-path: ${COPILOT_CLI_PATH:}                   # Copilot CLI の明示パス（任意）
+    github-token: ${GITHUB_TOKEN:}                  # 起動時に利用するGitHubトークン（任意）
     healthcheck-seconds: ${COPILOT_CLI_HEALTHCHECK_SECONDS:10} # CLI --version タイムアウト
     authcheck-seconds: ${COPILOT_CLI_AUTHCHECK_SECONDS:15}     # CLI auth status タイムアウト
     start-timeout-seconds: ${COPILOT_START_TIMEOUT_SECONDS:60} # Copilot クライアント起動タイムアウト
@@ -414,7 +415,7 @@ reviewer:
     summary-timeout-minutes: 20 # サマリータイムアウト（分）
     gh-auth-timeout-seconds: 30 # GitHub認証タイムアウト（秒）
     max-retries: 2              # レビュー失敗時の最大リトライ回数
-    checkpoint-directory: reports/.checkpoints # 中間チェックポイントの出力先
+    checkpoint-directory: reports/.checkpoints # 中間チェックポイントの出力先（再利用せず書き込みのみ）
     summary:                    # サマリー生成制限設定
       max-content-per-agent: 50000     # エージェント別最大文字数
       max-total-prompt-content: 200000 # 総プロンプト最大文字数

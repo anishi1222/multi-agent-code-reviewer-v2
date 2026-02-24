@@ -5,6 +5,7 @@ micronaut:
 reviewer:
   copilot:
     cli-path: ${COPILOT_CLI_PATH:}
+    github-token: ${GITHUB_TOKEN:}
     healthcheck-seconds: ${COPILOT_CLI_HEALTHCHECK_SECONDS:10}
     authcheck-seconds: ${COPILOT_CLI_AUTHCHECK_SECONDS:15}
     start-timeout-seconds: ${COPILOT_START_TIMEOUT_SECONDS:60}

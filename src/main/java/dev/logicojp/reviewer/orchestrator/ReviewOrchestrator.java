@@ -22,7 +22,6 @@ import java.nio.file.Path;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -153,16 +152,11 @@ public class ReviewOrchestrator implements AutoCloseable {
         long perAgentTimeoutMinutes = perAgentTimeoutMinutes();
         long orchestratorTimeoutMinutes = executionConfig.orchestratorTimeoutMinutes();
 
-        Map<String, List<ReviewResult>> recoveredCheckpoints = loadRecoveredCheckpoints(agents, target, reviewPasses);
-
         List<StructuredTaskScope.Subtask<List<ReviewResult>>> subtasks = new ArrayList<>(agents.size());
         List<AgentConfig> pendingConfigs = new ArrayList<>(agents.size());
 
         try (var scope = StructuredTaskScope.<List<ReviewResult>>open()) {
             for (var config : agents.values()) {
-                if (recoveredCheckpoints.containsKey(config.name())) {
-                    continue;
-                }
                 subtasks.add(scope.fork(() -> executeAgentPassesSafely(
                     config, target, sharedContext, reviewPasses, perAgentTimeoutMinutes)));
                 pendingConfigs.add(config);
@@ -170,110 +164,12 @@ public class ReviewOrchestrator implements AutoCloseable {
 
             joinStructuredWithTimeout(scope, orchestratorTimeoutMinutes);
 
-            List<ReviewResult> results = new ArrayList<>(recoveredCheckpoints.values().stream().mapToInt(List::size).sum());
-            for (var config : agents.values()) {
-                List<ReviewResult> recovered = recoveredCheckpoints.get(config.name());
-                if (recovered != null) {
-                    results.addAll(recovered);
-                }
-            }
+            List<ReviewResult> results = new ArrayList<>();
             for (int i = 0; i < subtasks.size(); i++) {
                 results.addAll(summarizeTaskResult(subtasks.get(i), pendingConfigs.get(i), target, reviewPasses));
             }
             return finalizeResults(results, reviewPasses);
         }
-    }
-
-    private Map<String, List<ReviewResult>> loadRecoveredCheckpoints(Map<String, AgentConfig> agents,
-                                                                     ReviewTarget target,
-                                                                     int reviewPasses) {
-        Map<String, List<ReviewResult>> recovered = new LinkedHashMap<>();
-        if (!Files.isDirectory(checkpointRootDirectory)) {
-            return recovered;
-        }
-
-        String safeTarget = target.displayName().replaceAll("[^a-zA-Z0-9._-]", "_");
-        for (var config : agents.values()) {
-            String safeAgentName = config.name().replaceAll("[^a-zA-Z0-9._-]", "_");
-            Path checkpointPath = checkpointRootDirectory.resolve(safeTarget + "_" + safeAgentName + ".md");
-            if (!Files.exists(checkpointPath)) {
-                continue;
-            }
-
-            try {
-                List<ReviewResult> parsed = parseCheckpoint(checkpointPath, config, target.displayName());
-                if (parsed.size() == reviewPasses && parsed.stream().allMatch(ReviewResult::success)) {
-                    recovered.put(config.name(), parsed);
-                    logger.info("Recovered checkpoint for agent {} ({} pass results)", config.name(), parsed.size());
-                }
-            } catch (Exception e) {
-                logger.warn("Failed to recover checkpoint for {}: {}", config.name(), e.getMessage());
-            }
-        }
-        return recovered;
-    }
-
-    private List<ReviewResult> parseCheckpoint(Path checkpointPath,
-                                               AgentConfig config,
-                                               String repository) throws Exception {
-        List<String> lines = Files.readAllLines(checkpointPath);
-        List<ReviewResult> parsed = new ArrayList<>();
-
-        Boolean currentSuccess = null;
-        String currentError = null;
-        StringBuilder contentBuilder = new StringBuilder();
-        boolean inPassBlock = false;
-
-        for (String line : lines) {
-            if (line.startsWith("## pass-result")) {
-                if (inPassBlock) {
-                    parsed.add(fromCheckpointBlock(config, repository, currentSuccess, currentError, contentBuilder));
-                }
-                inPassBlock = true;
-                currentSuccess = null;
-                currentError = null;
-                contentBuilder = new StringBuilder();
-                continue;
-            }
-            if (!inPassBlock) {
-                continue;
-            }
-            if (line.startsWith("success=")) {
-                currentSuccess = Boolean.parseBoolean(line.substring("success=".length()));
-                continue;
-            }
-            if (line.startsWith("error=")) {
-                currentError = line.substring("error=".length());
-                continue;
-            }
-            if (!line.isBlank()) {
-                if (!contentBuilder.isEmpty()) {
-                    contentBuilder.append('\n');
-                }
-                contentBuilder.append(line);
-            }
-        }
-
-        if (inPassBlock) {
-            parsed.add(fromCheckpointBlock(config, repository, currentSuccess, currentError, contentBuilder));
-        }
-
-        return parsed;
-    }
-
-    private ReviewResult fromCheckpointBlock(AgentConfig config,
-                                             String repository,
-                                             Boolean success,
-                                             String error,
-                                             StringBuilder contentBuilder) {
-        boolean safeSuccess = success != null && success;
-        return ReviewResult.builder()
-            .agentConfig(config)
-            .repository(repository)
-            .success(safeSuccess)
-            .errorMessage(error)
-            .content(contentBuilder.toString())
-            .build();
     }
 
     private void joinStructuredWithTimeout(StructuredTaskScope<List<ReviewResult>, ?> scope,

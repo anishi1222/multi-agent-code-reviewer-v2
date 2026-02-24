@@ -29,7 +29,7 @@ All review findings from 2026-02-16 through 2026-02-20 have been fully addressed
 
 For the full change log, see [`RELEASE_NOTES_en.md`](RELEASE_NOTES_en.md).
 
-- Latest: [v2026.02.20-reliability](https://github.com/anishi1222/multi-agent-code-reviewer-v2/releases/tag/v2026.02.20-reliability) — WAF Reliability remediation (circuit breaker isolation, retry policy, checkpoint recovery)
+- Latest: [v2026.02.20-reliability](https://github.com/anishi1222/multi-agent-code-reviewer-v2/releases/tag/v2026.02.20-reliability) — WAF Reliability remediation (circuit breaker isolation, retry policy, checkpoint persistence)
 
 ## Operational Completion Check (2026-02-20)
 
@@ -72,7 +72,7 @@ For the full change log, see [`RELEASE_NOTES_en.md`](RELEASE_NOTES_en.md).
 - [x] `ApiCircuitBreaker` half-open probe introduced for gradual recovery
 - [x] Circuit breaker isolated per operation type (review/summary/skill)
 - [x] `ReviewAgent` `isRetryable()` added to retry only transient failures
-- [x] `ReviewOrchestrator` checkpoint recovery path added (reuse successful passes)
+- [x] `ReviewOrchestrator` checkpoint reuse removed; every run re-reviews latest source
 - [x] `CopilotService.startClient()` unbounded wait eliminated (always bounded timeout)
 - [x] `ResilienceConfig` + `application.yml` `reviewer.resilience` externalized resilience parameters
 - [x] `SummaryGenerator` / `SkillExecutor` use dedicated CB and retry settings
@@ -394,6 +394,7 @@ Customize application behavior via `application.yml`.
 reviewer:
   copilot:
     cli-path: ${COPILOT_CLI_PATH:}                   # Optional explicit Copilot CLI path
+    github-token: ${GITHUB_TOKEN:}                  # Optional GitHub token used at startup
     healthcheck-seconds: ${COPILOT_CLI_HEALTHCHECK_SECONDS:10} # CLI --version timeout
     authcheck-seconds: ${COPILOT_CLI_AUTHCHECK_SECONDS:15}     # CLI auth status timeout
     start-timeout-seconds: ${COPILOT_START_TIMEOUT_SECONDS:60} # Copilot client startup timeout
@@ -411,7 +412,7 @@ reviewer:
     summary-timeout-minutes: 20 # Summary timeout (minutes)
     gh-auth-timeout-seconds: 30 # GitHub auth timeout (seconds)
     max-retries: 2              # Max retry count on review failure
-    checkpoint-directory: reports/.checkpoints # Intermediate checkpoint output directory
+    checkpoint-directory: reports/.checkpoints # Intermediate checkpoint output directory (write-only, no reuse)
     summary:
       max-content-per-agent: 50000     # Max characters per agent content for summary prompt
       max-total-prompt-content: 200000 # Max total prompt characters for summary generation

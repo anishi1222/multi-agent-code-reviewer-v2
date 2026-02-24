@@ -33,7 +33,6 @@ public class CopilotService {
     private static final String CLI_PATH_ENV = "COPILOT_CLI_PATH";
     private static final String[] CLI_CANDIDATES = {"github-copilot", "copilot"};
 
-    private static final String GITHUB_TOKEN_ENV = "GITHUB_TOKEN";
     private static final String UNRESOLVED_TOKEN_PLACEHOLDER = "${GITHUB_TOKEN}";
 
     private static final String CLI_INSTALL_AUTH_GUIDANCE =
@@ -63,7 +62,7 @@ public class CopilotService {
     @PostConstruct
     void initializeAtStartup() {
         try {
-            initializeOrThrow(System.getenv(GITHUB_TOKEN_ENV));
+            initializeOrThrow(copilotConfig.githubToken());
         } catch (CopilotCliException e) {
             logger.debug("Skipping eager Copilot initialization at startup: {}", e.getMessage(), e);
         }
@@ -234,11 +233,6 @@ public class CopilotService {
     }
 
     private String resolveCliPathFromSystemPath() {
-        String pathEnv = System.getenv("PATH");
-        if (pathEnv == null || pathEnv.isBlank()) {
-            throw new CopilotCliException("PATH is not set. Install GitHub Copilot CLI and/or set "
-                + CLI_PATH_ENV + " to its executable path.");
-        }
         var candidate = CliPathResolver.findExecutableInPath(CLI_CANDIDATES);
         if (candidate.isPresent()) {
             return candidate.get().toString();
