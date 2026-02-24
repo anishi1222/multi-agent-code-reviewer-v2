@@ -6,7 +6,6 @@ import dev.logicojp.reviewer.config.ResilienceConfig;
 import dev.logicojp.reviewer.service.CopilotCliException;
 import dev.logicojp.reviewer.service.TemplateService;
 import dev.logicojp.reviewer.util.ApiCircuitBreaker;
-import dev.logicojp.reviewer.util.BackoffUtils;
 import dev.logicojp.reviewer.util.RetryExecutor;
 import com.github.copilot.sdk.CopilotClient;
 import com.github.copilot.sdk.CopilotSession;
@@ -47,7 +46,6 @@ public class SummaryGenerator {
         DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss");
     private static final Pattern INVOCATION_TIMESTAMP_PATTERN =
         Pattern.compile("\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}");
-    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
 
     /// Grouped configuration for SummaryGenerator construction.
     public record SummaryConfig(
