@@ -147,13 +147,14 @@ public class ReviewAgent {
         );
     }
 
-    /// Executes multiple review passes while reusing a single Copilot session.
+    /// Executes multiple review passes.
     public List<ReviewResult> reviewPasses(ReviewTarget target, int reviewPasses) {
         if (reviewPasses <= 1) {
             return List.of(review(target));
         }
 
-        logger.info("Agent {}: reusing one Copilot session for {} passes", config.name(), reviewPasses);
+        logger.info("Agent {}: executing {} passes with per-pass session isolation",
+            config.name(), reviewPasses);
 
         try {
             return executeReviewPasses(target, reviewPasses);
@@ -187,7 +188,7 @@ public class ReviewAgent {
     }
 
     private List<ReviewResult> executeReviewPasses(ReviewTarget target, int reviewPasses) throws Exception {
-        logger.info("Starting {} review passes with shared session for agent: {} on target: {}",
+        logger.info("Starting {} review passes for agent: {} on target: {}",
             reviewPasses, config.name(), target.displayName());
 
         var resolved = resolveTargetInstruction(target);
@@ -196,27 +197,21 @@ public class ReviewAgent {
         String localSourceContent = resolved.localSourceContent();
         Map<String, Object> mcpServers = resolved.mcpServers();
 
-        String systemPrompt = buildSystemPromptWithCustomInstruction();
-        SessionConfig sessionConfig = createSessionConfig(systemPrompt, mcpServers);
-
-        try (var session = ctx.client().createSession(sessionConfig)
-            .get(ctx.timeoutConfig().timeoutMinutes(), TimeUnit.MINUTES)) {
-            List<ReviewResult> results = new ArrayList<>(reviewPasses);
-            for (int pass = 1; pass <= reviewPasses; pass++) {
-                int passNumber = pass;
-                String localSourceContentForPass = resolveLocalSourceContentForPass(
-                    target, localSourceContent, passNumber);
-                logger.debug("Agent {}: executing pass {}/{} on shared session",
-                    config.name(), passNumber, reviewPasses);
-                ReviewResult result = executeWithRetry(
-                    () -> executeReviewWithSession(
-                        displayName, instruction, localSourceContentForPass, mcpServers, session),
-                    e -> resultFromException(displayName, e)
-                );
-                results.add(result);
-            }
-            return results;
+        List<ReviewResult> results = new ArrayList<>(reviewPasses);
+        for (int pass = 1; pass <= reviewPasses; pass++) {
+            int passNumber = pass;
+            String localSourceContentForPass = resolveLocalSourceContentForPass(
+                target, localSourceContent, passNumber);
+            logger.debug("Agent {}: executing pass {}/{}",
+                config.name(), passNumber, reviewPasses);
+            ReviewResult result = executeWithRetry(
+                () -> executeReviewCommon(
+                    displayName, instruction, localSourceContentForPass, mcpServers),
+                e -> resultFromException(displayName, e)
+            );
+            results.add(result);
         }
+        return results;
     }
 
     static String resolveLocalSourceContentForPass(ReviewTarget target,

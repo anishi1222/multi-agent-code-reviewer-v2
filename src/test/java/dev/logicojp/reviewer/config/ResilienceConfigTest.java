@@ -32,4 +32,17 @@ class ResilienceConfigTest {
         assertThat(settings.backoffBaseMs()).isEqualTo(500);
         assertThat(settings.backoffMaxMs()).isEqualTo(500);
     }
+
+    @Test
+    @DisplayName("summaryの部分設定時に未設定項目はsummaryデフォルトを使う")
+    void summaryPartialConfigUsesSummaryDefaults() {
+        var partialSummary = new ResilienceConfig.OperationSettings(0, 15, 0, 0, 0);
+        var config = new ResilienceConfig(null, partialSummary, null);
+
+        assertThat(config.summary().failureThreshold()).isEqualTo(3);
+        assertThat(config.summary().openDurationSeconds()).isEqualTo(15);
+        assertThat(config.summary().maxAttempts()).isEqualTo(3);
+        assertThat(config.summary().backoffBaseMs()).isEqualTo(500);
+        assertThat(config.summary().backoffMaxMs()).isEqualTo(4000);
+    }
 }

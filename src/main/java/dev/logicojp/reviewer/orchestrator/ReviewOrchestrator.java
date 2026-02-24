@@ -8,6 +8,7 @@ import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.config.ResilienceConfig;
 import dev.logicojp.reviewer.config.ReviewerConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
+import dev.logicojp.reviewer.report.ReportGenerator;
 import dev.logicojp.reviewer.report.ReviewResult;
 import dev.logicojp.reviewer.target.LocalFileProvider;
 import dev.logicojp.reviewer.target.ReviewTarget;
@@ -20,7 +21,6 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -86,11 +86,20 @@ public class ReviewOrchestrator implements AutoCloseable {
             this.resilienceConfig.review().failureThreshold(),
             TimeUnit.SECONDS.toMillis(this.resilienceConfig.review().openDurationSeconds()),
             java.time.Clock.systemUTC());
-        this.sharedScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "idle-timeout-shared");
+        int schedulerThreads = Math.max(2,
+            Math.min(executionConfig.parallelism(), Runtime.getRuntime().availableProcessors()));
+        this.sharedScheduler = Executors.newScheduledThreadPool(schedulerThreads, r -> {
+            Thread t = new Thread(r, "idle-timeout-pool");
             t.setDaemon(true);
             return t;
         });
+
+        long perAgentMaximumMinutes = perAgentTimeoutMinutes(executionConfig.reviewPasses());
+        if (executionConfig.orchestratorTimeoutMinutes() < perAgentMaximumMinutes) {
+            logger.warn("Orchestrator timeout ({} min) is lower than per-agent maximum runtime ({} min). " +
+                    "Some agent results may be lost due to orchestrator timeout.",
+                executionConfig.orchestratorTimeoutMinutes(), perAgentMaximumMinutes);
+        }
 
         logger.info("Parallelism set to {}", executionConfig.parallelism());
         if (executionConfig.reviewPasses() > 1) {
@@ -136,9 +145,20 @@ public class ReviewOrchestrator implements AutoCloseable {
         logger.info("Starting parallel review for {} agents ({} passes each, {} total tasks) on target: {}",
             agents.size(), reviewPasses, totalTasks, target.displayName());
 
+        ensureCheckpointDirectory();
+
         String cachedSourceContent = preComputeSourceContent(target);
         ReviewContext sharedContext = createReviewContext(cachedSourceContent);
         return executeStructured(agents, target, sharedContext);
+    }
+
+    private void ensureCheckpointDirectory() {
+        try {
+            Files.createDirectories(checkpointRootDirectory);
+        } catch (Exception e) {
+            logger.warn("Failed to create checkpoint directory '{}': {}",
+                checkpointRootDirectory, e.getMessage());
+        }
     }
 
     // ========================================================================
@@ -149,7 +169,7 @@ public class ReviewOrchestrator implements AutoCloseable {
                                                  ReviewTarget target,
                                                  ReviewContext sharedContext) {
         int reviewPasses = executionConfig.reviewPasses();
-        long perAgentTimeoutMinutes = perAgentTimeoutMinutes();
+        long perAgentTimeoutMinutes = perAgentTimeoutMinutes(reviewPasses);
         long orchestratorTimeoutMinutes = executionConfig.orchestratorTimeoutMinutes();
 
         List<StructuredTaskScope.Subtask<List<ReviewResult>>> subtasks = new ArrayList<>(agents.size());
@@ -264,8 +284,10 @@ public class ReviewOrchestrator implements AutoCloseable {
         }
     }
 
-    private long perAgentTimeoutMinutes() {
-        return executionConfig.agentTimeoutMinutes() * (executionConfig.maxRetries() + 1L);
+    private long perAgentTimeoutMinutes(int reviewPasses) {
+        long retryAttempts = Math.max(1, resilienceConfig.review().maxAttempts());
+        long passes = Math.max(1, reviewPasses);
+        return executionConfig.agentTimeoutMinutes() * retryAttempts * passes;
     }
 
     // ========================================================================
@@ -373,11 +395,9 @@ public class ReviewOrchestrator implements AutoCloseable {
             return;
         }
         try {
-            Files.createDirectories(checkpointRootDirectory);
             String safeAgentName = config.name().replaceAll("[^a-zA-Z0-9._-]", "_");
             String safeTarget = target.displayName().replaceAll("[^a-zA-Z0-9._-]", "_");
             Path checkpointPath = checkpointRootDirectory.resolve(safeTarget + "_" + safeAgentName + ".md");
-            Path tempFile = Files.createTempFile(checkpointRootDirectory, ".checkpoint-", ".tmp");
 
             StringBuilder sb = new StringBuilder();
             sb.append("# Intermediate Review Checkpoint\n");
@@ -394,10 +414,7 @@ public class ReviewOrchestrator implements AutoCloseable {
                 }
             }
 
-            Files.writeString(tempFile, sb.toString());
-            Files.move(tempFile, checkpointPath,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE);
+            ReportGenerator.writeSecureString(checkpointPath, sb.toString());
             logger.debug("Persisted intermediate checkpoint for agent {}: {}", config.name(), checkpointPath);
         } catch (Exception e) {
             logger.warn("Failed to persist intermediate checkpoint for {}: {}", config.name(), e.getMessage());

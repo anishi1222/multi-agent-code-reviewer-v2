@@ -92,5 +92,27 @@ class ApiCircuitBreakerTest {
             breaker.recordFailure();
             assertThat(breaker.isRequestAllowed()).isFalse();
         }
+
+        @Test
+        @DisplayName("ハーフオープン失敗が続くとオープン期間が延長される")
+        void openDurationIncreasesOnRepeatedProbeFailures() {
+            var clock = new MutableClock(Instant.parse("2026-02-20T00:00:00Z").toEpochMilli());
+            var breaker = new ApiCircuitBreaker(1, 1000, clock);
+
+            breaker.recordFailure();
+            clock.advanceMillis(1000);
+            assertThat(breaker.isRequestAllowed()).isTrue();
+            breaker.recordFailure();
+
+            clock.advanceMillis(1000);
+            assertThat(breaker.isRequestAllowed()).isTrue();
+            breaker.recordFailure();
+
+            clock.advanceMillis(1000);
+            assertThat(breaker.isRequestAllowed()).isFalse();
+
+            clock.advanceMillis(1000);
+            assertThat(breaker.isRequestAllowed()).isTrue();
+        }
     }
 }

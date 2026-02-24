@@ -10,7 +10,8 @@ public final class BackoffUtils {
 
     public static void sleepWithJitter(int attempt, long baseMs, long maxMs) throws InterruptedException {
         long exponentialMs = Math.min(baseMs << Math.max(0, attempt - 1), maxMs);
-        long jitteredMs = ThreadLocalRandom.current().nextLong(exponentialMs + 1);
+        long halfMs = Math.max(1L, exponentialMs / 2L);
+        long jitteredMs = halfMs + ThreadLocalRandom.current().nextLong(halfMs + 1L);
         Thread.sleep(jitteredMs);
     }
 

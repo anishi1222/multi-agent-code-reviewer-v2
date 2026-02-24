@@ -25,7 +25,7 @@ A parallel code review application using multiple AI agents with GitHub Copilot 
 
 ## Latest Remediation Status
 
-All review findings from 2026-02-16 through 2026-02-20 have been fully addressed.
+All review findings from 2026-02-16 through 2026-02-24 have been fully addressed.
 
 For the full change log, see [`RELEASE_NOTES_en.md`](RELEASE_NOTES_en.md).
 
@@ -33,7 +33,7 @@ For the full change log, see [`RELEASE_NOTES_en.md`](RELEASE_NOTES_en.md).
 
 ## Operational Completion Check (2026-02-20)
 
-- Last updated: 2026-02-20
+- Last updated: 2026-02-24
 
 - [x] All review findings addressed (including 7 WAF Reliability items)
 - [x] Full test suite passing (0 failures)
@@ -76,6 +76,15 @@ For the full change log, see [`RELEASE_NOTES_en.md`](RELEASE_NOTES_en.md).
 - [x] `CopilotService.startClient()` unbounded wait eliminated (always bounded timeout)
 - [x] `ResilienceConfig` + `application.yml` `reviewer.resilience` externalized resilience parameters
 - [x] `SummaryGenerator` / `SkillExecutor` use dedicated CB and retry settings
+- [x] Executive summary filename now always uses application invocation timestamp (directory timestamp aligned)
+- [x] `SummaryGenerator` retries session establishment failures (not only send failures)
+- [x] `ReviewAgent` multi-pass execution switched to per-pass session isolation for transient session failures
+- [x] `BackoffUtils` retry strategy changed to Equal Jitter to guarantee minimum wait
+- [x] `ApiCircuitBreaker` open duration now increases after repeated half-open probe failures
+- [x] `ReviewOrchestrator` idle-timeout scheduler switched from single-thread to bounded pool
+- [x] `ReviewOrchestrator` validates timeout hierarchy and logs misconfiguration warnings at startup
+- [x] `ContentSanitizer` now decodes named HTML entities before sanitization to block XSS bypass
+- [x] Intermediate checkpoint writes now use secure owner-only file permissions
 
 ## Release Update Procedure (Template)
 
@@ -405,7 +414,7 @@ reviewer:
   execution:
     parallelism: 4              # Default parallel execution count
     review-passes: 3            # Number of review passes per agent (multi-pass review)
-    orchestrator-timeout-minutes: 45  # Orchestrator timeout (minutes)
+    orchestrator-timeout-minutes: 200  # Orchestrator timeout (minutes)
     agent-timeout-minutes: 20   # Agent timeout (minutes)
     idle-timeout-minutes: 5     # Idle timeout (minutes) — auto-terminate when no events
     skill-timeout-minutes: 20   # Skill timeout (minutes)

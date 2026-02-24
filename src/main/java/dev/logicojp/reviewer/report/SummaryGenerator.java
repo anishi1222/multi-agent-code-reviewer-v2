@@ -91,7 +91,7 @@ public class SummaryGenerator {
         this.timeoutMinutes = timeoutMinutes;
         this.templateService = templateService;
         this.summarySettings = summarySettings;
-        this.invocationTimestamp = LocalDateTime.now(clock).format(TIMESTAMP_FORMATTER);
+        this.invocationTimestamp = resolveInvocationTimestamp(outputDirectory, clock);
         var settings = resilienceSettings != null
             ? resilienceSettings
             : ResilienceConfig.OperationSettings.summaryDefaults();
@@ -142,16 +142,15 @@ public class SummaryGenerator {
                 "Copilot API circuit breaker is open (remaining " + remainingMs + " ms)");
         }
 
-        try (CopilotSession session = client.createSession(sessionConfig)
-                .get(timeoutMinutes, TimeUnit.MINUTES)) {
-            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-                if (!apiCircuitBreaker.isRequestAllowed()) {
-                    long remainingMs = apiCircuitBreaker.remainingOpenMs();
-                    return fallbackSummary(results,
-                        "Copilot API circuit breaker is open (remaining " + remainingMs + " ms)");
-                }
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            if (!apiCircuitBreaker.isRequestAllowed()) {
+                long remainingMs = apiCircuitBreaker.remainingOpenMs();
+                return fallbackSummary(results,
+                    "Copilot API circuit breaker is open (remaining " + remainingMs + " ms)");
+            }
 
-                try {
+            try (CopilotSession session = client.createSession(sessionConfig)
+                .get(timeoutMinutes, TimeUnit.MINUTES)) {
                 var response = session
                     .sendAndWait(new MessageOptions().setPrompt(prompt), timeoutMs)
                     .get(timeoutMinutes, TimeUnit.MINUTES);
@@ -167,25 +166,20 @@ public class SummaryGenerator {
 
                 apiCircuitBreaker.recordSuccess();
                 return content;
-                } catch (ExecutionException | TimeoutException e) {
-                    apiCircuitBreaker.recordFailure();
-                    if (attempt < maxAttempts) {
-                        logger.warn("Summary generation attempt {}/{} failed: {}",
-                            attempt, maxAttempts, e.getMessage());
-                        BackoffUtils.sleepWithJitterQuietly(attempt, backoffBaseMs, backoffMaxMs);
-                        continue;
-                    }
-                    return fallbackSummary(results,
-                        "Failed to generate summary using established session: " + e.getMessage());
+            } catch (ExecutionException | TimeoutException e) {
+                apiCircuitBreaker.recordFailure();
+                if (attempt < maxAttempts) {
+                    logger.warn("Summary generation attempt {}/{} failed: {}",
+                        attempt, maxAttempts, e.getMessage());
+                    BackoffUtils.sleepWithJitterQuietly(attempt, backoffBaseMs, backoffMaxMs);
+                    continue;
                 }
+                return fallbackSummary(results,
+                    "Failed to create summary session or generate summary: " + e.getMessage());
+            } catch (InterruptedException _) {
+                Thread.currentThread().interrupt();
+                throw new CopilotCliException("Summary generation interrupted");
             }
-        } catch (ExecutionException | TimeoutException e) {
-            apiCircuitBreaker.recordFailure();
-            return fallbackSummary(results,
-                "Failed to create summary session: " + e.getMessage());
-        } catch (InterruptedException _) {
-            Thread.currentThread().interrupt();
-            throw new CopilotCliException("Summary generation interrupted");
         }
 
         return fallbackSummary(results, "Summary generation exhausted retry attempts");
@@ -381,5 +375,16 @@ public class SummaryGenerator {
         }
         Path parent = outputDirectory.getParent();
         return parent != null ? parent : outputDirectory;
+    }
+
+    static String resolveInvocationTimestamp(Path outputDirectory, Clock clock) {
+        Path invocationDirectory = outputDirectory != null ? outputDirectory.getFileName() : null;
+        if (invocationDirectory != null) {
+            String value = invocationDirectory.toString();
+            if (INVOCATION_TIMESTAMP_PATTERN.matcher(value).matches()) {
+                return value;
+            }
+        }
+        return LocalDateTime.now(clock).format(TIMESTAMP_FORMATTER);
     }
 }

@@ -105,7 +105,7 @@ public final class CustomInstructionSafetyValidator {
         if (content.length() > maxSize) {
             return new ValidationResult(false, "size limit exceeded");
         }
-        if (content.lines().count() > MAX_INSTRUCTION_LINES) {
+        if (exceedsLineLimit(content, MAX_INSTRUCTION_LINES)) {
             return new ValidationResult(false, "line count limit exceeded");
         }
 
@@ -148,6 +148,30 @@ public final class CustomInstructionSafetyValidator {
         String normalized = normalize(content);
         return SUSPICIOUS_COMBINED_PATTERN.matcher(normalized).find()
             || DELIMITER_INJECTION_PATTERN.matcher(normalized).find();
+    }
+
+    private static boolean exceedsLineLimit(String content, int maxLines) {
+        if (content.isEmpty()) {
+            return false;
+        }
+
+        int lines = 1;
+        for (int i = 0; i < content.length(); i++) {
+            char ch = content.charAt(i);
+            if (ch == '\n') {
+                if (++lines > maxLines) {
+                    return true;
+                }
+            } else if (ch == '\r') {
+                if (++lines > maxLines) {
+                    return true;
+                }
+                if (i + 1 < content.length() && content.charAt(i + 1) == '\n') {
+                    i++;
+                }
+            }
+        }
+        return false;
     }
 
     private static String normalize(String content) {

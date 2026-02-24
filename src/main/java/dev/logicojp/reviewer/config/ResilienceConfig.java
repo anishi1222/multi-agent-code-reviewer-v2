@@ -16,9 +16,9 @@ public record ResilienceConfig(
 ) {
 
     public ResilienceConfig {
-        review = review != null ? review : OperationSettings.reviewDefaults();
-        summary = summary != null ? summary : OperationSettings.summaryDefaults();
-        skill = skill != null ? skill : OperationSettings.skillDefaults();
+        review = OperationSettings.mergeWithDefaults(review, OperationSettings.reviewDefaults());
+        summary = OperationSettings.mergeWithDefaults(summary, OperationSettings.summaryDefaults());
+        skill = OperationSettings.mergeWithDefaults(skill, OperationSettings.skillDefaults());
     }
 
     public record OperationSettings(
@@ -47,14 +47,47 @@ public record ResilienceConfig(
         public static final long DEFAULT_SKILL_BACKOFF_MAX_MS = 4000;
 
         public OperationSettings {
-            failureThreshold = ConfigDefaults.defaultIfNonPositive(failureThreshold, DEFAULT_REVIEW_FAILURE_THRESHOLD);
-            openDurationSeconds = ConfigDefaults.defaultIfNonPositive(openDurationSeconds, DEFAULT_REVIEW_OPEN_DURATION_SECONDS);
-            maxAttempts = ConfigDefaults.defaultIfNonPositive(maxAttempts, DEFAULT_REVIEW_MAX_ATTEMPTS);
-            backoffBaseMs = ConfigDefaults.defaultIfNonPositive(backoffBaseMs, DEFAULT_REVIEW_BACKOFF_BASE_MS);
-            backoffMaxMs = ConfigDefaults.defaultIfNonPositive(backoffMaxMs, DEFAULT_REVIEW_BACKOFF_MAX_MS);
+            failureThreshold = Math.max(0, failureThreshold);
+            openDurationSeconds = Math.max(0, openDurationSeconds);
+            maxAttempts = Math.max(0, maxAttempts);
+            backoffBaseMs = Math.max(0, backoffBaseMs);
+            backoffMaxMs = Math.max(0, backoffMaxMs);
+            if (backoffBaseMs > 0 && backoffMaxMs > 0 && backoffMaxMs < backoffBaseMs) {
+                backoffMaxMs = backoffBaseMs;
+            }
+        }
+
+        public static OperationSettings mergeWithDefaults(OperationSettings partial,
+                                                          OperationSettings defaults) {
+            if (partial == null) {
+                return defaults;
+            }
+            int failureThreshold = partial.failureThreshold() > 0
+                ? partial.failureThreshold()
+                : defaults.failureThreshold();
+            long openDurationSeconds = partial.openDurationSeconds() > 0
+                ? partial.openDurationSeconds()
+                : defaults.openDurationSeconds();
+            int maxAttempts = partial.maxAttempts() > 0
+                ? partial.maxAttempts()
+                : defaults.maxAttempts();
+            long backoffBaseMs = partial.backoffBaseMs() > 0
+                ? partial.backoffBaseMs()
+                : defaults.backoffBaseMs();
+            long backoffMaxMs = partial.backoffMaxMs() > 0
+                ? partial.backoffMaxMs()
+                : defaults.backoffMaxMs();
             if (backoffMaxMs < backoffBaseMs) {
                 backoffMaxMs = backoffBaseMs;
             }
+
+            return new OperationSettings(
+                failureThreshold,
+                openDurationSeconds,
+                maxAttempts,
+                backoffBaseMs,
+                backoffMaxMs
+            );
         }
 
         public static OperationSettings reviewDefaults() {
