@@ -54,6 +54,9 @@ public class CopilotService {
     private volatile CopilotClient client;
     private volatile String initializedTokenFingerprint;
 
+    private record RetryOutcome<T>(T value, int attempts) {
+    }
+
     @Inject
     public CopilotService(CopilotConfig copilotConfig) {
         this.copilotConfig = copilotConfig;
@@ -107,34 +110,32 @@ public class CopilotService {
                 "tokenFingerprintPrefix", shortFingerprint(tokenFingerprint)));
 
         long timeoutSeconds = copilotConfig.startTimeoutSeconds();
-        RuntimeException lastFailure = null;
-
-        for (int attempt = 1; attempt <= INIT_MAX_ATTEMPTS; attempt++) {
-            CopilotClient createdClient = new CopilotClient(options);
-            try {
-                startClient(createdClient, timeoutSeconds);
-                client = createdClient;
-                initializedTokenFingerprint = tokenFingerprint;
-                logger.info("Copilot client initialized");
-                SecurityAuditLogger.log(
-                    "authentication", "copilot.initialize",
-                    "Copilot client authentication completed",
-                    Map.of("outcome", "success", "attempt", String.valueOf(attempt)));
-                return;
-            } catch (RuntimeException e) {
-                lastFailure = e;
-                closeQuietly(createdClient);
-                if (attempt < INIT_MAX_ATTEMPTS) {
-                    logger.warn("Copilot client initialization attempt {}/{} failed: {}",
-                        attempt, INIT_MAX_ATTEMPTS, e.getMessage());
-                    BackoffUtils.sleepWithJitter(attempt, INIT_BACKOFF_BASE_MS, INIT_BACKOFF_MAX_MS);
+        var outcome = executeWithRetry(
+            INIT_MAX_ATTEMPTS,
+            INIT_BACKOFF_BASE_MS,
+            INIT_BACKOFF_MAX_MS,
+            attempt -> {
+                CopilotClient createdClient = new CopilotClient(options);
+                try {
+                    startClient(createdClient, timeoutSeconds);
+                    return createdClient;
+                } catch (RuntimeException e) {
+                    closeQuietly(createdClient);
+                    throw e;
                 }
-            }
-        }
+            },
+            (attempt, maxAttempts, message) ->
+                "Copilot client initialization attempt %d/%d failed: %s"
+                    .formatted(attempt, maxAttempts, message)
+        );
 
-        if (lastFailure != null) {
-            throw lastFailure;
-        }
+        client = outcome.value();
+        initializedTokenFingerprint = tokenFingerprint;
+        logger.info("Copilot client initialized");
+        SecurityAuditLogger.log(
+            "authentication", "copilot.initialize",
+            "Copilot client authentication completed",
+            Map.of("outcome", "success", "attempt", String.valueOf(outcome.attempts())));
     }
 
     public CopilotClient getClient() {
@@ -305,23 +306,53 @@ public class CopilotService {
                                         String timeoutMessage, String exitMessage,
                                         String ioMessage, String remediationMessage)
         throws InterruptedException {
-        RuntimeException lastFailure = null;
-        for (int attempt = 1; attempt <= CLI_CHECK_MAX_ATTEMPTS; attempt++) {
-            try {
+        executeWithRetry(
+            CLI_CHECK_MAX_ATTEMPTS,
+            CLI_CHECK_BACKOFF_BASE_MS,
+            CLI_CHECK_BACKOFF_MAX_MS,
+            _ -> {
                 runCliCommand(command, timeoutSeconds, timeoutMessage, exitMessage, ioMessage, remediationMessage);
-                return;
+                return Boolean.TRUE;
+            },
+            (attempt, maxAttempts, message) ->
+                "CLI check attempt %d/%d failed for '%s': %s"
+                    .formatted(attempt, maxAttempts, String.join(" ", command), message)
+        );
+    }
+
+    private <T> RetryOutcome<T> executeWithRetry(int maxAttempts,
+                                                 long backoffBaseMs,
+                                                 long backoffMaxMs,
+                                                 RetryAttemptExecutor<T> attemptExecutor,
+                                                 RetryLogMessageBuilder logMessageBuilder)
+        throws InterruptedException {
+        int totalAttempts = Math.max(1, maxAttempts);
+        RuntimeException lastFailure = null;
+        for (int attempt = 1; attempt <= totalAttempts; attempt++) {
+            try {
+                return new RetryOutcome<>(attemptExecutor.execute(attempt), attempt);
             } catch (RuntimeException e) {
                 lastFailure = e;
-                if (attempt < CLI_CHECK_MAX_ATTEMPTS) {
-                    logger.warn("CLI check attempt {}/{} failed for '{}': {}",
-                        attempt, CLI_CHECK_MAX_ATTEMPTS, String.join(" ", command), e.getMessage());
-                    BackoffUtils.sleepWithJitter(attempt, CLI_CHECK_BACKOFF_BASE_MS, CLI_CHECK_BACKOFF_MAX_MS);
+                if (attempt < totalAttempts) {
+                    logger.warn(logMessageBuilder.build(attempt, totalAttempts, e.getMessage()));
+                    BackoffUtils.sleepWithJitter(attempt, backoffBaseMs, backoffMaxMs);
                 }
             }
         }
         if (lastFailure != null) {
             throw lastFailure;
         }
+        throw new IllegalStateException("Retry execution failed without captured exception");
+    }
+
+    @FunctionalInterface
+    private interface RetryLogMessageBuilder {
+        String build(int attempt, int maxAttempts, String errorMessage);
+    }
+
+    @FunctionalInterface
+    private interface RetryAttemptExecutor<T> {
+        T execute(int attempt) throws InterruptedException;
     }
 
     private void startClient(CopilotClient createdClient, long timeoutSeconds)

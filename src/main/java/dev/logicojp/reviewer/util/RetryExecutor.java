@@ -3,6 +3,7 @@ package dev.logicojp.reviewer.util;
 import org.slf4j.Logger;
 
 import java.util.function.Function;
+import java.util.function.LongFunction;
 import java.util.function.Predicate;
 
 /// Generic retry executor with circuit-breaker integration and jittered backoff.
@@ -28,10 +29,50 @@ public final class RetryExecutor {
         Logger logger,
         String operationName
     ) {
+        return executeWithGate(
+            attempt,
+            exceptionMapper,
+            isSuccess,
+            errorMessageExtractor,
+            result -> BackoffUtils.isRetryableMessage(errorMessageExtractor.apply(result)),
+            exception -> BackoffUtils.isRetryableMessage(exception.getMessage()),
+            _ -> true,
+            _ -> true,
+            maxAttempts,
+            backoffBaseMs,
+            backoffMaxMs,
+            circuitBreaker,
+            logger,
+            operationName,
+            null
+        );
+    }
+
+    public static <T> T executeWithGate(
+        Attempt<T> attempt,
+        Function<Exception, T> exceptionMapper,
+        Predicate<T> isSuccess,
+        Function<T, String> errorMessageExtractor,
+        Predicate<T> isRetryableResult,
+        Predicate<Exception> isRetryableException,
+        Predicate<T> shouldRecordFailureResult,
+        Predicate<Exception> shouldRecordFailureException,
+        int maxAttempts,
+        long backoffBaseMs,
+        long backoffMaxMs,
+        ApiCircuitBreaker circuitBreaker,
+        Logger logger,
+        String operationName,
+        LongFunction<T> onCircuitOpen
+    ) {
         int totalAttempts = Math.max(1, maxAttempts);
         T lastResult = null;
 
         for (int attemptNumber = 1; attemptNumber <= totalAttempts; attemptNumber++) {
+            if (onCircuitOpen != null && !circuitBreaker.isRequestAllowed()) {
+                return onCircuitOpen.apply(circuitBreaker.remainingOpenMs());
+            }
+
             try {
                 lastResult = attempt.execute();
                 if (isSuccess.test(lastResult)) {
@@ -42,9 +83,11 @@ public final class RetryExecutor {
                     return lastResult;
                 }
 
-                circuitBreaker.recordFailure();
+                if (shouldRecordFailureResult.test(lastResult)) {
+                    circuitBreaker.recordFailure();
+                }
                 String errorMessage = errorMessageExtractor.apply(lastResult);
-                if (attemptNumber < totalAttempts && BackoffUtils.isRetryableMessage(errorMessage)) {
+                if (attemptNumber < totalAttempts && isRetryableResult.test(lastResult)) {
                     BackoffUtils.sleepWithJitterQuietly(attemptNumber, backoffBaseMs, backoffMaxMs);
                     logger.warn("{} failed on attempt {}/{}: {}. Retrying...",
                         operationName, attemptNumber, totalAttempts, errorMessage);
@@ -54,9 +97,11 @@ public final class RetryExecutor {
                     operationName, attemptNumber, totalAttempts, errorMessage);
                 return lastResult;
             } catch (Exception e) {
-                circuitBreaker.recordFailure();
+                if (shouldRecordFailureException.test(e)) {
+                    circuitBreaker.recordFailure();
+                }
                 lastResult = exceptionMapper.apply(e);
-                if (attemptNumber < totalAttempts && BackoffUtils.isRetryableMessage(e.getMessage())) {
+                if (attemptNumber < totalAttempts && isRetryableException.test(e)) {
                     BackoffUtils.sleepWithJitterQuietly(attemptNumber, backoffBaseMs, backoffMaxMs);
                     logger.warn("{} threw exception on attempt {}/{}: {}. Retrying...",
                         operationName, attemptNumber, totalAttempts, e.getMessage(), e);

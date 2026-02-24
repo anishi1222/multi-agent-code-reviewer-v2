@@ -47,6 +47,35 @@ class ApiCircuitBreakerTest {
     }
 
     @Nested
+    @DisplayName("factory methods")
+    class FactoryMethods {
+
+        @Test
+        @DisplayName("forReviewは毎回新しいインスタンスを返す")
+        void forReviewReturnsNewInstanceEachTime() {
+            var first = ApiCircuitBreaker.forReview();
+            var second = ApiCircuitBreaker.forReview();
+
+            assertThat(first).isNotSameAs(second);
+
+            first.recordFailure();
+            first.recordFailure();
+            first.recordFailure();
+            first.recordFailure();
+            first.recordFailure();
+
+            assertThat(second.isRequestAllowed()).isTrue();
+        }
+
+        @Test
+        @DisplayName("forSummaryとforSkillも毎回新しいインスタンスを返す")
+        void summaryAndSkillFactoriesReturnNewInstances() {
+            assertThat(ApiCircuitBreaker.forSummary()).isNotSameAs(ApiCircuitBreaker.forSummary());
+            assertThat(ApiCircuitBreaker.forSkill()).isNotSameAs(ApiCircuitBreaker.forSkill());
+        }
+    }
+
+    @Nested
     @DisplayName("isRequestAllowed")
     class IsRequestAllowed {
 

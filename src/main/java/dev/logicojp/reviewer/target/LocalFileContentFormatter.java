@@ -77,7 +77,7 @@ final class LocalFileContentFormatter {
         sb.append("```\n\n");
     }
 
-    private String noSourceFilesSummary() {
+    String noSourceFilesSummary() {
         return "No source files found in: " + baseDirectory;
     }
 
