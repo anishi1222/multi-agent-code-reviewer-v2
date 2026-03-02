@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 
@@ -159,32 +160,44 @@ public final class CustomInstructionSafetyValidator {
         return WHITESPACE_PATTERN.matcher(homoglyphNormalized).replaceAll(" ");
     }
 
+    private static final Map<Character, Character> HOMOGLYPH_MAP = Map.ofEntries(
+        Map.entry('\u0456', 'i'),  // Cyrillic і → i
+        Map.entry('\u0430', 'a'),  // Cyrillic а → a
+        Map.entry('\u0435', 'e'),  // Cyrillic е → e
+        Map.entry('\u043E', 'o'),  // Cyrillic о → o
+        Map.entry('\u0440', 'p'),  // Cyrillic р → p
+        Map.entry('\u0441', 'c'),  // Cyrillic с → c
+        Map.entry('\u0443', 'y'),  // Cyrillic у → y
+        Map.entry('\u0445', 'x'),  // Cyrillic х → x
+        Map.entry('\u03BF', 'o'),  // Greek ο → o
+        Map.entry('\u03B1', 'a'),  // Greek α → a
+        Map.entry('\u03B5', 'e'),  // Greek ε → e
+        Map.entry('\u03B9', 'i'),  // Greek ι → i
+        Map.entry('\u0391', 'A'),  // Greek Α → A
+        Map.entry('\u0392', 'B'),  // Greek Β → B
+        Map.entry('\u0395', 'E'),  // Greek Ε → E
+        Map.entry('\u0397', 'H'),  // Greek Η → H
+        Map.entry('\u0399', 'I'),  // Greek Ι → I
+        Map.entry('\u039A', 'K'),  // Greek Κ → K
+        Map.entry('\u039C', 'M'),  // Greek Μ → M
+        Map.entry('\u039D', 'N'),  // Greek Ν → N
+        Map.entry('\u039F', 'O'),  // Greek Ο → O
+        Map.entry('\u03A1', 'P'),  // Greek Ρ → P
+        Map.entry('\u03A4', 'T'),  // Greek Τ → T
+        Map.entry('\u03A5', 'Y'),  // Greek Υ → Y
+        Map.entry('\u03A7', 'X')   // Greek Χ → X
+    );
+
     private static String normalizeHomoglyphs(String text) {
-        return text
-            .replace('\u0456', 'i')  // Cyrillic і → i
-            .replace('\u0430', 'a')  // Cyrillic а → a
-            .replace('\u0435', 'e')  // Cyrillic е → e
-            .replace('\u043E', 'o')  // Cyrillic о → o
-            .replace('\u0440', 'p')  // Cyrillic р → p
-            .replace('\u0441', 'c')  // Cyrillic с → c
-            .replace('\u0443', 'y')  // Cyrillic у → y
-            .replace('\u0445', 'x')  // Cyrillic х → x
-            .replace('\u03BF', 'o')  // Greek ο → o
-            .replace('\u03B1', 'a')  // Greek α → a
-            .replace('\u03B5', 'e')  // Greek ε → e
-            .replace('\u03B9', 'i')  // Greek ι → i
-            .replace('\u0391', 'A')  // Greek Α → A
-            .replace('\u0392', 'B')  // Greek Β → B
-            .replace('\u0395', 'E')  // Greek Ε → E
-            .replace('\u0397', 'H')  // Greek Η → H
-            .replace('\u0399', 'I')  // Greek Ι → I
-            .replace('\u039A', 'K')  // Greek Κ → K
-            .replace('\u039C', 'M')  // Greek Μ → M
-            .replace('\u039D', 'N')  // Greek Ν → N
-            .replace('\u039F', 'O')  // Greek Ο → O
-            .replace('\u03A1', 'P')  // Greek Ρ → P
-            .replace('\u03A4', 'T')  // Greek Τ → T
-            .replace('\u03A5', 'Y')  // Greek Υ → Y
-            .replace('\u03A7', 'X'); // Greek Χ → X
+        char[] chars = text.toCharArray();
+        boolean modified = false;
+        for (int i = 0; i < chars.length; i++) {
+            Character replacement = HOMOGLYPH_MAP.get(chars[i]);
+            if (replacement != null) {
+                chars[i] = replacement;
+                modified = true;
+            }
+        }
+        return modified ? new String(chars) : text;
     }
 }

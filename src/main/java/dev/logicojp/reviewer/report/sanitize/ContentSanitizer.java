@@ -66,7 +66,10 @@ public final class ContentSanitizer {
 
     private static final ContentSanitizationPipeline PIPELINE = new ContentSanitizationPipeline(
         List.of(
-            new ContentSanitizationRule(REMOVABLE_BLOCKS_PATTERN, ""),
+            new ContentSanitizationRule(COT_BLOCK_PATTERN, "",
+                List.of("<thinking", "<antthinking", "<reflection", "<inner_monologue",
+                    "<scratchpad", "<details>")),
+            new ContentSanitizationRule(DANGEROUS_HTML_PATTERN, ""),
             new ContentSanitizationRule(EXCESSIVE_BLANK_LINES, "\n\n")
         )
     );
