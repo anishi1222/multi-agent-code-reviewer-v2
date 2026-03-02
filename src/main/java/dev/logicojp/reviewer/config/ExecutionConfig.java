@@ -122,6 +122,12 @@ public record ExecutionConfig(
             .build();
     }
 
+    /// Returns a new ExecutionConfig with all default values.
+    /// Useful in tests and as a starting point for the Builder.
+    public static ExecutionConfig defaults() {
+        return new ExecutionConfig(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
+
     public static final class Builder {
         private int parallelism;
         private int reviewPasses;

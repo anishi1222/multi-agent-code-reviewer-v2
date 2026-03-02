@@ -104,8 +104,8 @@ public class SkillExecutor implements AutoCloseable {
 
                 lastResult = result;
                 boolean retryableFailure = isRetryableFailure(result);
-                if (shouldRetry(attempt, totalAttempts, retryableFailure)) {
-                    waitRetryBackoff(attempt);
+                if (RetryPolicyUtils.shouldRetry(attempt, totalAttempts, retryableFailure)) {
+                    RetryPolicyUtils.sleepWithBackoff(BACKOFF_BASE_MS, BACKOFF_MAX_MS, attempt);
                     logger.warn("Skill {} failed on attempt {}/{}: {}. Retrying...",
                         skill.id(), attempt, totalAttempts, result.errorMessage());
                     continue;
@@ -114,8 +114,8 @@ public class SkillExecutor implements AutoCloseable {
             } catch (Exception e) {
                 lastResult = SkillResult.failure(skill.id(), e.getMessage());
                 boolean transientException = isTransientException(e);
-                if (shouldRetry(attempt, totalAttempts, transientException)) {
-                    waitRetryBackoff(attempt);
+                if (RetryPolicyUtils.shouldRetry(attempt, totalAttempts, transientException)) {
+                    RetryPolicyUtils.sleepWithBackoff(BACKOFF_BASE_MS, BACKOFF_MAX_MS, attempt);
                     logger.warn("Skill {} threw exception on attempt {}/{}: {}. Retrying...",
                         skill.id(), attempt, totalAttempts, e.getMessage(), e);
                     continue;
@@ -126,19 +126,6 @@ public class SkillExecutor implements AutoCloseable {
         }
 
         return lastResult;
-    }
-
-    private boolean shouldRetry(int attempt, int totalAttempts, boolean retryable) {
-        return retryable && attempt < totalAttempts;
-    }
-
-    private void waitRetryBackoff(int attempt) {
-        long backoffMs = RetryPolicyUtils.computeBackoffWithJitter(BACKOFF_BASE_MS, BACKOFF_MAX_MS, attempt);
-        try {
-            Thread.sleep(backoffMs);
-        } catch (InterruptedException _) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     private boolean isRetryableFailure(SkillResult result) {
