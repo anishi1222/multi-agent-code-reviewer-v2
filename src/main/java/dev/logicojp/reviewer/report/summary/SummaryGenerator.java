@@ -160,6 +160,7 @@ public class SummaryGenerator {
     private String buildSummaryWithAI(List<ReviewResult> results, String repository) {
         logger.info("Using model for summary: {}", summaryModel);
         int totalAttempts = AI_SUMMARY_MAX_RETRIES + 1;
+        String prompt = summaryPromptBuilder.buildSummaryPrompt(results, repository);
 
         for (int attempt = 1; attempt <= totalAttempts; attempt++) {
             var sessionConfig = createSummarySessionConfig();
@@ -167,7 +168,6 @@ public class SummaryGenerator {
 
             try (CopilotSession session = client.createSession(sessionConfig)
                 .get(timeoutMinutes, TimeUnit.MINUTES)) {
-                String prompt = summaryPromptBuilder.buildSummaryPrompt(results, repository);
                 var response = session
                     .sendAndWait(new MessageOptions().setPrompt(prompt), timeoutMs)
                     .get(timeoutMinutes, TimeUnit.MINUTES);

@@ -395,7 +395,7 @@ public class ReviewAgent {
                     "error", null, 0, data != null ? data.message() : "session error"
                 ));
             }),
-            trace -> logger.trace("{}", trace)
+            trace -> { if (logger.isTraceEnabled()) logger.trace("{}", trace.get()); }
         );
     }
 

@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.agent;
 
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /// Binds session events to a {@link ContentCollector} in a transport-agnostic way.
 final class ReviewSessionEvents {
@@ -15,6 +16,11 @@ final class ReviewSessionEvents {
         AutoCloseable subscribe(Consumer<T> handler);
     }
 
+    @FunctionalInterface
+    interface TraceLogger {
+        void log(Supplier<String> messageSupplier);
+    }
+
     record EventData(String type, String content, int toolCalls, String errorMessage) {
     }
 
@@ -27,7 +33,7 @@ final class ReviewSessionEvents {
                                        TypedSessionSubscription<EventData> messages,
                                        TypedSessionSubscription<EventData> idle,
                                        TypedSessionSubscription<EventData> error,
-                                       java.util.function.Consumer<String> traceLogger) {
+                                       TraceLogger traceLogger) {
         var allEventsSub = subscribeAllEvents(agentName, collector, allEvents, traceLogger);
         var messageSub = subscribeMessages(collector, messages);
         var idleSub = subscribeIdle(collector, idle);
@@ -39,10 +45,10 @@ final class ReviewSessionEvents {
     private static AutoCloseable subscribeAllEvents(String agentName,
                                                     ContentCollector collector,
                                                     SessionSubscription allEvents,
-                                                    java.util.function.Consumer<String> traceLogger) {
+                                                    TraceLogger traceLogger) {
         return allEvents.subscribe(event -> {
             collector.onActivity();
-            traceLogger.accept("Agent " + agentName + ": event received — " + event.type());
+            traceLogger.log(() -> "Agent " + agentName + ": event received \u2014 " + event.type());
         });
     }
 

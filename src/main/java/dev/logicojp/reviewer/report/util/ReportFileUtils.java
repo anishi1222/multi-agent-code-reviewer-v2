@@ -43,14 +43,15 @@ public final class ReportFileUtils {
     }
 
     public static void writeSecureString(Path filePath, String content) throws IOException {
+        boolean posix = supportsPosix(filePath);
         Path tempFilePath = filePath.resolveSibling(filePath.getFileName() + ".tmp." + UUID.randomUUID());
         try {
             Files.writeString(tempFilePath, content);
-            if (supportsPosix(tempFilePath)) {
+            if (posix) {
                 Files.setPosixFilePermissions(tempFilePath, OWNER_FILE_PERMISSIONS);
             }
             moveAtomically(tempFilePath, filePath);
-            if (supportsPosix(filePath)) {
+            if (posix) {
                 Files.setPosixFilePermissions(filePath, OWNER_FILE_PERMISSIONS);
             }
         } finally {
