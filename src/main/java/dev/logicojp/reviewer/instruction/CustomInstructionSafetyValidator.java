@@ -48,7 +48,10 @@ public final class CustomInstructionSafetyValidator {
     private static final Pattern CONTROL_CHARS_PATTERN = Pattern.compile("[\\p{Cf}\\p{Cc}]");
     private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
     private static final Pattern DELIMITER_INJECTION_PATTERN = Pattern.compile(
-        "---\\s*(BEGIN|END|SYSTEM|OVERRIDE)|</user_provided_instruction>",
+        "---\\s*(BEGIN|END|SYSTEM|OVERRIDE)(\\s+PROJECT\\s+INSTRUCTIONS)?"
+            + "|BEGIN\\s+PROJECT\\s+INSTRUCTIONS"
+            + "|END\\s+PROJECT\\s+INSTRUCTIONS"
+            + "|</user_provided_instruction>",
         Pattern.CASE_INSENSITIVE);
 
     /// Allowed Unicode blocks for untrusted instructions.

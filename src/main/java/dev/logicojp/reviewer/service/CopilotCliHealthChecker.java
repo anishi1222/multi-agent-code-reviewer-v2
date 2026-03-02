@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -19,6 +20,8 @@ public class CopilotCliHealthChecker {
     private static final String CLI_HEALTHCHECK_ENV = "COPILOT_CLI_HEALTHCHECK_SECONDS";
     private static final String CLI_AUTH_CHECK_ENV = "COPILOT_CLI_AUTHCHECK_SECONDS";
     private static final long DEFAULT_CLI_AUTHCHECK_SECONDS = 15;
+    private static final Path SAFE_WORKING_DIRECTORY =
+        Path.of(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
 
     private final CopilotTimeoutResolver timeoutResolver;
 
@@ -61,6 +64,7 @@ public class CopilotCliHealthChecker {
                                String remediationMessage)
         throws InterruptedException {
         ProcessBuilder builder = new ProcessBuilder(command);
+        builder.directory(SAFE_WORKING_DIRECTORY.toFile());
         builder.redirectErrorStream(true);
         try {
             Process process = builder.start();
