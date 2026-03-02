@@ -10,6 +10,10 @@ import java.util.regex.Pattern;
 public final class ReviewFindingParser {
 
     private static final Pattern FINDING_HEADER = Pattern.compile("(?m)^###\\s+(\\d+)\\.\\s+(.+?)\\s*$");
+    private static final Pattern TRAILING_GLOBAL_SECTION = Pattern.compile(
+        "(?im)^##\\s+.+$|^###\\s*(?:総評|総合評価|総括|まとめ|overall\\s+assessment|overall\\s+summary|overall|summary)\\s*$|^\\*\\*(?:総評|総合評価|総括|まとめ|overall\\s+assessment|overall\\s+summary|overall|summary)\\*\\*\\s*$"
+    );
+    private static final Pattern TRAILING_SEPARATOR = Pattern.compile("(?s)(.*?)(?:\\n\\s*---\\s*)+$");
     private static final Pattern TABLE_ROW_TEMPLATE = Pattern.compile(
         "(?m)^\\|\\s*\\*\\*%s\\*\\*\\s*\\|\\s*(.*?)\\s*\\|\\s*$");
     private static final Map<String, Pattern> TABLE_VALUE_PATTERNS = new ConcurrentHashMap<>();
@@ -32,12 +36,33 @@ public final class ReviewFindingParser {
         for (int i = 0; i < headers.size(); i++) {
             HeaderMatch current = headers.get(i);
             int bodyEnd = i + 1 < headers.size() ? headers.get(i + 1).startIndex() : content.length();
-            String body = content.substring(current.endIndex(), bodyEnd).trim();
+            String body = normalizeFindingBody(content.substring(current.endIndex(), bodyEnd));
             if (!body.isEmpty()) {
                 blocks.add(new FindingBlock(current.title(), body));
             }
         }
         return blocks;
+    }
+
+    private static String normalizeFindingBody(String rawBody) {
+        if (rawBody == null || rawBody.isBlank()) {
+            return "";
+        }
+
+        int boundaryIndex = findTrailingGlobalSectionStart(rawBody);
+        String body = rawBody.substring(0, boundaryIndex).trim();
+
+        Matcher trailingSeparatorMatcher = TRAILING_SEPARATOR.matcher(body);
+        if (trailingSeparatorMatcher.matches()) {
+            body = trailingSeparatorMatcher.group(1).trim();
+        }
+
+        return body;
+    }
+
+    private static int findTrailingGlobalSectionStart(String rawBody) {
+        Matcher matcher = TRAILING_GLOBAL_SECTION.matcher(rawBody);
+        return matcher.find() ? matcher.start() : rawBody.length();
     }
 
     public static String findingKey(FindingBlock block) {

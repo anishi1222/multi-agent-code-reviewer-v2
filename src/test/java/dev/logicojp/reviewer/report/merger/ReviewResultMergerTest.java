@@ -91,18 +91,56 @@ class ReviewResultMergerTest {
     class SinglePass {
 
         @Test
-        @DisplayName("エージェントごとに1つの結果の場合はそのまま返す")
-        void singleResultPerAgentReturnsAsIs() {
+        @DisplayName("エージェントごとに1つの成功結果でもフォーマット正規化を適用する")
+        void singleResultPerAgentIsNormalized() {
             var agent1 = createAgent("security");
             var agent2 = createAgent("performance");
-            var result1 = successResult(agent1, "Security findings");
-            var result2 = successResult(agent2, "Performance findings");
+            var result1 = successResult(agent1, finding("1", "SQLインジェクション", "High",
+                "プレースホルダ未使用", "情報漏洩", "src/A.java L10"));
+            var result2 = successResult(agent2, finding("1", "N+1", "Medium",
+                "ループ内クエリ", "遅延", "src/B.java L20"));
 
             List<ReviewResult> merged = ReviewResultMerger.mergeByAgent(List.of(result1, result2));
 
             assertThat(merged).hasSize(2);
-            assertThat(merged.get(0)).isSameAs(result1);
-            assertThat(merged.get(1)).isSameAs(result2);
+            assertThat(merged.get(0).content()).contains("### 1. SQLインジェクション");
+            assertThat(merged.get(1).content()).contains("### 1. N+1");
+        }
+
+        @Test
+        @DisplayName("単一パスの末尾に含まれた総評セクションは指摘本文から除去される")
+        void trailingOverallSectionIsRemovedFromSinglePassFindingBody() {
+            var agent = createAgent("security");
+            var content = """
+                ### 1. ログディレクトリの権限制御不足
+
+                | 項目 | 内容 |
+                |------|------|
+                | **Priority** | Medium |
+                | **指摘の概要** | ログディレクトリが共有環境で読み取り可能 |
+                | **修正しない場合の影響** | 監査ログ漏えい |
+                | **該当箇所** | src/main/resources/logback.xml L12-21 |
+
+                **推奨対応**
+
+                権限を制限する
+
+                **効果**
+
+                情報漏えい防止
+
+                **総評**
+
+                全体としては堅牢だが改善余地がある。
+                """;
+            var result = successResult(agent, content);
+
+            List<ReviewResult> merged = ReviewResultMerger.mergeByAgent(List.of(result));
+
+            assertThat(merged).hasSize(1);
+            assertThat(merged.getFirst().content()).contains("### 1. ログディレクトリの権限制御不足");
+            assertThat(merged.getFirst().content()).doesNotContain("**総評**");
+            assertThat(merged.getFirst().content()).doesNotContain("全体としては堅牢だが改善余地がある");
         }
     }
 

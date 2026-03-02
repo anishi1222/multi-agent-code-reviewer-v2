@@ -62,4 +62,22 @@ class FindingsParserTest {
         List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings("指摘事項なし", "agent");
         assertThat(findings).isEmpty();
     }
+
+    @Test
+    @DisplayName("総評見出しは指摘見出しとして抽出されない")
+    void doesNotTreatOverallHeadingAsFinding() {
+        String content = """
+            ### 1. 指摘A
+            | **Priority** | Medium |
+
+            **総評**
+
+            追加コメント
+            """;
+
+        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings(content, "agent");
+
+        assertThat(findings).hasSize(1);
+        assertThat(findings.getFirst().title()).isEqualTo("指摘A");
+    }
 }
