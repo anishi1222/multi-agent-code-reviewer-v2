@@ -14,6 +14,9 @@ public final class ReviewFindingParser {
         "(?im)^##\\s+.+$|^###\\s*(?:総評|総合評価|総括|まとめ|overall\\s+assessment|overall\\s+summary|overall|summary)\\s*$|^\\*\\*(?:総評|総合評価|総括|まとめ|overall\\s+assessment|overall\\s+summary|overall|summary)\\*\\*\\s*$"
     );
     private static final Pattern TRAILING_SEPARATOR = Pattern.compile("(?s)(.*?)(?:\\n\\s*---\\s*)+$");
+    private static final Pattern OVERALL_HEADER = Pattern.compile(
+        "(?im)^(?:##+\\s*(?:総評|総合評価|総括|まとめ|overall\\s+assessment|overall\\s+summary|overall|summary)\\s*$|\\*\\*(?:総評|総合評価|総括|まとめ|overall\\s+assessment|overall\\s+summary|overall|summary)\\*\\*\\s*$)"
+    );
     private static final Pattern TABLE_ROW_TEMPLATE = Pattern.compile(
         "(?m)^\\|\\s*\\*\\*%s\\*\\*\\s*\\|\\s*(.*?)\\s*\\|\\s*$");
     private static final Map<String, Pattern> TABLE_VALUE_PATTERNS = new ConcurrentHashMap<>();
@@ -52,12 +55,40 @@ public final class ReviewFindingParser {
         int boundaryIndex = findTrailingGlobalSectionStart(rawBody);
         String body = rawBody.substring(0, boundaryIndex).trim();
 
-        Matcher trailingSeparatorMatcher = TRAILING_SEPARATOR.matcher(body);
-        if (trailingSeparatorMatcher.matches()) {
-            body = trailingSeparatorMatcher.group(1).trim();
+        return trimTrailingSeparators(body);
+    }
+
+    /// Extracts trailing overall-summary text from review content.
+    ///
+    /// Supported headers include variants such as `## 総評`, `### Summary`, and `**総評**`.
+    public static String extractOverallSummary(String content) {
+        if (content == null || content.isBlank()) {
+            return "";
         }
 
-        return body;
+        Matcher matcher = OVERALL_HEADER.matcher(content);
+        int summaryBodyStart = -1;
+        while (matcher.find()) {
+            summaryBodyStart = matcher.end();
+        }
+
+        if (summaryBodyStart < 0) {
+            return "";
+        }
+
+        String summary = content.substring(summaryBodyStart).trim();
+        return trimTrailingSeparators(summary);
+    }
+
+    private static String trimTrailingSeparators(String body) {
+        if (body == null || body.isBlank()) {
+            return "";
+        }
+        Matcher trailingSeparatorMatcher = TRAILING_SEPARATOR.matcher(body);
+        if (trailingSeparatorMatcher.matches()) {
+            return trailingSeparatorMatcher.group(1).trim();
+        }
+        return body.trim();
     }
 
     private static int findTrailingGlobalSectionStart(String rawBody) {
