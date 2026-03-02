@@ -136,7 +136,9 @@ public final class FrontmatterParser {
     /// YAML special characters (e.g. unquoted glob patterns like {@code **/*.py}).
     private static Map<String, String> parseFields(String frontmatter) {
         try {
-            var yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
+            var loaderOptions = new LoaderOptions();
+            loaderOptions.setCodePointLimit(64 * 1024);
+            var yaml = new Yaml(new SafeConstructor(loaderOptions));
             Map<?, ?> parsed = yaml.loadAs(frontmatter, Map.class);
             if (parsed == null) {
                 return Map.of();

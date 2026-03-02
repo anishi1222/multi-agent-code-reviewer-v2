@@ -123,6 +123,19 @@ public class TemplateService {
             logger.warn("Template path traversal rejected: {}", templateName);
             return null;
         }
+        if (Files.exists(templatePath)) {
+            try {
+                Path realBase = baseDirectory.toRealPath();
+                Path realTemplate = templatePath.toRealPath();
+                if (!realTemplate.startsWith(realBase)) {
+                    logger.warn("Template symlink traversal rejected: {}", templateName);
+                    return null;
+                }
+            } catch (IOException e) {
+                logger.warn("Failed to resolve real path for template {}: {}", templateName, e.getMessage());
+                return null;
+            }
+        }
         return templatePath;
     }
 

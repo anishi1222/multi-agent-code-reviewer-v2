@@ -71,6 +71,9 @@ public final class GitHubTokenResolver {
                 }
                 String token = String.valueOf(chars).trim();
                 Arrays.fill(chars, '\0');
+                // NOTE: The token String remains on the JVM heap until GC.
+                // For production use, consider running with -XX:+DisableAttachMechanism
+                // and -XX:-HeapDumpOnOutOfMemoryError to reduce heap dump exposure risk.
                 return token;
             }
             byte[] raw = System.in.readNBytes(MAX_STDIN_TOKEN_BYTES);

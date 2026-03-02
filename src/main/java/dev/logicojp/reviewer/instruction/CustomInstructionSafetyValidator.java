@@ -51,6 +51,25 @@ public final class CustomInstructionSafetyValidator {
         "---\\s*(BEGIN|END|SYSTEM|OVERRIDE)|</user_provided_instruction>",
         Pattern.CASE_INSENSITIVE);
 
+    /// Allowed Unicode blocks for untrusted instructions.
+    /// Rejects exotic scripts that could hide homoglyph-based prompt injection bypasses.
+    private static final Pattern ALLOWED_CHAR_RANGE = Pattern.compile(
+        "^[\\x20-\\x7E" +           // ASCII printable
+        "\\u3000-\\u303F" +          // CJK Symbols and Punctuation
+        "\\u3040-\\u309F" +          // Hiragana
+        "\\u30A0-\\u30FF" +          // Katakana
+        "\\u4E00-\\u9FFF" +          // CJK Unified Ideographs
+        "\\uFF00-\\uFFEF" +          // Halfwidth and Fullwidth Forms
+        "\\uAC00-\\uD7AF" +          // Hangul Syllables
+        "\\u2000-\\u206F" +          // General Punctuation
+        "\\u2190-\\u21FF" +          // Arrows
+        "\\u2500-\\u257F" +          // Box Drawing
+        "\\u2580-\\u259F" +          // Block Elements
+        "\\u25A0-\\u25FF" +          // Geometric Shapes
+        "\\u2600-\\u26FF" +          // Miscellaneous Symbols
+        "\\t\\n\\r" +               // Whitespace
+        "]*$", Pattern.DOTALL);
+
     private static List<Pattern> loadSuspiciousPatterns() {
         return loadPatternTextsFromResource().stream()
             .map(text -> Pattern.compile(text, Pattern.CASE_INSENSITIVE))
@@ -118,6 +137,10 @@ public final class CustomInstructionSafetyValidator {
         }
         if (DELIMITER_INJECTION_PATTERN.matcher(normalized).find()) {
             return new ValidationResult(false, "potential delimiter injection pattern");
+        }
+
+        if (!trusted && !ALLOWED_CHAR_RANGE.matcher(content).matches()) {
+            return new ValidationResult(false, "contains characters outside allowed Unicode ranges");
         }
 
         return new ValidationResult(true, "ok");
