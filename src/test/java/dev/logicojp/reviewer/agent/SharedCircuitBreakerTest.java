@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.agent;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -9,6 +10,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("SharedCircuitBreaker")
 class SharedCircuitBreakerTest {
+
+    @AfterEach
+    void restoreDefaults() {
+        SharedCircuitBreaker.reconfigure(8, 30_000L);
+        SharedCircuitBreaker.forReview().reset();
+        SharedCircuitBreaker.forSkill().reset();
+        SharedCircuitBreaker.forSummary().reset();
+    }
+
+    @Test
+    @DisplayName("パス別サーキットブレーカーは障害を分離する")
+    void pathSpecificBreakersIsolateFailures() {
+        SharedCircuitBreaker.reconfigure(2, 100L);
+        SharedCircuitBreaker review = SharedCircuitBreaker.forReview();
+        SharedCircuitBreaker skill = SharedCircuitBreaker.forSkill();
+
+        review.onFailure();
+        review.onFailure();
+
+        assertThat(review.allowRequest()).isFalse();
+        assertThat(skill.allowRequest()).isTrue();
+    }
 
     @Test
     @DisplayName("失敗閾値に達するとリクエストを遮断する")

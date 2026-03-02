@@ -169,14 +169,18 @@ public class ReviewAgent {
         try {
             return executeReviewPasses(target, reviewPasses);
         } catch (Exception e) {
-            logger.error("Agent {}: failed to execute multi-pass session reuse: {}",
+            logger.warn("Agent {}: shared session failed, falling back to individual sessions: {}",
                 config.name(), e.getMessage(), e);
-            List<ReviewResult> failures = new ArrayList<>(reviewPasses);
-            for (int pass = 0; pass < reviewPasses; pass++) {
-                failures.add(reviewResultFactory.fromException(config, target.displayName(), e));
-            }
-            return failures;
+            return executeReviewPassesFallback(target, reviewPasses);
         }
+    }
+
+    private List<ReviewResult> executeReviewPassesFallback(ReviewTarget target, int reviewPasses) {
+        List<ReviewResult> results = new ArrayList<>(reviewPasses);
+        for (int pass = 0; pass < reviewPasses; pass++) {
+            results.add(review(target));
+        }
+        return results;
     }
     
     private ReviewResult executeReview(ReviewTarget target) throws Exception {

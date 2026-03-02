@@ -14,7 +14,7 @@ final class ReviewRetryExecutor {
     static final int DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 8;
     static final long DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT_MS = 30_000L;
 
-    private static final SharedCircuitBreaker GLOBAL_CIRCUIT_BREAKER = SharedCircuitBreaker.global();
+    private static final SharedCircuitBreaker REVIEW_CIRCUIT_BREAKER = SharedCircuitBreaker.forReview();
 
     @FunctionalInterface
     interface AttemptExecutor {
@@ -40,12 +40,12 @@ final class ReviewRetryExecutor {
                         int maxRetries,
                         long backoffBaseMs,
                         long backoffMaxMs) {
-        this(agentName, maxRetries, backoffBaseMs, backoffMaxMs, Thread::sleep, GLOBAL_CIRCUIT_BREAKER);
+        this(agentName, maxRetries, backoffBaseMs, backoffMaxMs, Thread::sleep, REVIEW_CIRCUIT_BREAKER);
     }
 
     ReviewRetryExecutor(String agentName, int maxRetries) {
         this(agentName, maxRetries, DEFAULT_BACKOFF_BASE_MS, DEFAULT_BACKOFF_MAX_MS, Thread::sleep,
-            GLOBAL_CIRCUIT_BREAKER);
+            REVIEW_CIRCUIT_BREAKER);
     }
 
     ReviewRetryExecutor(String agentName,
@@ -53,7 +53,7 @@ final class ReviewRetryExecutor {
                         long backoffBaseMs,
                         long backoffMaxMs,
                         SleepStrategy sleepStrategy) {
-        this(agentName, maxRetries, backoffBaseMs, backoffMaxMs, sleepStrategy, GLOBAL_CIRCUIT_BREAKER);
+        this(agentName, maxRetries, backoffBaseMs, backoffMaxMs, sleepStrategy, REVIEW_CIRCUIT_BREAKER);
     }
 
     ReviewRetryExecutor(String agentName,

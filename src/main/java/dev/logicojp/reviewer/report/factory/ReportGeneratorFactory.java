@@ -51,7 +51,7 @@ public class ReportGeneratorFactory {
             summaryConfig,
             ReportGenerator::new,
             SummaryGenerator::new,
-            SharedCircuitBreaker.global()
+            SharedCircuitBreaker.forSummary()
         );
     }
 

@@ -2,7 +2,7 @@ package dev.logicojp.reviewer.config;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 
-/// Configuration for the shared Copilot circuit breaker.
+/// Configuration for Copilot circuit breakers (review/skill/summary paths).
 @ConfigurationProperties("reviewer.circuit-breaker")
 public record CircuitBreakerConfig(
     int failureThreshold,
