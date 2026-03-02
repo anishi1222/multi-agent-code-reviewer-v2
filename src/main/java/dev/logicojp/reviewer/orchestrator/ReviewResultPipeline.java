@@ -19,12 +19,7 @@ final class ReviewResultPipeline {
     List<ReviewResult> finalizeResults(List<ReviewResult> results, int reviewPasses) {
         List<ReviewResult> filtered = filterNonNull(results);
         logCompletionSummary(filtered);
-
-        if (!shouldMerge(reviewPasses)) {
-            return filtered;
-        }
-
-        return mergeAndLog(filtered);
+        return mergeAndLog(filtered, reviewPasses);
     }
 
     private List<ReviewResult> filterNonNull(List<ReviewResult> results) {
@@ -46,13 +41,10 @@ final class ReviewResultPipeline {
         return "Completed {} reviews (success: {}, failed: {})";
     }
 
-    private boolean shouldMerge(int reviewPasses) {
-        return reviewPasses > 1;
-    }
-
-    private List<ReviewResult> mergeAndLog(List<ReviewResult> filtered) {
+    private List<ReviewResult> mergeAndLog(List<ReviewResult> filtered, int reviewPasses) {
         List<ReviewResult> merged = ReviewResultMerger.mergeByAgent(filtered);
-        logger.info("Merged {} pass results into {} agent results", filtered.size(), merged.size());
+        logger.info("Normalized {} result(s) into {} agent result(s) (reviewPasses={})",
+            filtered.size(), merged.size(), reviewPasses);
         return merged;
     }
 }

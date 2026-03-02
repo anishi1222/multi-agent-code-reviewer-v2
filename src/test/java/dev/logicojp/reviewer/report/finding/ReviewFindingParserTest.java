@@ -68,4 +68,32 @@ class ReviewFindingParserTest {
         String value = ReviewFindingParser.extractTableValue("| **Priority** | High |", "該当箇所");
         assertThat(value).isEmpty();
     }
+
+    @Test
+    @DisplayName("最後の指摘本文に含まれる総評セクションを除去する")
+    void removesTrailingOverallSectionFromLastFindingBody() {
+        String content = """
+            ### 1. ログ出力の権限不足
+
+            | 項目 | 内容 |
+            |------|------|
+            | **Priority** | Medium |
+            | **指摘の概要** | 監査ログの権限が広い |
+            | **該当箇所** | src/main/resources/logback.xml L12-21 |
+
+            **推奨対応**
+
+            権限を制限する
+
+            **総評**
+
+            全体として良好だが運用面で改善余地がある。
+            """;
+
+        List<ReviewFindingParser.FindingBlock> blocks = ReviewFindingParser.extractFindingBlocks(content);
+
+        assertThat(blocks).hasSize(1);
+        assertThat(blocks.getFirst().body()).doesNotContain("**総評**");
+        assertThat(blocks.getFirst().body()).doesNotContain("全体として良好だが運用面で改善余地がある");
+    }
 }

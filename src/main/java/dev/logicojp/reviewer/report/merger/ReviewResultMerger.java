@@ -85,7 +85,12 @@ public final class ReviewResultMerger {
         for (var entry : byAgent.entrySet()) {
             List<ReviewResult> agentResults = entry.getValue();
             if (agentResults.size() == 1) {
-                merged.add(agentResults.getFirst());
+                merged.add(normalizeSingleResult(
+                    agentResults.getFirst(),
+                    findingBlockExtractor,
+                    findingKeyResolver,
+                    mergedContentFormatter
+                ));
             } else {
                 merged.add(mergeAgentResults(
                     agentResults,
@@ -97,6 +102,40 @@ public final class ReviewResultMerger {
         }
 
         return merged;
+    }
+
+    private static ReviewResult normalizeSingleResult(ReviewResult result,
+                                                      FindingBlockExtractor findingBlockExtractor,
+                                                      FindingKeyResolver findingKeyResolver,
+                                                      MergedContentFormatter mergedContentFormatter) {
+        if (result == null || !result.success()) {
+            return result;
+        }
+
+        String content = result.content();
+        if (content == null || content.isBlank()) {
+            return result;
+        }
+
+        List<ReviewFindingParser.FindingBlock> blocks = findingBlockExtractor.extract(content);
+        if (blocks.isEmpty()) {
+            return result;
+        }
+
+        FindingIndex findingIndex = new FindingIndex(findingKeyResolver);
+        for (ReviewFindingParser.FindingBlock block : blocks) {
+            findingIndex.addOrMerge(block, 1);
+        }
+
+        String normalizedContent = mergedContentFormatter.format(findingIndex.findings(), 1, 0);
+        return ReviewResult.builder()
+            .agentConfig(result.agentConfig())
+            .repository(result.repository())
+            .content(normalizedContent)
+            .success(true)
+            .errorMessage(result.errorMessage())
+            .timestamp(result.timestamp())
+            .build();
     }
 
     /// Merges multiple results from the same agent into a single result.
