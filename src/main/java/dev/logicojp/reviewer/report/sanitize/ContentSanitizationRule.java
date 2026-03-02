@@ -15,11 +15,18 @@ record ContentSanitizationRule(Pattern pattern, String replacement, List<String>
             return input;
         }
         Matcher matcher = pattern.matcher(input);
-        if (!matcher.find()) {
+        StringBuilder sb = null;
+        while (matcher.find()) {
+            if (sb == null) {
+                sb = new StringBuilder(input.length());
+            }
+            matcher.appendReplacement(sb, replacement);
+        }
+        if (sb == null) {
             return input;
         }
-        matcher.reset();
-        return matcher.replaceAll(replacement);
+        matcher.appendTail(sb);
+        return sb.toString();
     }
 
     private boolean containsAnyMarker(String input) {

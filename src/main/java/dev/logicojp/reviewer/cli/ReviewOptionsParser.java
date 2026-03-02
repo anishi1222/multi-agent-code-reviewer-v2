@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 @Singleton
 class ReviewOptionsParser {
@@ -89,20 +90,20 @@ class ReviewOptionsParser {
             return i;
         }
 
-        int parsedIndex = applyTargetOption(state, arg, args, i);
-        if (parsedIndex >= 0) return parsedIndex;
+        OptionalInt parsedIndex = applyTargetOption(state, arg, args, i);
+        if (parsedIndex.isPresent()) return parsedIndex.getAsInt();
 
         parsedIndex = applyAgentOption(state, arg, args, i);
-        if (parsedIndex >= 0) return parsedIndex;
+        if (parsedIndex.isPresent()) return parsedIndex.getAsInt();
 
         parsedIndex = applyExecutionOption(state, arg, args, i);
-        if (parsedIndex >= 0) return parsedIndex;
+        if (parsedIndex.isPresent()) return parsedIndex.getAsInt();
 
         parsedIndex = applyModelOption(state, arg, args, i);
-        if (parsedIndex >= 0) return parsedIndex;
+        if (parsedIndex.isPresent()) return parsedIndex.getAsInt();
 
         parsedIndex = applyInstructionOption(state, arg, args, i);
-        if (parsedIndex >= 0) return parsedIndex;
+        if (parsedIndex.isPresent()) return parsedIndex.getAsInt();
 
         if (arg.startsWith("-")) {
             throw new CliValidationException("Unknown option: " + arg, true);
@@ -110,19 +111,19 @@ class ReviewOptionsParser {
         throw new CliValidationException("Unexpected argument: " + arg, true);
     }
 
-    private int applyTargetOption(ParseState state, String arg, String[] args, int i) {
+    private OptionalInt applyTargetOption(ParseState state, String arg, String[] args, int i) {
         return switch (arg) {
-            case "-r", "--repo" -> CliParsing.readInto(args, i, "--repo", v -> state.repository = v);
-            case "-l", "--local" -> CliParsing.readInto(args, i, "--local", v -> state.localDirectory = Path.of(v));
-            default -> -1;
+            case "-r", "--repo" -> OptionalInt.of(CliParsing.readInto(args, i, "--repo", v -> state.repository = v));
+            case "-l", "--local" -> OptionalInt.of(CliParsing.readInto(args, i, "--local", v -> state.localDirectory = Path.of(v)));
+            default -> OptionalInt.empty();
         };
     }
 
-    private int applyAgentOption(ParseState state, String arg, String[] args, int i) {
+    private OptionalInt applyAgentOption(ParseState state, String arg, String[] args, int i) {
         return switch (arg) {
             case "--all" -> {
                 state.allAgents = true;
-                yield i;
+                yield OptionalInt.of(i);
             }
             case "-a", "--agents" -> {
                 CliParsing.OptionValue value = CliParsing.readSingleValue(arg, args, i, "--agents");
@@ -131,55 +132,55 @@ class ReviewOptionsParser {
                     throw new CliValidationException("--agents requires at least one value", true);
                 }
                 state.agentNames.addAll(parsed);
-                yield value.newIndex();
+                yield OptionalInt.of(value.newIndex());
             }
-            default -> -1;
+            default -> OptionalInt.empty();
         };
     }
 
-    private int applyExecutionOption(ParseState state, String arg, String[] args, int i) {
+    private OptionalInt applyExecutionOption(ParseState state, String arg, String[] args, int i) {
         return switch (arg) {
-            case "-o", "--output" -> CliParsing.readInto(args, i, "--output", v -> state.outputDirectory = Path.of(v));
-            case "--agents-dir" -> CliParsing.readMultiInto(args, i, "--agents-dir",
-                v -> state.additionalAgentDirs.add(Path.of(v)));
-            case "--token" -> CliParsing.readTokenInto(args, i, "--token", v -> state.githubToken = v);
-            case "--parallelism" -> CliParsing.readInto(args, i, "--parallelism",
-                v -> state.parallelism = parseInt(v, "--parallelism"));
+            case "-o", "--output" -> OptionalInt.of(CliParsing.readInto(args, i, "--output", v -> state.outputDirectory = Path.of(v)));
+            case "--agents-dir" -> OptionalInt.of(CliParsing.readMultiInto(args, i, "--agents-dir",
+                v -> state.additionalAgentDirs.add(Path.of(v))));
+            case "--token" -> OptionalInt.of(CliParsing.readTokenInto(args, i, "--token", v -> state.githubToken = v));
+            case "--parallelism" -> OptionalInt.of(CliParsing.readInto(args, i, "--parallelism",
+                v -> state.parallelism = parseInt(v, "--parallelism")));
             case "--no-summary" -> {
                 state.noSummary = true;
-                yield i;
+                yield OptionalInt.of(i);
             }
-            default -> -1;
+            default -> OptionalInt.empty();
         };
     }
 
-    private int applyModelOption(ParseState state, String arg, String[] args, int i) {
+    private OptionalInt applyModelOption(ParseState state, String arg, String[] args, int i) {
         return switch (arg) {
-            case "--review-model" -> CliParsing.readInto(args, i, "--review-model", v -> state.reviewModel = v);
-            case "--report-model" -> CliParsing.readInto(args, i, "--report-model", v -> state.reportModel = v);
-            case "--summary-model" -> CliParsing.readInto(args, i, "--summary-model", v -> state.summaryModel = v);
-            case "--model" -> CliParsing.readInto(args, i, "--model", v -> state.defaultModel = v);
-            default -> -1;
+            case "--review-model" -> OptionalInt.of(CliParsing.readInto(args, i, "--review-model", v -> state.reviewModel = v));
+            case "--report-model" -> OptionalInt.of(CliParsing.readInto(args, i, "--report-model", v -> state.reportModel = v));
+            case "--summary-model" -> OptionalInt.of(CliParsing.readInto(args, i, "--summary-model", v -> state.summaryModel = v));
+            case "--model" -> OptionalInt.of(CliParsing.readInto(args, i, "--model", v -> state.defaultModel = v));
+            default -> OptionalInt.empty();
         };
     }
 
-    private int applyInstructionOption(ParseState state, String arg, String[] args, int i) {
+    private OptionalInt applyInstructionOption(ParseState state, String arg, String[] args, int i) {
         return switch (arg) {
-            case "--instructions" -> CliParsing.readMultiInto(args, i, "--instructions",
-                v -> state.instructionPaths.add(Path.of(v)));
+            case "--instructions" -> OptionalInt.of(CliParsing.readMultiInto(args, i, "--instructions",
+                v -> state.instructionPaths.add(Path.of(v))));
             case "--no-instructions" -> {
                 state.noInstructions = true;
-                yield i;
+                yield OptionalInt.of(i);
             }
             case "--no-prompts" -> {
                 state.noPrompts = true;
-                yield i;
+                yield OptionalInt.of(i);
             }
             case "--trust" -> {
                 state.trustTarget = true;
-                yield i;
+                yield OptionalInt.of(i);
             }
-            default -> -1;
+            default -> OptionalInt.empty();
         };
     }
 

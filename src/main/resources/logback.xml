@@ -16,7 +16,7 @@
             <maxHistory>14</maxHistory>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{ISO8601} level=%-5level category=%X{event.category} action=%X{event.action} %replace(%msg){'${MASK_PATTERN}','$1***'}%n</pattern>
+            <pattern>%d{ISO8601} level=%-5level category=%X{event.category} action=%X{event.action} mdc=%X %replace(%msg){'${MASK_PATTERN}','$1***'}%n</pattern>
         </encoder>
     </appender>
     

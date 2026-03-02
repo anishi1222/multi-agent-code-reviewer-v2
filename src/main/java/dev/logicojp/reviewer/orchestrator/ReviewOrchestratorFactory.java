@@ -3,7 +3,9 @@ package dev.logicojp.reviewer.orchestrator;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.config.LocalFileConfig;
+import dev.logicojp.reviewer.config.CircuitBreakerConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
+import dev.logicojp.reviewer.agent.CircuitBreakerFactory;
 import dev.logicojp.reviewer.service.CopilotService;
 import dev.logicojp.reviewer.service.TemplateService;
 import dev.logicojp.reviewer.util.FeatureFlags;
@@ -37,6 +39,7 @@ public class ReviewOrchestratorFactory {
     private final LocalFileConfig localFileConfig;
     private final FeatureFlags featureFlags;
     private final TemplateService templateService;
+    private final CircuitBreakerFactory circuitBreakerFactory;
     private final OrchestratorCreator orchestratorCreator;
 
     @Inject
@@ -44,15 +47,21 @@ public class ReviewOrchestratorFactory {
                                      GithubMcpConfig githubMcpConfig,
                                      LocalFileConfig localFileConfig,
                                      FeatureFlags featureFlags,
+                                     CircuitBreakerFactory circuitBreakerFactory,
                                      TemplateService templateService) {
         this(
             copilotService,
             githubMcpConfig,
             localFileConfig,
             featureFlags,
+            circuitBreakerFactory,
             templateService,
             (client, orchestratorConfig) -> {
-                var collaborators = ReviewOrchestrator.defaultCollaborators(client, orchestratorConfig);
+                var collaborators = ReviewOrchestrator.defaultCollaborators(
+                    client,
+                    orchestratorConfig,
+                    circuitBreakerFactory.forReview()
+                );
                 return new ReviewOrchestrator(client, orchestratorConfig, collaborators);
             }
         );
@@ -62,14 +71,33 @@ public class ReviewOrchestratorFactory {
                               GithubMcpConfig githubMcpConfig,
                               LocalFileConfig localFileConfig,
                               FeatureFlags featureFlags,
+                              CircuitBreakerFactory circuitBreakerFactory,
                               TemplateService templateService,
                               OrchestratorCreator orchestratorCreator) {
         this.copilotService = copilotService;
         this.githubMcpConfig = githubMcpConfig;
         this.localFileConfig = localFileConfig;
         this.featureFlags = featureFlags;
+        this.circuitBreakerFactory = circuitBreakerFactory;
         this.templateService = templateService;
         this.orchestratorCreator = orchestratorCreator;
+    }
+
+    ReviewOrchestratorFactory(CopilotService copilotService,
+                              GithubMcpConfig githubMcpConfig,
+                              LocalFileConfig localFileConfig,
+                              FeatureFlags featureFlags,
+                              TemplateService templateService,
+                              OrchestratorCreator orchestratorCreator) {
+        this(
+            copilotService,
+            githubMcpConfig,
+            localFileConfig,
+            featureFlags,
+            new CircuitBreakerFactory(new CircuitBreakerConfig(8, 30_000L)),
+            templateService,
+            orchestratorCreator
+        );
     }
 
     /// Creates a new {@link ReviewOrchestrator} for a single review run.

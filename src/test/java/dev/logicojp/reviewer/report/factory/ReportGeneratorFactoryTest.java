@@ -64,7 +64,7 @@ class ReportGeneratorFactoryTest {
                     breaker
                 );
             },
-            SharedCircuitBreaker.global()
+            new SharedCircuitBreaker(8, 30_000L)
         );
 
         factory.createReportGenerator(Path.of("/tmp/reports"));
@@ -103,7 +103,7 @@ class ReportGeneratorFactoryTest {
                     breaker
                 );
             },
-            SharedCircuitBreaker.global()
+            new SharedCircuitBreaker(8, 30_000L)
         );
 
         CopilotClient client = null;

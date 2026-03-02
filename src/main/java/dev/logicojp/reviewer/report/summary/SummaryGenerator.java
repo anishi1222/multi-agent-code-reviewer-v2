@@ -97,29 +97,120 @@ public class SummaryGenerator {
     private final AiSummaryBuilder aiSummaryBuilder;
     private final SharedCircuitBreaker circuitBreaker;
     
-    public SummaryGenerator(
-            Path outputDirectory, 
-            CopilotClient client, 
-            String summaryModel,
-            String reasoningEffort,
-            long timeoutMinutes,
-            TemplateService templateService,
-            SummaryConfig summaryConfig) {
-            this(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, templateService,
-                summaryConfig, SharedCircuitBreaker.forSummary());
-            }
+    public static Builder builder(Path outputDirectory,
+                                  CopilotClient client,
+                                  String summaryModel,
+                                  TemplateService templateService) {
+        return new Builder(outputDirectory, client, summaryModel, templateService);
+    }
 
-            public SummaryGenerator(
-                Path outputDirectory,
-                CopilotClient client,
-                String summaryModel,
-                String reasoningEffort,
-                long timeoutMinutes,
-                TemplateService templateService,
-                SummaryConfig summaryConfig,
-                SharedCircuitBreaker circuitBreaker) {
-        this(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, templateService,
-                summaryConfig, null, Clock.systemDefaultZone(), circuitBreaker);
+    public static final class Builder {
+        private final Path outputDirectory;
+        private final CopilotClient client;
+        private final String summaryModel;
+        private final TemplateService templateService;
+        private String reasoningEffort;
+        private long timeoutMinutes = 5;
+        private SummaryConfig summaryConfig = new SummaryConfig(0, 0, 0, 0, 0, 0);
+        private SummaryCollaborators collaborators;
+        private Clock clock = Clock.systemDefaultZone();
+        private SharedCircuitBreaker circuitBreaker = SharedCircuitBreaker.withDefaultConfig();
+
+        private Builder(Path outputDirectory,
+                        CopilotClient client,
+                        String summaryModel,
+                        TemplateService templateService) {
+            this.outputDirectory = outputDirectory;
+            this.client = client;
+            this.summaryModel = summaryModel;
+            this.templateService = templateService;
+        }
+
+        public Builder reasoningEffort(String reasoningEffort) {
+            this.reasoningEffort = reasoningEffort;
+            return this;
+        }
+
+        public Builder timeoutMinutes(long timeoutMinutes) {
+            this.timeoutMinutes = timeoutMinutes;
+            return this;
+        }
+
+        public Builder summaryConfig(SummaryConfig summaryConfig) {
+            this.summaryConfig = summaryConfig;
+            return this;
+        }
+
+        public Builder collaborators(SummaryCollaborators collaborators) {
+            this.collaborators = collaborators;
+            return this;
+        }
+
+        public Builder clock(Clock clock) {
+            this.clock = clock;
+            return this;
+        }
+
+        public Builder circuitBreaker(SharedCircuitBreaker circuitBreaker) {
+            this.circuitBreaker = circuitBreaker;
+            return this;
+        }
+
+        public SummaryGenerator build() {
+            return new SummaryGenerator(
+                outputDirectory,
+                client,
+                summaryModel,
+                reasoningEffort,
+                timeoutMinutes,
+                templateService,
+                summaryConfig,
+                collaborators,
+                clock,
+                circuitBreaker
+            );
+        }
+    }
+
+    public SummaryGenerator(Path outputDirectory,
+                            CopilotClient client,
+                            String summaryModel,
+                            String reasoningEffort,
+                            long timeoutMinutes,
+                            TemplateService templateService,
+                            SummaryConfig summaryConfig,
+                            SharedCircuitBreaker circuitBreaker) {
+        this(
+            outputDirectory,
+            client,
+            summaryModel,
+            reasoningEffort,
+            timeoutMinutes,
+            templateService,
+            summaryConfig,
+            null,
+            Clock.systemDefaultZone(),
+            circuitBreaker
+        );
+    }
+
+    public SummaryGenerator(Path outputDirectory,
+                            CopilotClient client,
+                            String summaryModel,
+                            String reasoningEffort,
+                            long timeoutMinutes,
+                            TemplateService templateService,
+                            SummaryConfig summaryConfig) {
+        this(
+            outputDirectory,
+            client,
+            summaryModel,
+            reasoningEffort,
+            timeoutMinutes,
+            templateService,
+            summaryConfig,
+            SharedCircuitBreaker.withDefaultConfig()
+        );
     }
 
     /// Full-parameter constructor for testing — all collaborators are injectable.
@@ -134,7 +225,7 @@ public class SummaryGenerator {
             SummaryCollaborators collaborators,
             Clock clock) {
         this(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, templateService,
-            summaryConfig, collaborators, clock, SharedCircuitBreaker.forSummary());
+            summaryConfig, collaborators, clock, SharedCircuitBreaker.withDefaultConfig());
     }
 
     SummaryGenerator(

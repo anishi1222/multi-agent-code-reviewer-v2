@@ -56,7 +56,11 @@ public class ReviewOrchestrator implements AutoCloseable {
     private final LocalSourcePrecomputer localSourcePrecomputer;
 
     public ReviewOrchestrator(CopilotClient client, OrchestratorConfig orchestratorConfig) {
-        this(client, orchestratorConfig, defaultCollaborators(client, orchestratorConfig));
+        this(client, orchestratorConfig, defaultCollaborators(
+            client,
+            orchestratorConfig,
+            dev.logicojp.reviewer.agent.SharedCircuitBreaker.withDefaultConfig()
+        ));
     }
 
     ReviewOrchestrator(CopilotClient client,
@@ -66,7 +70,13 @@ public class ReviewOrchestrator implements AutoCloseable {
         this(
             client,
             orchestratorConfig,
-            collaboratorsFromFactories(client, orchestratorConfig, reviewerFactory, localSourceCollectorFactory)
+            collaboratorsFromFactories(
+                client,
+                orchestratorConfig,
+                reviewerFactory,
+                localSourceCollectorFactory,
+                dev.logicojp.reviewer.agent.SharedCircuitBreaker.withDefaultConfig()
+            )
         );
     }
 
@@ -95,12 +105,14 @@ public class ReviewOrchestrator implements AutoCloseable {
     }
 
     static OrchestratorCollaborators defaultCollaborators(CopilotClient client,
-                                                          OrchestratorConfig orchestratorConfig) {
+                                                          OrchestratorConfig orchestratorConfig,
+                                                          dev.logicojp.reviewer.agent.SharedCircuitBreaker reviewCircuitBreaker) {
         return collaboratorsFromFactories(
             client,
             orchestratorConfig,
             defaultReviewerFactory(orchestratorConfig),
-            defaultLocalSourceCollectorFactory()
+            defaultLocalSourceCollectorFactory(),
+            reviewCircuitBreaker
         );
     }
 
@@ -108,7 +120,8 @@ public class ReviewOrchestrator implements AutoCloseable {
             CopilotClient client,
             OrchestratorConfig orchestratorConfig,
             AgentReviewerFactory reviewerFactory,
-            LocalSourceCollectorFactory localSourceCollectorFactory) {
+            LocalSourceCollectorFactory localSourceCollectorFactory,
+            dev.logicojp.reviewer.agent.SharedCircuitBreaker reviewCircuitBreaker) {
         boolean structuredConcurrencyEnabled = orchestratorConfig.featureFlags().structuredConcurrency();
         ExecutorService executorService = structuredConcurrencyEnabled
             ? null
@@ -121,7 +134,7 @@ public class ReviewOrchestrator implements AutoCloseable {
             agentExecutionExecutor = resources.agentExecutionExecutor();
             sharedScheduler = resources.sharedScheduler();
             return assembleCollaborators(client, orchestratorConfig, reviewerFactory,
-                localSourceCollectorFactory, resources);
+                localSourceCollectorFactory, resources, reviewCircuitBreaker);
         } catch (Exception e) {
             ExecutorUtils.shutdownGracefully(executorService, EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS);
             ExecutorUtils.shutdownGracefully(agentExecutionExecutor, EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS);
@@ -138,11 +151,9 @@ public class ReviewOrchestrator implements AutoCloseable {
             Thread.ofVirtual().name("agent-execution-", 0).factory());
         // Scheduler uses one lightweight platform thread intentionally:
         // it only triggers periodic timeout checks and should not run blocking review work.
-        ScheduledExecutorService sharedScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "idle-timeout-shared");
-            t.setDaemon(true);
-            return t;
-        });
+        ScheduledExecutorService sharedScheduler = Executors.newSingleThreadScheduledExecutor(
+            Thread.ofPlatform().daemon(true).name("idle-timeout-shared").factory()
+        );
         return new ExecutorResources(executorService, agentExecutionExecutor,
             sharedScheduler, concurrencyLimit);
     }
@@ -152,7 +163,8 @@ public class ReviewOrchestrator implements AutoCloseable {
             OrchestratorConfig orchestratorConfig,
             AgentReviewerFactory reviewerFactory,
             LocalSourceCollectorFactory localSourceCollectorFactory,
-            ExecutorResources resources) {
+            ExecutorResources resources,
+            dev.logicojp.reviewer.agent.SharedCircuitBreaker reviewCircuitBreaker) {
         Map<String, Object> cachedMcpServers = GithubMcpConfig.buildMcpServers(
             orchestratorConfig.githubToken(),
             orchestratorConfig.githubMcpConfig()
@@ -180,7 +192,8 @@ public class ReviewOrchestrator implements AutoCloseable {
             orchestratorConfig.outputConstraints(),
             cachedMcpServers,
             orchestratorConfig.localFileConfig(),
-            resources.sharedScheduler()
+            resources.sharedScheduler(),
+            reviewCircuitBreaker
         );
 
         LocalSourcePrecomputer localSourcePrecomputer = new LocalSourcePrecomputer(

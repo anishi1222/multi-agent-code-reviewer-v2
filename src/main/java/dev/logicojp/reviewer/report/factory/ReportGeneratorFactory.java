@@ -3,6 +3,7 @@ package dev.logicojp.reviewer.report.factory;
 import dev.logicojp.reviewer.report.core.ReportGenerator;
 import dev.logicojp.reviewer.report.summary.SummaryGenerator;
 
+import dev.logicojp.reviewer.agent.CircuitBreakerFactory;
 import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.config.SummaryConfig;
 import dev.logicojp.reviewer.service.TemplateService;
@@ -45,13 +46,25 @@ public class ReportGeneratorFactory {
 
     @Inject
     public ReportGeneratorFactory(TemplateService templateService,
+                                  SummaryConfig summaryConfig,
+                                  CircuitBreakerFactory circuitBreakerFactory) {
+        this(
+            templateService,
+            summaryConfig,
+            ReportGenerator::new,
+            SummaryGenerator::new,
+            circuitBreakerFactory.forSummary()
+        );
+    }
+
+    public ReportGeneratorFactory(TemplateService templateService,
                                   SummaryConfig summaryConfig) {
         this(
             templateService,
             summaryConfig,
             ReportGenerator::new,
             SummaryGenerator::new,
-            SharedCircuitBreaker.forSummary()
+            SharedCircuitBreaker.withDefaultConfig()
         );
     }
 

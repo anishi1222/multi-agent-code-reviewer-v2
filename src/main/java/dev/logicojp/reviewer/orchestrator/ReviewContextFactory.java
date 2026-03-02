@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.orchestrator;
 
 import dev.logicojp.reviewer.agent.ReviewContext;
+import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.LocalFileConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
@@ -20,6 +21,27 @@ final class ReviewContextFactory {
     private final Map<String, Object> cachedMcpServers;
     private final LocalFileConfig localFileConfig;
     private final ScheduledExecutorService sharedScheduler;
+    private final SharedCircuitBreaker reviewCircuitBreaker;
+
+    ReviewContextFactory(CopilotClient client,
+                         ExecutionConfig executionConfig,
+                         List<CustomInstruction> customInstructions,
+                         String reasoningEffort,
+                         String outputConstraints,
+                         Map<String, Object> cachedMcpServers,
+                         LocalFileConfig localFileConfig,
+                         ScheduledExecutorService sharedScheduler,
+                         SharedCircuitBreaker reviewCircuitBreaker) {
+        this.client = client;
+        this.executionConfig = executionConfig;
+        this.customInstructions = customInstructions;
+        this.reasoningEffort = reasoningEffort;
+        this.outputConstraints = outputConstraints;
+        this.cachedMcpServers = cachedMcpServers;
+        this.localFileConfig = localFileConfig;
+        this.sharedScheduler = sharedScheduler;
+        this.reviewCircuitBreaker = reviewCircuitBreaker;
+    }
 
     ReviewContextFactory(CopilotClient client,
                          ExecutionConfig executionConfig,
@@ -29,14 +51,17 @@ final class ReviewContextFactory {
                          Map<String, Object> cachedMcpServers,
                          LocalFileConfig localFileConfig,
                          ScheduledExecutorService sharedScheduler) {
-        this.client = client;
-        this.executionConfig = executionConfig;
-        this.customInstructions = customInstructions;
-        this.reasoningEffort = reasoningEffort;
-        this.outputConstraints = outputConstraints;
-        this.cachedMcpServers = cachedMcpServers;
-        this.localFileConfig = localFileConfig;
-        this.sharedScheduler = sharedScheduler;
+        this(
+            client,
+            executionConfig,
+            customInstructions,
+            reasoningEffort,
+            outputConstraints,
+            cachedMcpServers,
+            localFileConfig,
+            sharedScheduler,
+            SharedCircuitBreaker.withDefaultConfig()
+        );
     }
 
     ReviewContext create(String cachedSourceContent) {
@@ -52,6 +77,7 @@ final class ReviewContextFactory {
             .cachedSourceContent(cachedSourceContent)
             .localFileConfig(localFileConfig)
             .sharedScheduler(sharedScheduler)
+            .reviewCircuitBreaker(reviewCircuitBreaker)
             .agentTuningConfig(new ReviewContext.AgentTuningConfig(
                 executionConfig.maxAccumulatedSize(),
                 executionConfig.initialAccumulatedCapacity(),

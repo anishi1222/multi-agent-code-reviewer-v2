@@ -1,7 +1,6 @@
 package dev.logicojp.reviewer.agent;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -11,20 +10,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("SharedCircuitBreaker")
 class SharedCircuitBreakerTest {
 
-    @AfterEach
-    void restoreDefaults() {
-        SharedCircuitBreaker.reconfigure(8, 30_000L);
-        SharedCircuitBreaker.forReview().reset();
-        SharedCircuitBreaker.forSkill().reset();
-        SharedCircuitBreaker.forSummary().reset();
-    }
-
     @Test
-    @DisplayName("パス別サーキットブレーカーは障害を分離する")
-    void pathSpecificBreakersIsolateFailures() {
-        SharedCircuitBreaker.reconfigure(2, 100L);
-        SharedCircuitBreaker review = SharedCircuitBreaker.forReview();
-        SharedCircuitBreaker skill = SharedCircuitBreaker.forSkill();
+    @DisplayName("異なるインスタンス間で障害が分離される")
+    void independentInstancesIsolateFailures() {
+        SharedCircuitBreaker review = new SharedCircuitBreaker(2, 100L);
+        SharedCircuitBreaker skill = new SharedCircuitBreaker(2, 100L);
 
         review.onFailure();
         review.onFailure();

@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import dev.logicojp.reviewer.agent.AgentConfig;
+import dev.logicojp.reviewer.agent.CircuitBreakerFactory;
 import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.GithubMcpConfig;
@@ -50,9 +51,20 @@ public class SkillService {
                         GithubMcpConfig githubMcpConfig,
                         ExecutionConfig executionConfig,
                         SkillConfig skillConfig,
+                        FeatureFlags featureFlags,
+                        CircuitBreakerFactory circuitBreakerFactory) {
+        this(skillRegistry, copilotService, githubMcpConfig, executionConfig, skillConfig, featureFlags,
+                    circuitBreakerFactory.forSkill());
+    }
+
+    public SkillService(SkillRegistry skillRegistry,
+                        CopilotService copilotService,
+                        GithubMcpConfig githubMcpConfig,
+                        ExecutionConfig executionConfig,
+                        SkillConfig skillConfig,
                         FeatureFlags featureFlags) {
         this(skillRegistry, copilotService, githubMcpConfig, executionConfig, skillConfig, featureFlags,
-                    SharedCircuitBreaker.forSkill());
+            SharedCircuitBreaker.withDefaultConfig());
     }
 
     SkillService(SkillRegistry skillRegistry,

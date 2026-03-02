@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.agent;
 
 import dev.logicojp.reviewer.config.LocalFileConfig;
+import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
 import com.github.copilot.sdk.CopilotClient;
 import io.micronaut.core.annotation.Nullable;
@@ -34,8 +35,34 @@ public record ReviewContext(
     CachedResources cachedResources,
     LocalFileConfig localFileConfig,
     ScheduledExecutorService sharedScheduler,
-    AgentTuningConfig agentTuningConfig
+    AgentTuningConfig agentTuningConfig,
+    SharedCircuitBreaker reviewCircuitBreaker
 ) {
+
+    public ReviewContext(
+        CopilotClient client,
+        TimeoutConfig timeoutConfig,
+        List<CustomInstruction> customInstructions,
+        @Nullable String reasoningEffort,
+        @Nullable String outputConstraints,
+        CachedResources cachedResources,
+        LocalFileConfig localFileConfig,
+        ScheduledExecutorService sharedScheduler,
+        AgentTuningConfig agentTuningConfig
+    ) {
+        this(
+            client,
+            timeoutConfig,
+            customInstructions,
+            reasoningEffort,
+            outputConstraints,
+            cachedResources,
+            localFileConfig,
+            sharedScheduler,
+            agentTuningConfig,
+            SharedCircuitBreaker.withDefaultConfig()
+        );
+    }
 
     /// Groups timeout and retry parameters.
     public record TimeoutConfig(long timeoutMinutes, long idleTimeoutMinutes, int maxRetries) {}
@@ -53,7 +80,9 @@ public record ReviewContext(
         int instructionBufferExtraCapacity
     ) {
         public static final AgentTuningConfig DEFAULTS = new AgentTuningConfig(
-            4 * 1024 * 1024, 4096, 32
+            ExecutionConfig.DEFAULT_MAX_ACCUMULATED_SIZE,
+            ExecutionConfig.DEFAULT_INITIAL_ACCUMULATED_CAPACITY,
+            ExecutionConfig.DEFAULT_INSTRUCTION_BUFFER_EXTRA_CAPACITY
         );
     }
 
@@ -64,6 +93,9 @@ public record ReviewContext(
         customInstructions = customInstructions != null ? List.copyOf(customInstructions) : List.of();
         cachedResources = cachedResources != null ? cachedResources : new CachedResources(null, null);
         agentTuningConfig = agentTuningConfig != null ? agentTuningConfig : AgentTuningConfig.DEFAULTS;
+        reviewCircuitBreaker = reviewCircuitBreaker != null
+            ? reviewCircuitBreaker
+            : SharedCircuitBreaker.withDefaultConfig();
     }
 
     public static Builder builder() {
@@ -83,6 +115,7 @@ public record ReviewContext(
         private LocalFileConfig localFileConfig;
         private ScheduledExecutorService sharedScheduler;
         private AgentTuningConfig agentTuningConfig;
+        private SharedCircuitBreaker reviewCircuitBreaker;
 
         public Builder client(CopilotClient client) {
             this.client = client;
@@ -144,6 +177,11 @@ public record ReviewContext(
             return this;
         }
 
+        public Builder reviewCircuitBreaker(SharedCircuitBreaker reviewCircuitBreaker) {
+            this.reviewCircuitBreaker = reviewCircuitBreaker;
+            return this;
+        }
+
         public ReviewContext build() {
             Objects.requireNonNull(client, "client must not be null");
             Objects.requireNonNull(sharedScheduler, "sharedScheduler must not be null");
@@ -161,7 +199,8 @@ public record ReviewContext(
                 new CachedResources(cachedMcpServers, cachedSourceContent),
                 effectiveLocalFileConfig,
                 sharedScheduler,
-                agentTuningConfig
+                agentTuningConfig,
+                reviewCircuitBreaker
             );
         }
 

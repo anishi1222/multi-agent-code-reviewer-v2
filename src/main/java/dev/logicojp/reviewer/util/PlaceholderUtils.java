@@ -16,15 +16,10 @@ public final class PlaceholderUtils {
     /// Replaces `${key}` placeholders in one pass.
     /// Unknown placeholders are kept as-is.
     public static String replaceDollarPlaceholders(String template, Map<String, String> values) {
-        Matcher matcher = DOLLAR_PLACEHOLDER_PATTERN.matcher(template);
-        var sb = new StringBuilder();
-
-        while (matcher.find()) {
-            String key = matcher.group(1);
-            String replacement = values.getOrDefault(key, matcher.group());
-            matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(sb);
-        return sb.toString();
+        return DOLLAR_PLACEHOLDER_PATTERN.matcher(template).replaceAll(match -> {
+            String key = match.group(1);
+            String replacement = values.getOrDefault(key, match.group());
+            return Matcher.quoteReplacement(replacement);
+        });
     }
 }

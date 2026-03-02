@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.config;
 
 import java.util.AbstractMap;
+import java.util.AbstractCollection;
 import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -155,70 +156,15 @@ final class SensitiveHeaderMasking {
         @Override
         public Collection<String> values() {
             var values = delegate.values();
-            return new Collection<>() {
+            return new AbstractCollection<>() {
                 @Override
                 public int size() {
                     return values.size();
                 }
 
                 @Override
-                public boolean isEmpty() {
-                    return values.isEmpty();
-                }
-
-                @Override
-                public boolean contains(Object o) {
-                    return values.contains(o);
-                }
-
-                @Override
                 public Iterator<String> iterator() {
                     return values.iterator();
-                }
-
-                @Override
-                public Object[] toArray() {
-                    return values.toArray();
-                }
-
-                @Override
-                public <T> T[] toArray(T[] a) {
-                    return values.toArray(a);
-                }
-
-                @Override
-                public boolean add(String value) {
-                    throw new UnsupportedOperationException("MaskedHeadersMap values are immutable");
-                }
-
-                @Override
-                public boolean remove(Object value) {
-                    throw new UnsupportedOperationException("MaskedHeadersMap values are immutable");
-                }
-
-                @Override
-                public boolean containsAll(Collection<?> c) {
-                    return values.containsAll(c);
-                }
-
-                @Override
-                public boolean addAll(Collection<? extends String> valuesToAdd) {
-                    throw new UnsupportedOperationException("MaskedHeadersMap values are immutable");
-                }
-
-                @Override
-                public boolean removeAll(Collection<?> valuesToRemove) {
-                    throw new UnsupportedOperationException("MaskedHeadersMap values are immutable");
-                }
-
-                @Override
-                public boolean retainAll(Collection<?> valuesToRetain) {
-                    throw new UnsupportedOperationException("MaskedHeadersMap values are immutable");
-                }
-
-                @Override
-                public void clear() {
-                    throw new UnsupportedOperationException("MaskedHeadersMap values are immutable");
                 }
 
                 @Override

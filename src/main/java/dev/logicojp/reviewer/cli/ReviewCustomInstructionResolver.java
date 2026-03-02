@@ -180,10 +180,7 @@ class ReviewCustomInstructionResolver {
             );
             return;
         }
-        List<CustomInstruction> safe = List.of(instruction);
-        if (!safe.isEmpty()) {
-            instructions.add(safe.getFirst());
-            output.println(loadedPrefix + instruction.sourcePath());
-        }
+        instructions.add(instruction);
+        output.println(loadedPrefix + instruction.sourcePath());
     }
 }

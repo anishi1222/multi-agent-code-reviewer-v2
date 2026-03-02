@@ -55,27 +55,121 @@ public class ReviewCommand {
     record ParsedOptions(
         TargetSelection target,
         AgentSelection agents,
-        Path outputDirectory,
-        List<Path> additionalAgentDirs,
+        OutputOptions output,
+        ModelOptions models,
+        InstructionOptions instructions,
         String githubToken,
-        int parallelism,
-        boolean noSummary,
-        String reviewModel,
-        String reportModel,
-        String summaryModel,
-        String defaultModel,
-        List<Path> instructionPaths,
-        boolean noInstructions,
-        boolean noPrompts,
         boolean trustTarget
     ) {
+        record OutputOptions(
+            Path outputDirectory,
+            List<Path> additionalAgentDirs,
+            int parallelism,
+            boolean noSummary
+        ) {
+            OutputOptions {
+                outputDirectory = outputDirectory != null ? outputDirectory : Path.of("./reports");
+                additionalAgentDirs = additionalAgentDirs != null ? List.copyOf(additionalAgentDirs) : List.of();
+                parallelism = parallelism > 0 ? parallelism : 1;
+            }
+        }
+
+        record ModelOptions(
+            String reviewModel,
+            String reportModel,
+            String summaryModel,
+            String defaultModel
+        ) {
+        }
+
+        record InstructionOptions(
+            List<Path> instructionPaths,
+            boolean noInstructions,
+            boolean noPrompts
+        ) {
+            InstructionOptions {
+                instructionPaths = instructionPaths != null ? List.copyOf(instructionPaths) : List.of();
+            }
+        }
+
         ParsedOptions {
-            additionalAgentDirs = additionalAgentDirs != null ? List.copyOf(additionalAgentDirs) : List.of();
-            instructionPaths = instructionPaths != null ? List.copyOf(instructionPaths) : List.of();
-            outputDirectory = outputDirectory != null ? outputDirectory : Path.of("./reports");
-            parallelism = parallelism > 0 ? parallelism : 1;
+            output = output != null ? output : new OutputOptions(Path.of("./reports"), List.of(), 1, false);
+            models = models != null ? models : new ModelOptions(null, null, null, null);
+            instructions = instructions != null ? instructions : new InstructionOptions(List.of(), false, false);
             Objects.requireNonNull(target, "target must not be null");
             Objects.requireNonNull(agents, "agents must not be null");
+        }
+
+        ParsedOptions(
+            TargetSelection target,
+            AgentSelection agents,
+            Path outputDirectory,
+            List<Path> additionalAgentDirs,
+            String githubToken,
+            int parallelism,
+            boolean noSummary,
+            String reviewModel,
+            String reportModel,
+            String summaryModel,
+            String defaultModel,
+            List<Path> instructionPaths,
+            boolean noInstructions,
+            boolean noPrompts,
+            boolean trustTarget
+        ) {
+            this(
+                target,
+                agents,
+                new OutputOptions(outputDirectory, additionalAgentDirs, parallelism, noSummary),
+                new ModelOptions(reviewModel, reportModel, summaryModel, defaultModel),
+                new InstructionOptions(instructionPaths, noInstructions, noPrompts),
+                githubToken,
+                trustTarget
+            );
+        }
+
+        public Path outputDirectory() {
+            return output.outputDirectory();
+        }
+
+        public List<Path> additionalAgentDirs() {
+            return output.additionalAgentDirs();
+        }
+
+        public int parallelism() {
+            return output.parallelism();
+        }
+
+        public boolean noSummary() {
+            return output.noSummary();
+        }
+
+        public String reviewModel() {
+            return models.reviewModel();
+        }
+
+        public String reportModel() {
+            return models.reportModel();
+        }
+
+        public String summaryModel() {
+            return models.summaryModel();
+        }
+
+        public String defaultModel() {
+            return models.defaultModel();
+        }
+
+        public List<Path> instructionPaths() {
+            return instructions.instructionPaths();
+        }
+
+        public boolean noInstructions() {
+            return instructions.noInstructions();
+        }
+
+        public boolean noPrompts() {
+            return instructions.noPrompts();
         }
 
         static Builder builder() {
@@ -85,18 +179,10 @@ public class ReviewCommand {
         static final class Builder {
             private TargetSelection target;
             private AgentSelection agents;
-            private Path outputDirectory = Path.of("./reports");
-            private List<Path> additionalAgentDirs = List.of();
+            private OutputOptions output = new OutputOptions(Path.of("./reports"), List.of(), 1, false);
+            private ModelOptions models = new ModelOptions(null, null, null, null);
+            private InstructionOptions instructions = new InstructionOptions(List.of(), false, false);
             private String githubToken;
-            private int parallelism = 1;
-            private boolean noSummary;
-            private String reviewModel;
-            private String reportModel;
-            private String summaryModel;
-            private String defaultModel;
-            private List<Path> instructionPaths = List.of();
-            private boolean noInstructions;
-            private boolean noPrompts;
             private boolean trustTarget;
 
             Builder target(TargetSelection target) {
@@ -110,12 +196,22 @@ public class ReviewCommand {
             }
 
             Builder outputDirectory(Path outputDirectory) {
-                this.outputDirectory = outputDirectory;
+                this.output = new OutputOptions(
+                    outputDirectory,
+                    output.additionalAgentDirs(),
+                    output.parallelism(),
+                    output.noSummary()
+                );
                 return this;
             }
 
             Builder additionalAgentDirs(List<Path> additionalAgentDirs) {
-                this.additionalAgentDirs = additionalAgentDirs;
+                this.output = new OutputOptions(
+                    output.outputDirectory(),
+                    additionalAgentDirs,
+                    output.parallelism(),
+                    output.noSummary()
+                );
                 return this;
             }
 
@@ -125,47 +221,89 @@ public class ReviewCommand {
             }
 
             Builder parallelism(int parallelism) {
-                this.parallelism = parallelism;
+                this.output = new OutputOptions(
+                    output.outputDirectory(),
+                    output.additionalAgentDirs(),
+                    parallelism,
+                    output.noSummary()
+                );
                 return this;
             }
 
             Builder noSummary(boolean noSummary) {
-                this.noSummary = noSummary;
+                this.output = new OutputOptions(
+                    output.outputDirectory(),
+                    output.additionalAgentDirs(),
+                    output.parallelism(),
+                    noSummary
+                );
                 return this;
             }
 
             Builder reviewModel(String reviewModel) {
-                this.reviewModel = reviewModel;
+                this.models = new ModelOptions(
+                    reviewModel,
+                    models.reportModel(),
+                    models.summaryModel(),
+                    models.defaultModel()
+                );
                 return this;
             }
 
             Builder reportModel(String reportModel) {
-                this.reportModel = reportModel;
+                this.models = new ModelOptions(
+                    models.reviewModel(),
+                    reportModel,
+                    models.summaryModel(),
+                    models.defaultModel()
+                );
                 return this;
             }
 
             Builder summaryModel(String summaryModel) {
-                this.summaryModel = summaryModel;
+                this.models = new ModelOptions(
+                    models.reviewModel(),
+                    models.reportModel(),
+                    summaryModel,
+                    models.defaultModel()
+                );
                 return this;
             }
 
             Builder defaultModel(String defaultModel) {
-                this.defaultModel = defaultModel;
+                this.models = new ModelOptions(
+                    models.reviewModel(),
+                    models.reportModel(),
+                    models.summaryModel(),
+                    defaultModel
+                );
                 return this;
             }
 
             Builder instructionPaths(List<Path> instructionPaths) {
-                this.instructionPaths = instructionPaths;
+                this.instructions = new InstructionOptions(
+                    instructionPaths,
+                    instructions.noInstructions(),
+                    instructions.noPrompts()
+                );
                 return this;
             }
 
             Builder noInstructions(boolean noInstructions) {
-                this.noInstructions = noInstructions;
+                this.instructions = new InstructionOptions(
+                    instructions.instructionPaths(),
+                    noInstructions,
+                    instructions.noPrompts()
+                );
                 return this;
             }
 
             Builder noPrompts(boolean noPrompts) {
-                this.noPrompts = noPrompts;
+                this.instructions = new InstructionOptions(
+                    instructions.instructionPaths(),
+                    instructions.noInstructions(),
+                    noPrompts
+                );
                 return this;
             }
 
@@ -178,18 +316,10 @@ public class ReviewCommand {
                 return new ParsedOptions(
                     target,
                     agents,
-                    outputDirectory,
-                    additionalAgentDirs,
+                    output,
+                    models,
+                    instructions,
                     githubToken,
-                    parallelism,
-                    noSummary,
-                    reviewModel,
-                    reportModel,
-                    summaryModel,
-                    defaultModel,
-                    instructionPaths,
-                    noInstructions,
-                    noPrompts,
                     trustTarget
                 );
             }

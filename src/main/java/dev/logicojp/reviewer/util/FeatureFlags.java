@@ -8,8 +8,4 @@ import io.micronaut.context.annotation.ConfigurationProperties;
 public record FeatureFlags(
     boolean structuredConcurrency,
     boolean structuredConcurrencySkills
-) {
-    public FeatureFlags {
-        // boolean primitives default to false — compact constructor for project convention consistency
-    }
-}
+) {}
