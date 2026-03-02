@@ -120,6 +120,8 @@ final class SensitiveHeaderMasking {
             };
         }
 
+        /// Returns the raw (unmasked) value so downstream SDK calls can use real credentials.
+        /// Logging safety is provided by toString()/entry rendering and Logback masking.
         @Override
         public String get(Object key) {
             return delegate.get(key);

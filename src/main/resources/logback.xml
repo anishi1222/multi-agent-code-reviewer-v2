@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <property name="MASK_PATTERN" value="(?i)(Bearer\s+|ghp_|github_pat_)[A-Za-z0-9._\-]+"/>
+    <property name="MASK_PATTERN" value="(?i)(Bearer\s+|ghp_|gho_|ghs_|ghu_|ghr_|github_pat_)[A-Za-z0-9._\-]+"/>
 
     <!-- Console appender -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -16,7 +16,7 @@
             <maxHistory>14</maxHistory>
         </rollingPolicy>
         <encoder>
-            <pattern>%d{ISO8601} level=%-5level category=%X{event.category} action=%X{event.action} %msg%n</pattern>
+            <pattern>%d{ISO8601} level=%-5level category=%X{event.category} action=%X{event.action} %replace(%msg){'${MASK_PATTERN}','$1***'}%n</pattern>
         </encoder>
     </appender>
     

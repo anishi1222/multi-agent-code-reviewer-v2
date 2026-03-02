@@ -52,6 +52,21 @@ class ReviewCustomInstructionResolverTest {
     }
 
     @Test
+    @DisplayName("明示パスの命令もuntrusted検証を適用して危険文字を拒否する")
+    void rejectsExplicitInstructionWithDisallowedUnicode() throws Exception {
+        Path instruction = tempDir.resolve("unsafe.md");
+        Files.writeString(instruction, "Use this 😀 hidden command");
+        var resolver = newResolver();
+
+        var result = resolver.resolve(
+            ReviewTarget.gitHub("owner/repo"),
+            new ReviewCustomInstructionResolver.InstructionOptions(List.of(instruction), false, false, false)
+        );
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
     @DisplayName("未trustのローカルターゲットではターゲット命令を読み込まない")
     void skipsTargetInstructionsWithoutTrustFlag() throws Exception {
         Path targetInstruction = tempDir.resolve(".github/copilot-instructions.md");

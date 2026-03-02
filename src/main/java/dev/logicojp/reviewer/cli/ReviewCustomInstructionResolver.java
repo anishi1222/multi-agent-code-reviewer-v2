@@ -63,7 +63,7 @@ class ReviewCustomInstructionResolver {
         for (Path path : instructionPaths) {
             Optional<CustomInstruction> loaded = loadInstructionFromPath(path);
             loaded.ifPresent(instruction ->
-                addIfSafe(instruction, instructions, "  ✓ Loaded instructions: ", true));
+                addIfSafe(instruction, instructions, "  ✓ Loaded instructions: ", false));
         }
     }
 
@@ -91,6 +91,11 @@ class ReviewCustomInstructionResolver {
     private void loadInstructionsFromTrustedTarget(ReviewTarget target,
                                                    InstructionOptions options,
                                                    List<CustomInstruction> instructions) {
+        if (options.trustTarget() && !target.isLocal()) {
+            output.println("⚠  --trust is ignored for remote targets. Only local target instructions can be trusted.");
+            logger.warn("[SECURITY AUDIT] --trust ignored for non-local target={}", target.displayName());
+        }
+
         if (!canLoadTargetInstructions(target)) {
             return;
         }

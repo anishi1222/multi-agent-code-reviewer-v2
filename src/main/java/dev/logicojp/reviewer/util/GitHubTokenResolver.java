@@ -26,6 +26,8 @@ public final class GitHubTokenResolver {
     private static final String PATH_ENV = "PATH";
     private static final String GH_CLI_PATH_ENV = "GH_CLI_PATH";
     private static final long DEFAULT_TIMEOUT_SECONDS = 10;
+    private static final Path SAFE_WORKING_DIRECTORY =
+        Path.of(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
 
     private final long timeoutSeconds;
 
@@ -90,6 +92,7 @@ public final class GitHubTokenResolver {
             return Optional.empty();
         }
         ProcessBuilder builder = new ProcessBuilder(ghPath, "auth", "token", "-h", "github.com");
+        builder.directory(SAFE_WORKING_DIRECTORY.toFile());
         builder.redirectErrorStream(true);
         try {
             Process process = builder.start();
