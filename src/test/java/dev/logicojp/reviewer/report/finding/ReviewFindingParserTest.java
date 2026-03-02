@@ -96,4 +96,33 @@ class ReviewFindingParserTest {
         assertThat(blocks.getFirst().body()).doesNotContain("**総評**");
         assertThat(blocks.getFirst().body()).doesNotContain("全体として良好だが運用面で改善余地がある");
     }
+
+    @Test
+    @DisplayName("末尾の総評本文を抽出できる")
+    void extractsTrailingOverallSummaryBody() {
+        String content = """
+            ### 1. 指摘A
+
+            | 項目 | 内容 |
+            |------|------|
+            | **Priority** | Low |
+            | **指摘の概要** | 概要 |
+            | **該当箇所** | src/A.java L1 |
+
+            **総評**
+
+            全体として運用ルールの明確化が必要。
+            """;
+
+        String summary = ReviewFindingParser.extractOverallSummary(content);
+
+        assertThat(summary).isEqualTo("全体として運用ルールの明確化が必要。");
+    }
+
+    @Test
+    @DisplayName("総評がない場合は空文字を返す")
+    void returnsEmptyWhenOverallSummaryMissing() {
+        String summary = ReviewFindingParser.extractOverallSummary("### 1. 指摘A\n\n本文");
+        assertThat(summary).isEmpty();
+    }
 }

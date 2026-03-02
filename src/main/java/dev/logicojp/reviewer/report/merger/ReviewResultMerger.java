@@ -10,6 +10,7 @@ import dev.logicojp.reviewer.agent.AgentConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -118,6 +119,7 @@ public final class ReviewResultMerger {
         }
 
         List<ReviewFindingParser.FindingBlock> blocks = findingBlockExtractor.extract(content);
+        String mergedOverallSummary = mergeOverallSummaries(List.of(extractOverallSummaryContent(content, 1)));
         if (blocks.isEmpty()) {
             return result;
         }
@@ -128,6 +130,7 @@ public final class ReviewResultMerger {
         }
 
         String normalizedContent = mergedContentFormatter.format(findingIndex.findings(), 1, 0);
+        normalizedContent = appendOverallSummarySection(normalizedContent, mergedOverallSummary);
         return ReviewResult.builder()
             .agentConfig(result.agentConfig())
             .repository(result.repository())
@@ -162,6 +165,7 @@ public final class ReviewResultMerger {
 
         FindingIndex findingIndex = new FindingIndex(findingKeyResolver);
         Set<String> fallbackPassContents = new LinkedHashSet<>();
+        List<SummaryOccurrence> summaries = new ArrayList<>();
 
         for (int i = 0; i < successful.size(); i++) {
             ReviewResult result = successful.get(i);
@@ -170,6 +174,8 @@ public final class ReviewResultMerger {
             if (content == null || content.isBlank()) {
                 continue;
             }
+
+            summaries.add(extractOverallSummaryContent(content, passNumber));
 
             List<ReviewFindingParser.FindingBlock> blocks = findingBlockExtractor.extract(content);
             if (blocks.isEmpty()) {
@@ -190,6 +196,8 @@ public final class ReviewResultMerger {
 
         int failedCount = agentResults.size() - successful.size();
         String content = mergedContentFormatter.format(findingIndex.findings(), agentResults.size(), failedCount);
+        String mergedOverallSummary = mergeOverallSummaries(summaries);
+        content = appendOverallSummarySection(content, mergedOverallSummary);
 
         return ReviewResult.builder()
             .agentConfig(config)
@@ -197,6 +205,99 @@ public final class ReviewResultMerger {
             .content(content)
             .success(true)
             .build();
+    }
+
+    private static SummaryOccurrence extractOverallSummaryContent(String content, int passNumber) {
+        String summary = ReviewFindingParser.extractOverallSummary(content);
+        if (summary.isBlank()) {
+            return SummaryOccurrence.empty(passNumber);
+        }
+        return SummaryOccurrence.of(summary, passNumber);
+    }
+
+    private static String mergeOverallSummaries(Collection<SummaryOccurrence> summaries) {
+        if (summaries == null || summaries.isEmpty()) {
+            return "";
+        }
+
+        Map<String, SummaryOccurrence> byNormalizedSummary = new LinkedHashMap<>();
+        for (SummaryOccurrence occurrence : summaries) {
+            if (occurrence == null || occurrence.rawText().isBlank()) {
+                continue;
+            }
+            String key = occurrence.normalizedText();
+            SummaryOccurrence existing = byNormalizedSummary.get(key);
+            if (existing == null) {
+                byNormalizedSummary.put(key, occurrence);
+            } else {
+                byNormalizedSummary.put(key, existing.mergePasses(occurrence.passNumbers()));
+            }
+        }
+
+        if (byNormalizedSummary.isEmpty()) {
+            return "";
+        }
+
+        List<SummaryOccurrence> unique = new ArrayList<>(byNormalizedSummary.values());
+        if (unique.size() == 1) {
+            return unique.getFirst().rawText();
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < unique.size(); i++) {
+            SummaryOccurrence occurrence = unique.get(i);
+            sb.append("#### パス ").append(formatPassNumbers(occurrence.passNumbers())).append("\n\n");
+            sb.append(occurrence.rawText().trim());
+            if (i < unique.size() - 1) {
+                sb.append("\n\n");
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String appendOverallSummarySection(String mergedContent, String mergedOverallSummary) {
+        if (mergedOverallSummary == null || mergedOverallSummary.isBlank()) {
+            return mergedContent;
+        }
+
+        return mergedContent
+            + "\n\n---\n\n"
+            + "**総評**\n\n"
+            + mergedOverallSummary.trim();
+    }
+
+    private static String formatPassNumbers(Set<Integer> passNumbers) {
+        StringBuilder sb = new StringBuilder();
+        int index = 0;
+        for (Integer pass : passNumbers) {
+            if (index > 0) {
+                sb.append(", ");
+            }
+            sb.append(pass);
+            index++;
+        }
+        return sb.toString();
+    }
+
+    private record SummaryOccurrence(String rawText, String normalizedText, Set<Integer> passNumbers) {
+
+        static SummaryOccurrence empty(int passNumber) {
+            return new SummaryOccurrence("", "", Set.of(passNumber));
+        }
+
+        static SummaryOccurrence of(String summary, int passNumber) {
+            return new SummaryOccurrence(
+                summary.trim(),
+                ReviewFindingSimilarity.normalizeText(summary),
+                new LinkedHashSet<>(Set.of(passNumber))
+            );
+        }
+
+        SummaryOccurrence mergePasses(Set<Integer> extraPasses) {
+            Set<Integer> mergedPasses = new LinkedHashSet<>(passNumbers);
+            mergedPasses.addAll(extraPasses);
+            return new SummaryOccurrence(rawText, normalizedText, mergedPasses);
+        }
     }
 
     private static final class FindingIndex {

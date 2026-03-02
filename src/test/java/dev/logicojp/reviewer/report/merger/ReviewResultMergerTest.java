@@ -139,8 +139,50 @@ class ReviewResultMergerTest {
 
             assertThat(merged).hasSize(1);
             assertThat(merged.getFirst().content()).contains("### 1. ログディレクトリの権限制御不足");
-            assertThat(merged.getFirst().content()).doesNotContain("**総評**");
-            assertThat(merged.getFirst().content()).doesNotContain("全体としては堅牢だが改善余地がある");
+            assertThat(merged.getFirst().content()).contains("**総評**");
+            assertThat(merged.getFirst().content()).contains("全体としては堅牢だが改善余地がある");
+            assertThat(merged.getFirst().content()).containsOnlyOnce("**総評**");
+        }
+
+        @Test
+        @DisplayName("複数パスで同一総評がある場合は総評を1回だけ保持する")
+        void duplicateOverallSummaryAcrossPassesIsCollapsed() {
+            var agent = createAgent("security");
+            var content1 = finding("1", "設定漏れ", "Medium", "設定漏れあり", "障害", "src/A.java L1")
+                + "\n\n**総評**\n\n同じ改善方針を推奨。\n";
+            var content2 = finding("2", "設定漏れ", "Medium", "設定漏れあり", "障害", "src/A.java L1")
+                + "\n\n**総評**\n\n同じ改善方針を推奨。\n";
+
+            List<ReviewResult> merged = ReviewResultMerger.mergeByAgent(List.of(
+                successResult(agent, content1),
+                successResult(agent, content2)
+            ));
+
+            assertThat(merged).hasSize(1);
+            assertThat(merged.getFirst().content()).containsOnlyOnce("**総評**");
+            assertThat(merged.getFirst().content()).contains("同じ改善方針を推奨。");
+        }
+
+        @Test
+        @DisplayName("複数パスで総評が異なる場合はパス情報付きで統合する")
+        void differentOverallSummariesAcrossPassesAreMergedWithPassLabels() {
+            var agent = createAgent("security");
+            var content1 = finding("1", "設定漏れ", "Medium", "設定漏れあり", "障害", "src/A.java L1")
+                + "\n\n**総評**\n\n運用設定の見直しが必要。\n";
+            var content2 = finding("2", "権限過多", "High", "過剰権限", "情報漏えい", "src/B.java L2")
+                + "\n\n**総評**\n\n権限設計の見直しが必要。\n";
+
+            List<ReviewResult> merged = ReviewResultMerger.mergeByAgent(List.of(
+                successResult(agent, content1),
+                successResult(agent, content2)
+            ));
+
+            assertThat(merged).hasSize(1);
+            assertThat(merged.getFirst().content()).contains("**総評**");
+            assertThat(merged.getFirst().content()).contains("#### パス 1");
+            assertThat(merged.getFirst().content()).contains("#### パス 2");
+            assertThat(merged.getFirst().content()).contains("運用設定の見直しが必要。");
+            assertThat(merged.getFirst().content()).contains("権限設計の見直しが必要。");
         }
     }
 
