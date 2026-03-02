@@ -69,7 +69,9 @@ class ReviewOrchestratorTest {
 
             assertThat(results).hasSize(1);
             assertThat(results.getFirst().success()).isTrue();
-            assertThat(results.getFirst().content()).isEqualTo("ok");
+            assertThat(results.getFirst().content()).contains("### 1. レビュー結果");
+            assertThat(results.getFirst().content()).contains("**総評**");
+            assertThat(results.getFirst().content()).contains("マージ後のレビュー結果として");
         } finally {
             client.close();
         }

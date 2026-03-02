@@ -51,7 +51,8 @@ class ReviewResultPipelineTest {
         assertThat(finalized.getFirst().agentConfig().name()).isEqualTo("security");
         assertThat(finalized.getFirst().content()).contains("### 1. SQLインジェクション");
         assertThat(finalized.getFirst().content()).contains("**総評**");
-        assertThat(finalized.getFirst().content()).contains("追加の観点でも確認済み。");
+        assertThat(finalized.getFirst().content()).contains("マージ後のレビュー結果として");
+        assertThat(finalized.getFirst().content()).doesNotContain("追加の観点でも確認済み。");
     }
 
     @Test
