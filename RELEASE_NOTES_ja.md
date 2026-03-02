@@ -9,6 +9,34 @@
 3. タグから GitHub Release を作成し、EN/JA 要約を本文に含める。
 4. `README_en.md` と `README_ja.md` にリリース参照とURLを追記する。
 
+## 2026-03-02 (v2026.03.02-notes)
+
+### 概要
+- マージ後findingsを基準に総評を生成するためのレビュー統合リメディエーションを完了しました。
+- 重複指摘の統合と総評生成の挙動を、全レポート経路で一貫する形に調整しました。
+- `pom.xml` の Micronaut を 4.10.9 に更新し、ビルドと実行検証を実施しました。
+
+### 主な変更
+
+#### レポート統合と総評の整合
+- レポートパイプラインにおける重複指摘の統合挙動を統一。
+- マージ後findingsを基準とした単一の `総評` セクションを追記する方式に統一。
+- パス単位の総評統合に依存せず、マージ後レポート単位で総評を生成する仕様へ整理。
+
+#### PRチェーン
+- [#57](https://github.com/anishi1222/multi-agent-code-reviewer/pull/57): 重複指摘とマージ後総評生成を修正
+- [#58](https://github.com/anishi1222/multi-agent-code-reviewer/pull/58): 全レポートにマージ後総評を反映
+- [#59](https://github.com/anishi1222/multi-agent-code-reviewer/pull/59): マージ済みfindings基準で総評を生成
+
+#### 依存関係ベースライン更新
+- `pom.xml` の Micronaut バージョンを `4.10.9` へ更新。
+
+### 検証
+- ローカルビルド成功: `mvn clean package`。
+- Native Image tracing agent 有効での end-to-end レビュー実行成功。
+
+---
+
 ## 2026-02-19 Daily Rollup
 
 ### エグゼクティブサマリー

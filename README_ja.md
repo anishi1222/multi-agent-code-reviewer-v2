@@ -25,8 +25,9 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 
 ## 最新リメディエーション状況
 
-2026-02-16 〜 2026-02-19 のレビューサイクルで検出された全指摘事項は対応済みです。
+2026-02-16 〜 2026-03-02 のレビューサイクルで検出された全指摘事項は対応済みです。
 
+- 2026-03-02 (v2026.03.02-notes): レポート統合リメディエーション最終化 — 重複指摘マージ挙動を統一し、全レポート経路で「マージ後findings基準の総評生成」に統一、PR #57/#58/#59 でマージ後総評挙動を整合、あわせて Micronaut を 4.10.9 へ更新
 - 2026-02-19 (v12): ベストプラクティス指摘対応 — `TemplateService` のキャッシュ同期を整理しつつ決定的LRU挙動を維持、`SkillService` の手動実行器キャッシュ管理を Caffeine + エビクション時クローズへ置換、`CliParsing.TokenInput` によりCLIトークン読込のシステムI/O依存を抽象化、`ContentCollector` の連結キャッシュロックを簡素化、`AgentMarkdownParser` のセクション解析可読性改善、`ReviewExecutionModeRunner` のマルチパス開始ログを実行実態に一致させ、`GithubMcpConfig` のMapラッパー委譲メソッドを補完、`ReviewResult` のデフォルトtimestamp処理を簡素化、`SkillExecutor` のFQCN呼出しを解消、`CopilotService` / `ReviewOrchestrator` に並行設計意図コメントを補強
 - 2026-02-19 (v11): コード品質指摘対応 — 共通 `TokenHashUtils` によるトークンSHA-256ハッシュの一元化、`ReviewResult.failedResults(...)` による失敗結果生成の共通化、`ReviewOrchestrator` のネスト型（`OrchestratorConfig` / `PromptTexts` / 協調インターフェース・レコード群）をトップレベル型へ分離、`ScopedInstructionLoader` のストリーム内副作用try-catchを明示ループ+分離I/O処理へ整理、`ExecutionConfig` にグルーピング設定（`ConcurrencySettings` / `TimeoutSettings` / `RetrySettings` / `BufferSettings`）とファクトリを追加、デッドコード削除（`ReviewResultPipeline.collectFromFutures`・未使用 `ReviewFindingSimilarity.WHITESPACE`）、`ReviewCommand` / `SkillCommand` 専用ユニットテスト追加
 - 2026-02-19 (v10): パフォーマンス + WAF セキュリティ強化対応 — マージ処理の重複キー抽出を排除（`findingKeyFromNormalized` 再利用）、近似重複探索に priority+タイトルprefixインデックスを追加、ローカルファイル読込バッファの初期容量最適化、フォールバック要約の正規表現を事前コンパイル化、構造化 `SECURITY_AUDIT` ログ導入、`--verbose` 時でも Copilot SDK ロガーを `WARN` 固定、POSIX環境でレポート出力を owner-only 権限化、Maven `dependencyConvergence` 追加、週次 OWASP 依存関係監査ワークフロー追加
@@ -44,7 +45,7 @@ GitHub Copilot SDK for Java を使用した、複数のAIエージェントに�
 - 2026-02-17 (v1): PRs #22〜#27 — 最終リメディエーション（PR-1〜PR-5）
 - 運用サマリー（2026-02-19 v2-v4）: Java 25 へのCI整合（PR #74）→ idle-timeout scheduler 耐障害性修正（PR #76）→ 運用完了チェック同期（PR #78）
 - リリース詳細: `RELEASE_NOTES_ja.md`
-- GitHub Release: https://github.com/anishi1222/multi-agent-code-reviewer/releases/tag/v2026.02.19-notes-v12
+- GitHub Release: https://github.com/anishi1222/multi-agent-code-reviewer/releases/tag/v2026.03.02-notes
 
 ## 運用完了チェック（2026-02-19）
 

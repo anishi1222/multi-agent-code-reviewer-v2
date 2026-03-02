@@ -9,6 +9,34 @@ Reference checklist: `reports/anishi1222/multi-agent-code-reviewer/documentation
 3. Publish a GitHub Release from the tag and include EN/JA summary notes.
 4. Update `README_en.md` and `README_ja.md` with release references and URLs.
 
+## 2026-03-02 (v2026.03.02-notes)
+
+### Summary
+- Finalized the review-merge remediation sequence to ensure report summaries are generated from merged findings.
+- Completed merge behavior alignment for duplicate findings and overall summary generation across all report paths.
+- Updated Micronaut to 4.10.9 in `pom.xml` and validated build/runtime execution.
+
+### Highlights
+
+#### Report Merge and Summary Alignment
+- Unified duplicate-finding merge behavior in the report pipeline.
+- Ensured the overall summary is appended as a single post-merge section based on merged findings.
+- Removed reliance on pass-level summary aggregation in favor of merged-report-level summary generation.
+
+#### PR Chain
+- [#57](https://github.com/anishi1222/multi-agent-code-reviewer/pull/57): fix duplicate findings and post-merge summary generation
+- [#58](https://github.com/anishi1222/multi-agent-code-reviewer/pull/58): include merged overall summary in all review reports
+- [#59](https://github.com/anishi1222/multi-agent-code-reviewer/pull/59): generate report overall summary from merged findings
+
+#### Dependency Baseline Update
+- Updated Micronaut version to `4.10.9` in `pom.xml`.
+
+### Validation
+- Local build succeeded: `mvn clean package`.
+- End-to-end review run succeeded with Native Image tracing agent enabled.
+
+---
+
 ## 2026-02-19 Daily Rollup
 
 ### Executive Summary
