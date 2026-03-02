@@ -107,6 +107,7 @@ class TemplateServiceTest {
                 service.loadTemplateContent(templateName);
             }
 
+            service.cleanUp();
             Files.writeString(tempDir.resolve("template-01.md"), "first-v2");
             assertThat(service.loadTemplateContent("template-01.md")).isEqualTo("first-v2");
         }
