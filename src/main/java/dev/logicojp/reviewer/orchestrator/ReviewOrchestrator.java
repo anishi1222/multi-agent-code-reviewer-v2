@@ -117,70 +117,88 @@ public class ReviewOrchestrator implements AutoCloseable {
         ExecutorService agentExecutionExecutor = null;
         ScheduledExecutorService sharedScheduler = null;
         try {
-            Semaphore concurrencyLimit = new Semaphore(orchestratorConfig.executionConfig().parallelism());
-            agentExecutionExecutor = Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("agent-execution-", 0).factory());
-            // Scheduler uses one lightweight platform thread intentionally:
-            // it only triggers periodic timeout checks and should not run blocking review work.
-            sharedScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "idle-timeout-shared");
-                t.setDaemon(true);
-                return t;
-            });
-            Map<String, Object> cachedMcpServers = GithubMcpConfig.buildMcpServers(
-                orchestratorConfig.githubToken(),
-                orchestratorConfig.githubMcpConfig()
-            ).orElse(Map.of());
-            ReviewResultPipeline reviewResultPipeline = new ReviewResultPipeline();
-            AgentReviewExecutor agentReviewExecutor = new AgentReviewExecutor(
-                concurrencyLimit,
-                agentExecutionExecutor,
-                reviewerFactory
-            );
-            ReviewExecutionModeRunner reviewExecutionModeRunner = new ReviewExecutionModeRunner(
-                orchestratorConfig.executionConfig(),
-                executorService,
-                reviewResultPipeline
-            );
-            ReviewContextFactory reviewContextFactory = new ReviewContextFactory(
-                client,
-                orchestratorConfig.executionConfig(),
-                orchestratorConfig.customInstructions(),
-                orchestratorConfig.reasoningEffort(),
-                orchestratorConfig.outputConstraints(),
-                cachedMcpServers,
-                orchestratorConfig.localFileConfig(),
-                sharedScheduler
-            );
-            LocalSourcePrecomputer localSourcePrecomputer = new LocalSourcePrecomputer(
-                localSourceCollectorFactory,
-                orchestratorConfig.localFileConfig()
-            );
-
-            var executorResources = new ExecutorResources(
-                executorService,
-                agentExecutionExecutor,
-                sharedScheduler,
-                concurrencyLimit
-            );
-
-            return new OrchestratorCollaborators(
-                reviewerFactory,
-                localSourceCollectorFactory,
-                executorResources,
-                cachedMcpServers,
-                reviewResultPipeline,
-                agentReviewExecutor,
-                reviewExecutionModeRunner,
-                reviewContextFactory,
-                localSourcePrecomputer
-            );
+            var resources = createExecutorResources(orchestratorConfig, executorService);
+            agentExecutionExecutor = resources.agentExecutionExecutor();
+            sharedScheduler = resources.sharedScheduler();
+            return assembleCollaborators(client, orchestratorConfig, reviewerFactory,
+                localSourceCollectorFactory, resources);
         } catch (Exception e) {
             ExecutorUtils.shutdownGracefully(executorService, EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS);
             ExecutorUtils.shutdownGracefully(agentExecutionExecutor, EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS);
             ExecutorUtils.shutdownGracefully(sharedScheduler, SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS);
             throw e;
         }
+    }
+
+    private static ExecutorResources createExecutorResources(
+            OrchestratorConfig orchestratorConfig,
+            ExecutorService executorService) {
+        Semaphore concurrencyLimit = new Semaphore(orchestratorConfig.executionConfig().parallelism());
+        ExecutorService agentExecutionExecutor = Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual().name("agent-execution-", 0).factory());
+        // Scheduler uses one lightweight platform thread intentionally:
+        // it only triggers periodic timeout checks and should not run blocking review work.
+        ScheduledExecutorService sharedScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "idle-timeout-shared");
+            t.setDaemon(true);
+            return t;
+        });
+        return new ExecutorResources(executorService, agentExecutionExecutor,
+            sharedScheduler, concurrencyLimit);
+    }
+
+    private static OrchestratorCollaborators assembleCollaborators(
+            CopilotClient client,
+            OrchestratorConfig orchestratorConfig,
+            AgentReviewerFactory reviewerFactory,
+            LocalSourceCollectorFactory localSourceCollectorFactory,
+            ExecutorResources resources) {
+        Map<String, Object> cachedMcpServers = GithubMcpConfig.buildMcpServers(
+            orchestratorConfig.githubToken(),
+            orchestratorConfig.githubMcpConfig()
+        ).orElse(Map.of());
+
+        ReviewResultPipeline reviewResultPipeline = new ReviewResultPipeline();
+
+        AgentReviewExecutor agentReviewExecutor = new AgentReviewExecutor(
+            resources.concurrencyLimit(),
+            resources.agentExecutionExecutor(),
+            reviewerFactory
+        );
+
+        ReviewExecutionModeRunner reviewExecutionModeRunner = new ReviewExecutionModeRunner(
+            orchestratorConfig.executionConfig(),
+            resources.executorService(),
+            reviewResultPipeline
+        );
+
+        ReviewContextFactory reviewContextFactory = new ReviewContextFactory(
+            client,
+            orchestratorConfig.executionConfig(),
+            orchestratorConfig.customInstructions(),
+            orchestratorConfig.reasoningEffort(),
+            orchestratorConfig.outputConstraints(),
+            cachedMcpServers,
+            orchestratorConfig.localFileConfig(),
+            resources.sharedScheduler()
+        );
+
+        LocalSourcePrecomputer localSourcePrecomputer = new LocalSourcePrecomputer(
+            localSourceCollectorFactory,
+            orchestratorConfig.localFileConfig()
+        );
+
+        return new OrchestratorCollaborators(
+            reviewerFactory,
+            localSourceCollectorFactory,
+            resources,
+            cachedMcpServers,
+            reviewResultPipeline,
+            agentReviewExecutor,
+            reviewExecutionModeRunner,
+            reviewContextFactory,
+            localSourcePrecomputer
+        );
     }
 
     private static AgentReviewerFactory defaultReviewerFactory(OrchestratorConfig orchestratorConfig) {

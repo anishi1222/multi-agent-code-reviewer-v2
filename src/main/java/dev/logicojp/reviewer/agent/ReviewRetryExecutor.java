@@ -5,8 +5,6 @@ import dev.logicojp.reviewer.util.RetryPolicyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
 /// Executes review attempts with retry/backoff behavior.
 final class ReviewRetryExecutor {
 
@@ -96,7 +94,7 @@ final class ReviewRetryExecutor {
 
                 circuitBreaker.onFailure();
                 boolean retryableFailure = isRetryableFailure(lastResult);
-                if (shouldRetry(attempt, totalAttempts, retryableFailure)) {
+                if (RetryPolicyUtils.shouldRetry(attempt, totalAttempts, retryableFailure)) {
                     waitRetryBackoff(attempt);
                     logResultFailureRetry(attempt, totalAttempts, lastResult.errorMessage());
                 } else {
@@ -112,7 +110,7 @@ final class ReviewRetryExecutor {
                 circuitBreaker.onFailure();
 
                 boolean transientException = isTransientException(e);
-                if (shouldRetry(attempt, totalAttempts, transientException)) {
+                if (RetryPolicyUtils.shouldRetry(attempt, totalAttempts, transientException)) {
                     waitRetryBackoff(attempt);
                     logExceptionRetry(attempt, totalAttempts, e);
                 } else {
@@ -127,10 +125,6 @@ final class ReviewRetryExecutor {
         }
 
         return lastResult;
-    }
-
-    private boolean shouldRetry(int attempt, int totalAttempts, boolean retryable) {
-        return retryable && attempt < totalAttempts;
     }
 
     private void logRetrySuccess(int attempt, int totalAttempts) {
@@ -174,48 +168,5 @@ final class ReviewRetryExecutor {
 
     private boolean isRetryableFailure(ReviewResult result) {
         return RetryPolicyUtils.isRetryableFailureMessage(result.errorMessage());
-    }
-
-    static final class SharedCircuitBreaker {
-        private final int failureThreshold;
-        private final long resetTimeoutMs;
-        private final AtomicInteger consecutiveFailures = new AtomicInteger();
-        private volatile long openedAtMs = -1L;
-
-        SharedCircuitBreaker(int failureThreshold, long resetTimeoutMs) {
-            this.failureThreshold = failureThreshold;
-            this.resetTimeoutMs = resetTimeoutMs;
-        }
-
-        boolean allowRequest() {
-            int failures = consecutiveFailures.get();
-            if (failures < failureThreshold) {
-                return true;
-            }
-
-            long openedAt = openedAtMs;
-            if (openedAt < 0) {
-                return true;
-            }
-            long elapsedMs = System.currentTimeMillis() - openedAt;
-            if (elapsedMs >= resetTimeoutMs) {
-                consecutiveFailures.set(Math.max(0, failureThreshold - 1));
-                openedAtMs = -1L;
-                return true;
-            }
-            return false;
-        }
-
-        void onSuccess() {
-            consecutiveFailures.set(0);
-            openedAtMs = -1L;
-        }
-
-        void onFailure() {
-            int failures = consecutiveFailures.incrementAndGet();
-            if (failures >= failureThreshold && openedAtMs < 0) {
-                openedAtMs = System.currentTimeMillis();
-            }
-        }
     }
 }

@@ -18,6 +18,22 @@ public final class RetryPolicyUtils {
         return Math.min(boundedBaseMs + jitterMs, maxBackoffMs);
     }
 
+    /// Determines whether a retry should be attempted.
+    public static boolean shouldRetry(int attempt, int totalAttempts, boolean retryable) {
+        return retryable && attempt < totalAttempts;
+    }
+
+    /// Sleeps for a jittered exponential backoff duration.
+    /// Interrupts the current thread if sleep is interrupted.
+    public static void sleepWithBackoff(long backoffBaseMs, long backoffMaxMs, int attempt) {
+        long backoffMs = computeBackoffWithJitter(backoffBaseMs, backoffMaxMs, attempt);
+        try {
+            Thread.sleep(backoffMs);
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     public static boolean isTransientException(Throwable throwable) {
         Throwable rootCause = unwrap(throwable);
 
