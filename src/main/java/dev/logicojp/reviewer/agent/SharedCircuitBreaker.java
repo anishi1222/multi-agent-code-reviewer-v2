@@ -8,13 +8,18 @@ import java.util.function.LongSupplier;
 /// blocks requests after a threshold is exceeded.
 ///
 /// Thread-safe via atomic operations and volatile fields.
-/// Shared across all Copilot call paths (review, skill, summary).
+/// Circuit breakers are isolated per Copilot call path (review, skill, summary)
+/// to limit fault blast radius.
 public final class SharedCircuitBreaker {
 
     private static final int DEFAULT_FAILURE_THRESHOLD = 8;
     private static final long DEFAULT_RESET_TIMEOUT_MS = 30_000L;
 
-    private static final AtomicReference<SharedCircuitBreaker> GLOBAL =
+    private static final AtomicReference<SharedCircuitBreaker> REVIEW =
+        new AtomicReference<>(new SharedCircuitBreaker(DEFAULT_FAILURE_THRESHOLD, DEFAULT_RESET_TIMEOUT_MS));
+    private static final AtomicReference<SharedCircuitBreaker> SKILL =
+        new AtomicReference<>(new SharedCircuitBreaker(DEFAULT_FAILURE_THRESHOLD, DEFAULT_RESET_TIMEOUT_MS));
+    private static final AtomicReference<SharedCircuitBreaker> SUMMARY =
         new AtomicReference<>(new SharedCircuitBreaker(DEFAULT_FAILURE_THRESHOLD, DEFAULT_RESET_TIMEOUT_MS));
 
     private final int failureThreshold;
@@ -33,14 +38,31 @@ public final class SharedCircuitBreaker {
         this.clock = clock;
     }
 
-    /// Returns the global circuit breaker shared across all Copilot call paths.
-    public static SharedCircuitBreaker global() {
-        return GLOBAL.get();
+    /// Returns the circuit breaker for review-agent calls.
+    public static SharedCircuitBreaker forReview() {
+        return REVIEW.get();
     }
 
-    /// Reconfigures the global circuit breaker with new thresholds.
+    /// Returns the circuit breaker for skill-execution calls.
+    public static SharedCircuitBreaker forSkill() {
+        return SKILL.get();
+    }
+
+    /// Returns the circuit breaker for summary-generation calls.
+    public static SharedCircuitBreaker forSummary() {
+        return SUMMARY.get();
+    }
+
+    /// Reconfigures all path-specific circuit breakers with new thresholds.
     public static void reconfigure(int failureThreshold, long resetTimeoutMs) {
-        GLOBAL.set(new SharedCircuitBreaker(failureThreshold, resetTimeoutMs));
+        REVIEW.set(new SharedCircuitBreaker(failureThreshold, resetTimeoutMs));
+        SKILL.set(new SharedCircuitBreaker(failureThreshold, resetTimeoutMs));
+        SUMMARY.set(new SharedCircuitBreaker(failureThreshold, resetTimeoutMs));
+    }
+
+    /// Backward-compatible alias.
+    public static SharedCircuitBreaker global() {
+        return forReview();
     }
 
     public boolean allowRequest() {

@@ -47,7 +47,7 @@ public class SkillExecutor implements AutoCloseable {
                          SkillExecutorConfig config,
                          Executor executor,
                          boolean ownsExecutor) {
-        this(client, githubToken, githubMcpConfig, config, executor, ownsExecutor, SharedCircuitBreaker.global());
+        this(client, githubToken, githubMcpConfig, config, executor, ownsExecutor, SharedCircuitBreaker.forSkill());
     }
 
     public SkillExecutor(CopilotClient client,

@@ -106,7 +106,7 @@ public class SummaryGenerator {
             TemplateService templateService,
             SummaryConfig summaryConfig) {
             this(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, templateService,
-                summaryConfig, SharedCircuitBreaker.global());
+                summaryConfig, SharedCircuitBreaker.forSummary());
             }
 
             public SummaryGenerator(
@@ -134,7 +134,7 @@ public class SummaryGenerator {
             SummaryCollaborators collaborators,
             Clock clock) {
         this(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, templateService,
-            summaryConfig, collaborators, clock, SharedCircuitBreaker.global());
+            summaryConfig, collaborators, clock, SharedCircuitBreaker.forSummary());
     }
 
     SummaryGenerator(

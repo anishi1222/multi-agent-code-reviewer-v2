@@ -52,7 +52,7 @@ public class SkillService {
                         SkillConfig skillConfig,
                         FeatureFlags featureFlags) {
         this(skillRegistry, copilotService, githubMcpConfig, executionConfig, skillConfig, featureFlags,
-                    SharedCircuitBreaker.global());
+                    SharedCircuitBreaker.forSkill());
     }
 
     SkillService(SkillRegistry skillRegistry,

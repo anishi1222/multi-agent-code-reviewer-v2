@@ -4,7 +4,7 @@ import dev.logicojp.reviewer.config.CircuitBreakerConfig;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
-/// Initializes the global shared circuit breaker from Micronaut configuration.
+/// Initializes path-specific circuit breakers from Micronaut configuration.
 @Singleton
 final class SharedCircuitBreakerInitializer {
 

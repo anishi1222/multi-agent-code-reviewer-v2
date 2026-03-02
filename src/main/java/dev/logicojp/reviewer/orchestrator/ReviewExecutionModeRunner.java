@@ -86,8 +86,11 @@ final class ReviewExecutionModeRunner {
             futures.toArray(new CompletableFuture[0])
         );
 
-        awaitAsyncCompletion(allFutures, params.timeoutMinutes());
-        return finalizeResults(params.reviewPasses(), collectAsyncResults(futures, target));
+        boolean completedWithinTimeout = awaitAsyncCompletion(allFutures, params.timeoutMinutes());
+        return finalizeResults(
+            params.reviewPasses(),
+            collectAsyncResults(futures, target, !completedWithinTimeout)
+        );
     }
 
     List<ReviewResult> executeStructured(Map<String, AgentConfig> agents,
@@ -163,10 +166,19 @@ final class ReviewExecutionModeRunner {
     }
 
     private List<ReviewResult> collectAsyncResults(List<CompletableFuture<List<ReviewResult>>> futures,
-                                                   ReviewTarget target) {
+                                                   ReviewTarget target,
+                                                   boolean cancelIncomplete) {
         List<ReviewResult> results = new ArrayList<>(futures.size() * executionConfig.reviewPasses());
         int incompleteCount = 0;
         for (CompletableFuture<List<ReviewResult>> future : futures) {
+            if (!future.isDone()) {
+                if (cancelIncomplete) {
+                    future.cancel(true);
+                }
+                incompleteCount++;
+                continue;
+            }
+
             List<ReviewResult> perAgentResults = future.getNow(List.of());
             if (perAgentResults == null || perAgentResults.isEmpty()) {
                 incompleteCount++;
@@ -181,14 +193,20 @@ final class ReviewExecutionModeRunner {
         return results;
     }
 
-    private void awaitAsyncCompletion(CompletableFuture<Void> allFutures, long timeoutMinutes) {
+    private boolean awaitAsyncCompletion(CompletableFuture<Void> allFutures, long timeoutMinutes) {
         try {
             allFutures.get(timeoutMinutes + 1, TimeUnit.MINUTES);
+            return true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             logger.error("Review orchestration interrupted: {}", e.getMessage(), e);
+            return false;
+        } catch (TimeoutException e) {
+            logger.error("Review orchestration timed out after {} minutes", timeoutMinutes, e);
+            return false;
         } catch (Exception e) {
             logger.error("Error waiting for reviews to complete: {}", e.getMessage(), e);
+            return false;
         }
     }
 
