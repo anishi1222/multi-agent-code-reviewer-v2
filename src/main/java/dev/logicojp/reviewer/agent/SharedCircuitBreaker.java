@@ -7,7 +7,15 @@ import java.util.function.LongSupplier;
 /// blocks requests after a threshold is exceeded.
 ///
 /// Thread-safe via atomic operations and volatile fields.
-final class SharedCircuitBreaker {
+/// Shared across all Copilot call paths (review, skill, summary).
+public final class SharedCircuitBreaker {
+
+    private static final int DEFAULT_FAILURE_THRESHOLD = 8;
+    private static final long DEFAULT_RESET_TIMEOUT_MS = 30_000L;
+
+    private static final SharedCircuitBreaker GLOBAL = new SharedCircuitBreaker(
+        DEFAULT_FAILURE_THRESHOLD, DEFAULT_RESET_TIMEOUT_MS);
+
     private final int failureThreshold;
     private final long resetTimeoutMs;
     private final LongSupplier clock;
@@ -24,26 +32,34 @@ final class SharedCircuitBreaker {
         this.clock = clock;
     }
 
-    boolean allowRequest() {
+    /// Returns the global circuit breaker shared across all Copilot call paths.
+    public static SharedCircuitBreaker global() {
+        return GLOBAL;
+    }
+
+    public boolean allowRequest() {
         int failures = consecutiveFailures.get();
         if (failures < failureThreshold) return true;
         long openedAt = openedAtMs;
         if (openedAt < 0) return true;
         long elapsedMs = clock.getAsLong() - openedAt;
         if (elapsedMs >= resetTimeoutMs) {
-            consecutiveFailures.set(Math.max(0, failureThreshold - 1));
-            openedAtMs = -1L;
-            return true;
+            // CAS ensures only one thread transitions to half-open
+            if (consecutiveFailures.compareAndSet(failures, failureThreshold - 1)) {
+                openedAtMs = -1L;
+                return true;
+            }
+            return false;
         }
         return false;
     }
 
-    void onSuccess() {
+    public void onSuccess() {
         consecutiveFailures.set(0);
         openedAtMs = -1L;
     }
 
-    void onFailure() {
+    public void onFailure() {
         int failures = consecutiveFailures.incrementAndGet();
         if (failures >= failureThreshold && openedAtMs < 0) {
             openedAtMs = clock.getAsLong();

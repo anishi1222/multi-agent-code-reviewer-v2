@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.report.summary;
 
+import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.report.util.ReportFileUtils;
 
 import dev.logicojp.reviewer.report.core.ReviewResult;
@@ -80,7 +81,7 @@ public class SummaryGenerator {
         Pattern.compile("\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}");
     private static final int AI_SUMMARY_MAX_RETRIES = 1;
     private static final long RETRY_BACKOFF_BASE_MS = 1_000L;
-    private static final long RETRY_BACKOFF_MAX_MS = 4_000L;
+    private static final long RETRY_BACKOFF_MAX_MS = 15_000L;
     
     private final Path outputDirectory;
     private final CopilotClient client;
@@ -158,6 +159,11 @@ public class SummaryGenerator {
     }
     
     private String buildSummaryWithAI(List<ReviewResult> results, String repository) {
+        if (!SharedCircuitBreaker.global().allowRequest()) {
+            logger.warn("Summary generation skipped by open circuit breaker");
+            return fallbackSummary(results, "Circuit breaker is open for Copilot calls");
+        }
+
         logger.info("Using model for summary: {}", summaryModel);
         int totalAttempts = AI_SUMMARY_MAX_RETRIES + 1;
         String prompt = summaryPromptBuilder.buildSummaryPrompt(results, repository);
@@ -173,6 +179,7 @@ public class SummaryGenerator {
                     .get(timeoutMinutes, TimeUnit.MINUTES);
                 String content = response.getData().content();
                 if (content == null || content.isBlank()) {
+                    SharedCircuitBreaker.global().onFailure();
                     if (attempt < totalAttempts) {
                         waitRetryBackoff(attempt);
                         logger.warn("Summary generation returned empty content on attempt {}/{}. Retrying...",
@@ -181,8 +188,10 @@ public class SummaryGenerator {
                     }
                     return fallbackSummary(results, "AI summary response was empty");
                 }
+                SharedCircuitBreaker.global().onSuccess();
                 return content;
             } catch (ExecutionException | TimeoutException e) {
+                SharedCircuitBreaker.global().onFailure();
                 boolean retryable = isTransientFailure(e);
                 if (retryable && attempt < totalAttempts) {
                     waitRetryBackoff(attempt);

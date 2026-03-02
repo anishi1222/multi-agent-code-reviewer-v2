@@ -9,12 +9,11 @@ import org.slf4j.LoggerFactory;
 final class ReviewRetryExecutor {
 
     static final long DEFAULT_BACKOFF_BASE_MS = 1000L;
-    static final long DEFAULT_BACKOFF_MAX_MS = 8000L;
+    static final long DEFAULT_BACKOFF_MAX_MS = 30_000L;
     static final int DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD = 8;
     static final long DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT_MS = 30_000L;
 
-    private static final SharedCircuitBreaker GLOBAL_CIRCUIT_BREAKER =
-        new SharedCircuitBreaker(DEFAULT_CIRCUIT_BREAKER_FAILURE_THRESHOLD, DEFAULT_CIRCUIT_BREAKER_RESET_TIMEOUT_MS);
+    private static final SharedCircuitBreaker GLOBAL_CIRCUIT_BREAKER = SharedCircuitBreaker.global();
 
     @FunctionalInterface
     interface AttemptExecutor {

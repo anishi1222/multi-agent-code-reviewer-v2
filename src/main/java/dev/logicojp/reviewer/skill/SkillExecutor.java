@@ -1,5 +1,6 @@
 package dev.logicojp.reviewer.skill;
 
+import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.util.StructuredConcurrencyUtils;
 import dev.logicojp.reviewer.util.ExecutorUtils;
@@ -28,7 +29,7 @@ public class SkillExecutor implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(SkillExecutor.class);
     private static final int MAX_RETRIES = 1;
     private static final long BACKOFF_BASE_MS = 500L;
-    private static final long BACKOFF_MAX_MS = 2_000L;
+    private static final long BACKOFF_MAX_MS = 15_000L;
     private final CopilotClient client;
     private final String defaultModel;
     private final long timeoutMinutes;
@@ -83,6 +84,11 @@ public class SkillExecutor implements AutoCloseable {
     private SkillResult executeSafely(SkillDefinition skill,
                                       Map<String, String> parameters,
                                       String systemPrompt) {
+        if (!SharedCircuitBreaker.global().allowRequest()) {
+            logger.warn("Skill {} skipped by open circuit breaker", skill.id());
+            return SkillResult.failure(skill.id(), "Circuit breaker is open for Copilot calls");
+        }
+
         int totalAttempts = MAX_RETRIES + 1;
         SkillResult lastResult = SkillResult.failure(skill.id(), "Skill execution did not produce a result");
 
@@ -99,10 +105,12 @@ public class SkillExecutor implements AutoCloseable {
                     if (attempt > 1) {
                         logger.info("Skill {} succeeded on retry attempt {}/{}", skill.id(), attempt, totalAttempts);
                     }
+                    SharedCircuitBreaker.global().onSuccess();
                     return result;
                 }
 
                 lastResult = result;
+                SharedCircuitBreaker.global().onFailure();
                 boolean retryableFailure = isRetryableFailure(result);
                 if (RetryPolicyUtils.shouldRetry(attempt, totalAttempts, retryableFailure)) {
                     RetryPolicyUtils.sleepWithBackoff(BACKOFF_BASE_MS, BACKOFF_MAX_MS, attempt);
@@ -113,6 +121,7 @@ public class SkillExecutor implements AutoCloseable {
                 return result;
             } catch (Exception e) {
                 lastResult = SkillResult.failure(skill.id(), e.getMessage());
+                SharedCircuitBreaker.global().onFailure();
                 boolean transientException = isTransientException(e);
                 if (RetryPolicyUtils.shouldRetry(attempt, totalAttempts, transientException)) {
                     RetryPolicyUtils.sleepWithBackoff(BACKOFF_BASE_MS, BACKOFF_MAX_MS, attempt);

@@ -165,13 +165,18 @@ final class ReviewExecutionModeRunner {
     private List<ReviewResult> collectAsyncResults(List<CompletableFuture<List<ReviewResult>>> futures,
                                                    ReviewTarget target) {
         List<ReviewResult> results = new ArrayList<>(futures.size() * executionConfig.reviewPasses());
+        int incompleteCount = 0;
         for (CompletableFuture<List<ReviewResult>> future : futures) {
             List<ReviewResult> perAgentResults = future.getNow(List.of());
             if (perAgentResults == null || perAgentResults.isEmpty()) {
-                logger.warn("Review future completed without per-agent results for target {}", target.displayName());
+                incompleteCount++;
                 continue;
             }
             results.addAll(perAgentResults);
+        }
+        if (incompleteCount > 0) {
+            logger.warn("{} agent(s) did not complete within orchestrator timeout for target {}",
+                incompleteCount, target.displayName());
         }
         return results;
     }
