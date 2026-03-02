@@ -10,7 +10,6 @@ import dev.logicojp.reviewer.agent.AgentConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -118,18 +117,23 @@ public final class ReviewResultMerger {
             return result;
         }
 
-        List<ReviewFindingParser.FindingBlock> blocks = findingBlockExtractor.extract(content);
-        String mergedOverallSummary = mergeOverallSummaries(List.of(extractOverallSummaryContent(content, 1)));
-        if (blocks.isEmpty()) {
-            return result;
-        }
-
         FindingIndex findingIndex = new FindingIndex(findingKeyResolver);
+        List<ReviewFindingParser.FindingBlock> blocks = findingBlockExtractor.extract(content);
+        if (blocks.isEmpty()) {
+            String normalized = ReviewFindingSimilarity.normalizeText(content);
+            if (!normalized.isEmpty()) {
+                findingIndex.putIfAbsent(
+                    "fallback|" + normalized,
+                    AggregatedFinding.fallback(content, 1)
+                );
+            }
+        }
         for (ReviewFindingParser.FindingBlock block : blocks) {
             findingIndex.addOrMerge(block, 1);
         }
 
         String normalizedContent = mergedContentFormatter.format(findingIndex.findings(), 1, 0);
+        String mergedOverallSummary = buildMergedOverallSummary(findingIndex.findings(), 1, 0);
         normalizedContent = appendOverallSummarySection(normalizedContent, mergedOverallSummary);
         return ReviewResult.builder()
             .agentConfig(result.agentConfig())
@@ -165,7 +169,6 @@ public final class ReviewResultMerger {
 
         FindingIndex findingIndex = new FindingIndex(findingKeyResolver);
         Set<String> fallbackPassContents = new LinkedHashSet<>();
-        List<SummaryOccurrence> summaries = new ArrayList<>();
 
         for (int i = 0; i < successful.size(); i++) {
             ReviewResult result = successful.get(i);
@@ -174,8 +177,6 @@ public final class ReviewResultMerger {
             if (content == null || content.isBlank()) {
                 continue;
             }
-
-            summaries.add(extractOverallSummaryContent(content, passNumber));
 
             List<ReviewFindingParser.FindingBlock> blocks = findingBlockExtractor.extract(content);
             if (blocks.isEmpty()) {
@@ -196,7 +197,7 @@ public final class ReviewResultMerger {
 
         int failedCount = agentResults.size() - successful.size();
         String content = mergedContentFormatter.format(findingIndex.findings(), agentResults.size(), failedCount);
-        String mergedOverallSummary = mergeOverallSummaries(summaries);
+    String mergedOverallSummary = buildMergedOverallSummary(findingIndex.findings(), agentResults.size(), failedCount);
         content = appendOverallSummarySection(content, mergedOverallSummary);
 
         return ReviewResult.builder()
@@ -207,51 +208,58 @@ public final class ReviewResultMerger {
             .build();
     }
 
-    private static SummaryOccurrence extractOverallSummaryContent(String content, int passNumber) {
-        String summary = ReviewFindingParser.extractOverallSummary(content);
-        if (summary.isBlank()) {
-            return SummaryOccurrence.empty(passNumber);
-        }
-        return SummaryOccurrence.of(summary, passNumber);
-    }
-
-    private static String mergeOverallSummaries(Collection<SummaryOccurrence> summaries) {
-        if (summaries == null || summaries.isEmpty()) {
-            return "";
+    private static String buildMergedOverallSummary(Map<String, AggregatedFinding> aggregatedFindings,
+                                                    int totalPasses,
+                                                    int failedPasses) {
+        int findingCount = aggregatedFindings.size();
+        if (findingCount == 0) {
+            return failedPasses > 0
+                ? "成功したパスでは新たな指摘事項は確認されませんでした。"
+                : "重大な指摘事項は確認されませんでした。";
         }
 
-        Map<String, SummaryOccurrence> byNormalizedSummary = new LinkedHashMap<>();
-        for (SummaryOccurrence occurrence : summaries) {
-            if (occurrence == null || occurrence.rawText().isBlank()) {
-                continue;
+        int critical = 0;
+        int high = 0;
+        int medium = 0;
+        int low = 0;
+        int unspecified = 0;
+        List<String> topTitles = new ArrayList<>();
+
+        for (AggregatedFinding finding : aggregatedFindings.values()) {
+            String priority = finding.normalized().priority();
+            switch (priority) {
+                case "critical" -> critical++;
+                case "high" -> high++;
+                case "medium" -> medium++;
+                case "low" -> low++;
+                default -> unspecified++;
             }
-            String key = occurrence.normalizedText();
-            SummaryOccurrence existing = byNormalizedSummary.get(key);
-            if (existing == null) {
-                byNormalizedSummary.put(key, occurrence);
-            } else {
-                byNormalizedSummary.put(key, existing.mergePasses(occurrence.passNumbers()));
+            if (topTitles.size() < 3) {
+                topTitles.add(finding.title());
             }
-        }
-
-        if (byNormalizedSummary.isEmpty()) {
-            return "";
-        }
-
-        List<SummaryOccurrence> unique = new ArrayList<>(byNormalizedSummary.values());
-        if (unique.size() == 1) {
-            return unique.getFirst().rawText();
         }
 
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < unique.size(); i++) {
-            SummaryOccurrence occurrence = unique.get(i);
-            sb.append("#### パス ").append(formatPassNumbers(occurrence.passNumbers())).append("\n\n");
-            sb.append(occurrence.rawText().trim());
-            if (i < unique.size() - 1) {
-                sb.append("\n\n");
-            }
+        sb.append("マージ後のレビュー結果として、").append(findingCount).append("件の指摘事項を確認しました。");
+        sb.append(" 優先度内訳: ");
+        sb.append("Critical ").append(critical).append("件, ");
+        sb.append("High ").append(high).append("件, ");
+        sb.append("Medium ").append(medium).append("件, ");
+        sb.append("Low ").append(low).append("件");
+        if (unspecified > 0) {
+            sb.append(", 未分類 ").append(unspecified).append("件");
         }
+        sb.append("。");
+
+        if (!topTitles.isEmpty()) {
+            sb.append(" 主な指摘: ").append(String.join("、", topTitles)).append("。");
+        }
+
+        if (failedPasses > 0) {
+            sb.append(" なお、").append(totalPasses).append("パス中 ").append(failedPasses)
+                .append("パスは失敗しており、総評は成功パスの結果に基づきます。");
+        }
+
         return sb.toString();
     }
 
@@ -264,40 +272,6 @@ public final class ReviewResultMerger {
             + "\n\n---\n\n"
             + "**総評**\n\n"
             + mergedOverallSummary.trim();
-    }
-
-    private static String formatPassNumbers(Set<Integer> passNumbers) {
-        StringBuilder sb = new StringBuilder();
-        int index = 0;
-        for (Integer pass : passNumbers) {
-            if (index > 0) {
-                sb.append(", ");
-            }
-            sb.append(pass);
-            index++;
-        }
-        return sb.toString();
-    }
-
-    private record SummaryOccurrence(String rawText, String normalizedText, Set<Integer> passNumbers) {
-
-        static SummaryOccurrence empty(int passNumber) {
-            return new SummaryOccurrence("", "", Set.of(passNumber));
-        }
-
-        static SummaryOccurrence of(String summary, int passNumber) {
-            return new SummaryOccurrence(
-                summary.trim(),
-                ReviewFindingSimilarity.normalizeText(summary),
-                new LinkedHashSet<>(Set.of(passNumber))
-            );
-        }
-
-        SummaryOccurrence mergePasses(Set<Integer> extraPasses) {
-            Set<Integer> mergedPasses = new LinkedHashSet<>(passNumbers);
-            mergedPasses.addAll(extraPasses);
-            return new SummaryOccurrence(rawText, normalizedText, mergedPasses);
-        }
     }
 
     private static final class FindingIndex {

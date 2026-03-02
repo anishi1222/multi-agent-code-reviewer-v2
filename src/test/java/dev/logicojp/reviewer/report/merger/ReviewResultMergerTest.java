@@ -140,7 +140,8 @@ class ReviewResultMergerTest {
             assertThat(merged).hasSize(1);
             assertThat(merged.getFirst().content()).contains("### 1. ログディレクトリの権限制御不足");
             assertThat(merged.getFirst().content()).contains("**総評**");
-            assertThat(merged.getFirst().content()).contains("全体としては堅牢だが改善余地がある");
+            assertThat(merged.getFirst().content()).contains("マージ後のレビュー結果として");
+            assertThat(merged.getFirst().content()).doesNotContain("全体としては堅牢だが改善余地がある");
             assertThat(merged.getFirst().content()).containsOnlyOnce("**総評**");
         }
 
@@ -160,12 +161,13 @@ class ReviewResultMergerTest {
 
             assertThat(merged).hasSize(1);
             assertThat(merged.getFirst().content()).containsOnlyOnce("**総評**");
-            assertThat(merged.getFirst().content()).contains("同じ改善方針を推奨。");
+            assertThat(merged.getFirst().content()).contains("マージ後のレビュー結果として");
+            assertThat(merged.getFirst().content()).doesNotContain("同じ改善方針を推奨。");
         }
 
         @Test
-        @DisplayName("複数パスで総評が異なる場合はパス情報付きで統合する")
-        void differentOverallSummariesAcrossPassesAreMergedWithPassLabels() {
+        @DisplayName("複数パスで総評が異なっていてもパス別統合はせずマージ結果ベースで総評を生成する")
+        void differentOverallSummariesAcrossPassesUseMergedSummaryOnly() {
             var agent = createAgent("security");
             var content1 = finding("1", "設定漏れ", "Medium", "設定漏れあり", "障害", "src/A.java L1")
                 + "\n\n**総評**\n\n運用設定の見直しが必要。\n";
@@ -179,10 +181,11 @@ class ReviewResultMergerTest {
 
             assertThat(merged).hasSize(1);
             assertThat(merged.getFirst().content()).contains("**総評**");
-            assertThat(merged.getFirst().content()).contains("#### パス 1");
-            assertThat(merged.getFirst().content()).contains("#### パス 2");
-            assertThat(merged.getFirst().content()).contains("運用設定の見直しが必要。");
-            assertThat(merged.getFirst().content()).contains("権限設計の見直しが必要。");
+            assertThat(merged.getFirst().content()).contains("マージ後のレビュー結果として");
+            assertThat(merged.getFirst().content()).doesNotContain("#### パス 1");
+            assertThat(merged.getFirst().content()).doesNotContain("#### パス 2");
+            assertThat(merged.getFirst().content()).doesNotContain("運用設定の見直しが必要。");
+            assertThat(merged.getFirst().content()).doesNotContain("権限設計の見直しが必要。");
         }
     }
 
@@ -218,7 +221,8 @@ class ReviewResultMergerTest {
             );
 
             assertThat(merged).hasSize(1);
-            assertThat(merged.getFirst().content()).isEqualTo("INJECTED");
+            assertThat(merged.getFirst().content()).startsWith("INJECTED");
+            assertThat(merged.getFirst().content()).contains("**総評**");
             assertThat(extractorCalled).isTrue();
             assertThat(keyResolverCalled).isTrue();
             assertThat(formatterCalled).isTrue();
@@ -276,6 +280,7 @@ class ReviewResultMergerTest {
             assertThat(mergedResult.success()).isTrue();
             assertThat(mergedResult.content()).contains("### 1. トークン露出");
             assertThat(mergedResult.content()).contains("1 パスが失敗しました");
+            assertThat(mergedResult.content()).contains("成功パスの結果に基づきます");
         }
 
         @Test
