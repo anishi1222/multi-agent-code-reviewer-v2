@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.agent;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 
 /// Simple circuit breaker that tracks consecutive failures and temporarily
@@ -13,8 +14,8 @@ public final class SharedCircuitBreaker {
     private static final int DEFAULT_FAILURE_THRESHOLD = 8;
     private static final long DEFAULT_RESET_TIMEOUT_MS = 30_000L;
 
-    private static final SharedCircuitBreaker GLOBAL = new SharedCircuitBreaker(
-        DEFAULT_FAILURE_THRESHOLD, DEFAULT_RESET_TIMEOUT_MS);
+    private static final AtomicReference<SharedCircuitBreaker> GLOBAL =
+        new AtomicReference<>(new SharedCircuitBreaker(DEFAULT_FAILURE_THRESHOLD, DEFAULT_RESET_TIMEOUT_MS));
 
     private final int failureThreshold;
     private final long resetTimeoutMs;
@@ -34,7 +35,12 @@ public final class SharedCircuitBreaker {
 
     /// Returns the global circuit breaker shared across all Copilot call paths.
     public static SharedCircuitBreaker global() {
-        return GLOBAL;
+        return GLOBAL.get();
+    }
+
+    /// Reconfigures the global circuit breaker with new thresholds.
+    public static void reconfigure(int failureThreshold, long resetTimeoutMs) {
+        GLOBAL.set(new SharedCircuitBreaker(failureThreshold, resetTimeoutMs));
     }
 
     public boolean allowRequest() {

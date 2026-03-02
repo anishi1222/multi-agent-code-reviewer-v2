@@ -77,12 +77,12 @@ class ReviewResultTest {
     class Constructor {
 
         @Test
-        @DisplayName("nullのtimestampはInstant.nowに設定される")
-        void nullTimestampDefaultsToNow() {
+        @DisplayName("指定したtimestampが保持される")
+        void keepsProvidedTimestamp() {
+            Instant ts = Instant.parse("2025-07-01T00:00:00Z");
             ReviewResult result = new ReviewResult(
-                createAgent("a"), "repo", "content", null, true, null);
-            assertThat(result.timestamp()).isNotNull();
-            assertThat(result.timestamp()).isBeforeOrEqualTo(Instant.now());
+                createAgent("a"), "repo", "content", ts, true, null);
+            assertThat(result.timestamp()).isEqualTo(ts);
         }
     }
 

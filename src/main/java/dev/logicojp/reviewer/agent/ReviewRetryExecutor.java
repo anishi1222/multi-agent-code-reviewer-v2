@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.agent;
 
 import dev.logicojp.reviewer.report.core.ReviewResult;
+import dev.logicojp.reviewer.util.RetryExecutor;
 import dev.logicojp.reviewer.util.RetryPolicyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,11 +34,7 @@ final class ReviewRetryExecutor {
     private static final Logger logger = LoggerFactory.getLogger(ReviewRetryExecutor.class);
 
     private final String agentName;
-    private final int maxRetries;
-    private final long backoffBaseMs;
-    private final long backoffMaxMs;
-    private final SleepStrategy sleepStrategy;
-    private final SharedCircuitBreaker circuitBreaker;
+    private final RetryExecutor<ReviewResult> retryExecutor;
 
     ReviewRetryExecutor(String agentName,
                         int maxRetries,
@@ -66,64 +63,68 @@ final class ReviewRetryExecutor {
                         SleepStrategy sleepStrategy,
                         SharedCircuitBreaker circuitBreaker) {
         this.agentName = agentName;
-        this.maxRetries = maxRetries;
-        this.backoffBaseMs = backoffBaseMs;
-        this.backoffMaxMs = backoffMaxMs;
-        this.sleepStrategy = sleepStrategy;
-        this.circuitBreaker = circuitBreaker;
+        this.retryExecutor = new RetryExecutor<>(
+            maxRetries,
+            backoffBaseMs,
+            backoffMaxMs,
+            sleepStrategy::sleep,
+            circuitBreaker
+        );
     }
 
     ReviewResult execute(AttemptExecutor attemptExecutor, ExceptionMapper exceptionMapper) {
-        if (!circuitBreaker.allowRequest()) {
-            logger.warn("Agent {} skipped by open circuit breaker", agentName);
-            return exceptionMapper.map(new IllegalStateException("Circuit breaker is open for Copilot calls"));
-        }
-
-        int totalAttempts = maxRetries + 1;
-        ReviewResult lastResult = null;
-
-        for (int attempt = 1; attempt <= totalAttempts; attempt++) {
-            try {
-                lastResult = attemptExecutor.execute();
-                if (lastResult.success()) {
-                    circuitBreaker.onSuccess();
-                    logRetrySuccess(attempt, totalAttempts);
-                    return lastResult;
+        return retryExecutor.execute(
+            attemptExecutor::execute,
+            exceptionMapper::map,
+            ReviewResult::success,
+            this::isRetryableFailure,
+            this::isTransientException,
+            new RetryExecutor.RetryObserver<>() {
+                @Override
+                public void onCircuitOpen() {
+                    logger.warn("Agent {} skipped by open circuit breaker", agentName);
                 }
 
-                circuitBreaker.onFailure();
-                boolean retryableFailure = isRetryableFailure(lastResult);
-                if (RetryPolicyUtils.shouldRetry(attempt, totalAttempts, retryableFailure)) {
-                    waitRetryBackoff(attempt);
-                    logResultFailureRetry(attempt, totalAttempts, lastResult.errorMessage());
-                } else {
-                    logResultFailureFinal(attempt, totalAttempts, lastResult.errorMessage());
-                    if (!retryableFailure) {
+                @Override
+                public void onSuccess(int attempt, int totalAttempts, ReviewResult result) {
+                    logRetrySuccess(attempt, totalAttempts);
+                }
+
+                @Override
+                public void onRetryableResult(int attempt, int totalAttempts, ReviewResult result) {
+                    logResultFailureRetry(attempt, totalAttempts, result.errorMessage());
+                }
+
+                @Override
+                public void onFinalResultFailure(int attempt,
+                                                 int totalAttempts,
+                                                 ReviewResult result,
+                                                 boolean retryable) {
+                    logResultFailureFinal(attempt, totalAttempts, result.errorMessage());
+                    if (!retryable) {
                         logger.info("Agent {} encountered non-retryable failure on attempt {}/{}",
                             agentName, attempt, totalAttempts);
                     }
-                    break;
                 }
-            } catch (Exception e) {
-                lastResult = exceptionMapper.map(e);
-                circuitBreaker.onFailure();
 
-                boolean transientException = isTransientException(e);
-                if (RetryPolicyUtils.shouldRetry(attempt, totalAttempts, transientException)) {
-                    waitRetryBackoff(attempt);
-                    logExceptionRetry(attempt, totalAttempts, e);
-                } else {
-                    logExceptionFinal(attempt, totalAttempts, e);
-                    if (!transientException) {
+                @Override
+                public void onRetryableException(int attempt, int totalAttempts, Exception exception) {
+                    logExceptionRetry(attempt, totalAttempts, exception);
+                }
+
+                @Override
+                public void onFinalException(int attempt,
+                                             int totalAttempts,
+                                             Exception exception,
+                                             boolean transientFailure) {
+                    logExceptionFinal(attempt, totalAttempts, exception);
+                    if (!transientFailure) {
                         logger.info("Agent {} encountered non-transient exception and will not retry: {}",
-                            agentName, e.getClass().getSimpleName());
+                            agentName, exception.getClass().getSimpleName());
                     }
-                    break;
                 }
             }
-        }
-
-        return lastResult;
+        );
     }
 
     private void logRetrySuccess(int attempt, int totalAttempts) {
@@ -150,15 +151,6 @@ final class ReviewRetryExecutor {
     private void logExceptionFinal(int attempt, int totalAttempts, Exception e) {
         logger.error("Agent {} threw exception on final attempt {}/{}: {}",
             agentName, attempt, totalAttempts, e.getMessage(), e);
-    }
-
-    private void waitRetryBackoff(int attempt) {
-        long backoffMs = RetryPolicyUtils.computeBackoffWithJitter(backoffBaseMs, backoffMaxMs, attempt);
-        try {
-            sleepStrategy.sleep(backoffMs);
-        } catch (InterruptedException _) {
-            Thread.currentThread().interrupt();
-        }
     }
 
     private boolean isTransientException(Exception exception) {

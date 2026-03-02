@@ -5,6 +5,7 @@ import io.micronaut.core.annotation.Nullable;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.stream.IntStream;
 
 /// Holds the result of a review performed by an agent.
@@ -17,7 +18,7 @@ public record ReviewResult(
     @Nullable String errorMessage
 ) {
     public ReviewResult {
-        timestamp = (timestamp == null) ? Instant.now() : timestamp;
+        Objects.requireNonNull(timestamp, "timestamp must not be null");
     }
 
     public static Builder builder() {

@@ -1,11 +1,12 @@
 package dev.logicojp.reviewer.cli;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
+
+import dev.logicojp.reviewer.util.TokenReadUtils;
 
 /// Stateless CLI argument parsing utilities.
 ///
@@ -160,17 +161,11 @@ public final class CliParsing {
     static String readToken(String value, TokenInput tokenInput) {
         if (STDIN_TOKEN_SENTINEL.equals(value)) {
             try {
-                char[] chars = tokenInput.readPassword();
-                if (chars != null) {
-                    // NOTE: SDK APIs require String; char[] is cleared immediately after conversion.
-                    String token = String.valueOf(chars).trim();
-                    Arrays.fill(chars, '\0');
-                    return token;
-                }
-                byte[] raw = tokenInput.readStdin(MAX_STDIN_TOKEN_BYTES);
-                String token = new String(raw, StandardCharsets.UTF_8).trim();
-                Arrays.fill(raw, (byte) 0);
-                return token;
+                return TokenReadUtils.readTrimmedToken(
+                    tokenInput::readPassword,
+                    tokenInput::readStdin,
+                    MAX_STDIN_TOKEN_BYTES
+                );
             } catch (IOException e) {
                 throw tokenReadFailure(e);
             }
