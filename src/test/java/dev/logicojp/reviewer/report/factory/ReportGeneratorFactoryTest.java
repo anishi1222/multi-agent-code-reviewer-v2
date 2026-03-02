@@ -1,12 +1,8 @@
 package dev.logicojp.reviewer.report.factory;
 
 import dev.logicojp.reviewer.report.core.ReportGenerator;
-import dev.logicojp.reviewer.report.finding.AggregatedFinding;
-import dev.logicojp.reviewer.report.finding.ReviewFindingParser;
-import dev.logicojp.reviewer.report.finding.ReviewFindingSimilarity;
-import dev.logicojp.reviewer.report.finding.FindingsExtractor;
-import dev.logicojp.reviewer.report.sanitize.ContentSanitizer;
 import dev.logicojp.reviewer.report.summary.SummaryGenerator;
+import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 
 import com.github.copilot.sdk.CopilotClient;
 import dev.logicojp.reviewer.config.SummaryConfig;
@@ -55,7 +51,7 @@ class ReportGeneratorFactoryTest {
                 reportCreatorCalled.set(true);
                 return new ReportGenerator(outputDirectory, ts);
             },
-            (outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, ts, summaryConfig) -> {
+            (outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, ts, summaryConfig, breaker) -> {
                 summaryCreatorCalled.set(true);
                 return new SummaryGenerator(
                     outputDirectory,
@@ -64,9 +60,11 @@ class ReportGeneratorFactoryTest {
                     reasoningEffort,
                     timeoutMinutes,
                     ts,
-                    summaryConfig
+                    summaryConfig,
+                    breaker
                 );
-            }
+            },
+            SharedCircuitBreaker.global()
         );
 
         factory.createReportGenerator(Path.of("/tmp/reports"));
@@ -92,7 +90,7 @@ class ReportGeneratorFactoryTest {
                 reportCreatorCalled.set(true);
                 return new ReportGenerator(outputDirectory, ts);
             },
-            (outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, ts, summaryConfig) -> {
+            (outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, ts, summaryConfig, breaker) -> {
                 summaryCreatorCalled.set(true);
                 return new SummaryGenerator(
                     outputDirectory,
@@ -101,9 +99,11 @@ class ReportGeneratorFactoryTest {
                     reasoningEffort,
                     timeoutMinutes,
                     ts,
-                    summaryConfig
+                    summaryConfig,
+                    breaker
                 );
-            }
+            },
+            SharedCircuitBreaker.global()
         );
 
         CopilotClient client = null;

@@ -83,7 +83,6 @@ public class SummaryGenerator {
     private static final int AI_SUMMARY_MAX_RETRIES = 1;
     private static final long RETRY_BACKOFF_BASE_MS = 1_000L;
     private static final long RETRY_BACKOFF_MAX_MS = 15_000L;
-    private static final SharedCircuitBreaker CIRCUIT_BREAKER = SharedCircuitBreaker.global();
     
     private final Path outputDirectory;
     private final CopilotClient client;
@@ -96,6 +95,7 @@ public class SummaryGenerator {
     private final FallbackSummaryBuilder fallbackSummaryBuilder;
     private final SummaryFinalReportFormatter summaryFinalReportFormatter;
     private final AiSummaryBuilder aiSummaryBuilder;
+    private final SharedCircuitBreaker circuitBreaker;
     
     public SummaryGenerator(
             Path outputDirectory, 
@@ -105,8 +105,21 @@ public class SummaryGenerator {
             long timeoutMinutes,
             TemplateService templateService,
             SummaryConfig summaryConfig) {
+            this(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, templateService,
+                summaryConfig, SharedCircuitBreaker.global());
+            }
+
+            public SummaryGenerator(
+                Path outputDirectory,
+                CopilotClient client,
+                String summaryModel,
+                String reasoningEffort,
+                long timeoutMinutes,
+                TemplateService templateService,
+                SummaryConfig summaryConfig,
+                SharedCircuitBreaker circuitBreaker) {
         this(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, templateService,
-            summaryConfig, null, Clock.systemDefaultZone());
+                summaryConfig, null, Clock.systemDefaultZone(), circuitBreaker);
     }
 
     /// Full-parameter constructor for testing — all collaborators are injectable.
@@ -120,12 +133,28 @@ public class SummaryGenerator {
             SummaryConfig summaryConfig,
             SummaryCollaborators collaborators,
             Clock clock) {
+        this(outputDirectory, client, summaryModel, reasoningEffort, timeoutMinutes, templateService,
+            summaryConfig, collaborators, clock, SharedCircuitBreaker.global());
+    }
+
+    SummaryGenerator(
+            Path outputDirectory,
+            CopilotClient client,
+            String summaryModel,
+            String reasoningEffort,
+            long timeoutMinutes,
+            TemplateService templateService,
+            SummaryConfig summaryConfig,
+            SummaryCollaborators collaborators,
+            Clock clock,
+            SharedCircuitBreaker circuitBreaker) {
         this.outputDirectory = outputDirectory;
         this.client = client;
         this.summaryModel = summaryModel;
         this.reasoningEffort = reasoningEffort;
         this.timeoutMinutes = timeoutMinutes;
         this.templateService = templateService;
+        this.circuitBreaker = circuitBreaker;
         this.invocationTimestamp = LocalDateTime.now(clock).format(TIMESTAMP_FORMATTER);
         SummaryCollaborators defaults = SummaryCollaborators.defaults(templateService, summaryConfig, this);
         var effective = (collaborators != null ? collaborators : defaults).withDefaults(defaults);
@@ -168,7 +197,7 @@ public class SummaryGenerator {
             RETRY_BACKOFF_BASE_MS,
             RETRY_BACKOFF_MAX_MS,
             Thread::sleep,
-            CIRCUIT_BREAKER
+            circuitBreaker
         );
 
         String summary = retryExecutor.execute(

@@ -31,7 +31,6 @@ public class SkillExecutor implements AutoCloseable {
     private static final int MAX_RETRIES = 1;
     private static final long BACKOFF_BASE_MS = 500L;
     private static final long BACKOFF_MAX_MS = 15_000L;
-    private static final SharedCircuitBreaker CIRCUIT_BREAKER = SharedCircuitBreaker.global();
     private final CopilotClient client;
     private final String defaultModel;
     private final long timeoutMinutes;
@@ -41,12 +40,23 @@ public class SkillExecutor implements AutoCloseable {
     private final boolean ownsExecutor;
     private final boolean structuredConcurrencyEnabled;
     private final Map<String, Object> cachedMcpServers;
+    private final SharedCircuitBreaker circuitBreaker;
 
     public SkillExecutor(CopilotClient client, String githubToken,
                          GithubMcpConfig githubMcpConfig,
                          SkillExecutorConfig config,
                          Executor executor,
                          boolean ownsExecutor) {
+        this(client, githubToken, githubMcpConfig, config, executor, ownsExecutor, SharedCircuitBreaker.global());
+    }
+
+    public SkillExecutor(CopilotClient client,
+                         String githubToken,
+                         GithubMcpConfig githubMcpConfig,
+                         SkillExecutorConfig config,
+                         Executor executor,
+                         boolean ownsExecutor,
+                         SharedCircuitBreaker circuitBreaker) {
         this.client = client;
         this.defaultModel = config.defaultModel();
         this.timeoutMinutes = config.timeoutMinutes();
@@ -56,6 +66,7 @@ public class SkillExecutor implements AutoCloseable {
         this.ownsExecutor = ownsExecutor;
         this.structuredConcurrencyEnabled = config.structuredConcurrencyEnabled();
         this.cachedMcpServers = GithubMcpConfig.buildMcpServers(githubToken, githubMcpConfig).orElse(Map.of());
+        this.circuitBreaker = circuitBreaker;
     }
 
     /// Configuration values for {@link SkillExecutor} behavior.
@@ -91,7 +102,7 @@ public class SkillExecutor implements AutoCloseable {
             BACKOFF_BASE_MS,
             BACKOFF_MAX_MS,
             Thread::sleep,
-            CIRCUIT_BREAKER
+            circuitBreaker
         );
 
         return retryExecutor.execute(

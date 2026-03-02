@@ -3,6 +3,7 @@ package dev.logicojp.reviewer.report.factory;
 import dev.logicojp.reviewer.report.core.ReportGenerator;
 import dev.logicojp.reviewer.report.summary.SummaryGenerator;
 
+import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.config.SummaryConfig;
 import dev.logicojp.reviewer.service.TemplateService;
 import com.github.copilot.sdk.CopilotClient;
@@ -32,13 +33,15 @@ public class ReportGeneratorFactory {
                                 String reasoningEffort,
                                 long timeoutMinutes,
                                 TemplateService templateService,
-                                SummaryConfig summaryConfig);
+                                SummaryConfig summaryConfig,
+                                SharedCircuitBreaker circuitBreaker);
     }
 
     private final TemplateService templateService;
     private final SummaryConfig summaryConfig;
     private final ReportGeneratorCreator reportGeneratorCreator;
     private final SummaryGeneratorCreator summaryGeneratorCreator;
+    private final SharedCircuitBreaker circuitBreaker;
 
     @Inject
     public ReportGeneratorFactory(TemplateService templateService,
@@ -47,18 +50,21 @@ public class ReportGeneratorFactory {
             templateService,
             summaryConfig,
             ReportGenerator::new,
-            SummaryGenerator::new
+            SummaryGenerator::new,
+            SharedCircuitBreaker.global()
         );
     }
 
     ReportGeneratorFactory(TemplateService templateService,
                            SummaryConfig summaryConfig,
                            ReportGeneratorCreator reportGeneratorCreator,
-                           SummaryGeneratorCreator summaryGeneratorCreator) {
+                           SummaryGeneratorCreator summaryGeneratorCreator,
+                           SharedCircuitBreaker circuitBreaker) {
         this.templateService = templateService;
         this.summaryConfig = summaryConfig;
         this.reportGeneratorCreator = reportGeneratorCreator;
         this.summaryGeneratorCreator = summaryGeneratorCreator;
+        this.circuitBreaker = circuitBreaker;
     }
 
     /// Creates a new {@link ReportGenerator} for the given output directory.
@@ -89,7 +95,8 @@ public class ReportGeneratorFactory {
             reasoningEffort,
             timeoutMinutes,
             templateService,
-            summaryConfig
+            summaryConfig,
+            circuitBreaker
         );
     }
 }
