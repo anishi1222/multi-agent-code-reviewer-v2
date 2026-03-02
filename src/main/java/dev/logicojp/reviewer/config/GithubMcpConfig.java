@@ -101,8 +101,18 @@ public record GithubMcpConfig(
         if (token == null || token.isBlank()) {
             return;
         }
+        if (containsCrLf(authHeaderName)) {
+            throw new IllegalArgumentException("Auth header name contains illegal characters (CRLF)");
+        }
         String headerValue = authHeaderTemplate
             .replace("{token}", token);
+        if (containsCrLf(headerValue)) {
+            throw new IllegalArgumentException("Auth header value contains illegal characters (CRLF)");
+        }
         combinedHeaders.put(authHeaderName, headerValue);
+    }
+
+    private static boolean containsCrLf(String value) {
+        return value != null && (value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0);
     }
 }

@@ -11,6 +11,17 @@ mvn clean package
 java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar run --repo owner/repo --all
 ```
 
+## Security Runtime Notes
+
+For production JVM runs that handle GitHub tokens, consider enabling these flags:
+
+```bash
+java --enable-preview \
+	-XX:+DisableAttachMechanism \
+	-XX:-HeapDumpOnOutOfMemoryError \
+	-jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar run --repo owner/repo --all
+```
+
 ## Documentation
 
 - English: [README_en.md](./README_en.md)

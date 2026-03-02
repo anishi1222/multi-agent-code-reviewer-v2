@@ -157,6 +157,17 @@ mvn clean package -Pnative
 
 > 注意: 本プロジェクトは Java のプレビュー機能を利用しています。JVM で実行する場合は `--enable-preview` を付けてください。
 
+### セキュア運用時のJVMオプション
+
+本番環境で GitHub トークンを扱う JVM 実行では、以下のオプションを推奨します。
+
+```bash
+java --enable-preview \
+  -XX:+DisableAttachMechanism \
+  -XX:-HeapDumpOnOutOfMemoryError \
+  -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar run --repo owner/repository --all
+```
+
 ### 基本的な使用方法
 
 ```bash
