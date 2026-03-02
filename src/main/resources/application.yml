@@ -60,9 +60,9 @@ reviewer:
       # Token value is injected at runtime from environment/CLI; no secret is stored in this file.
       auth-header-template: "Bearer {token}"
   models:
-    default-model: claude-opus-4.6
+    default-model: claude-sonnet-4.5
     review-model: GPT-5.3-Codex
-    report-model: claude-opus-4.6-fast
+    report-model: claude-opus-4.6-1m
     summary-model: claude-sonnet-4.5
     reasoning-effort: high
   summary:
