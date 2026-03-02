@@ -1,7 +1,5 @@
 package dev.logicojp.reviewer.report.finding;
 
-import dev.logicojp.reviewer.report.core.ReviewResult;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -51,6 +49,7 @@ class AggregatedFindingTest {
             incomingPriority,
             incomingSummary,
             incomingLocation,
+            ReviewFindingSimilarity.extractKeywords(incomingTitle),
             ReviewFindingSimilarity.bigrams(incomingTitle),
             ReviewFindingSimilarity.bigrams(incomingSummary),
             ReviewFindingSimilarity.bigrams(incomingLocation)

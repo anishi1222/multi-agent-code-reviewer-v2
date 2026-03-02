@@ -3,17 +3,17 @@ package dev.logicojp.reviewer.service;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
-import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.agent.AgentConfig;
+import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.config.ExecutionConfig;
-import dev.logicojp.reviewer.config.SkillConfig;
-import dev.logicojp.reviewer.util.FeatureFlags;
 import dev.logicojp.reviewer.config.GithubMcpConfig;
+import dev.logicojp.reviewer.config.SkillConfig;
 import dev.logicojp.reviewer.skill.SkillDefinition;
 import dev.logicojp.reviewer.skill.SkillExecutor;
 import dev.logicojp.reviewer.skill.SkillRegistry;
 import dev.logicojp.reviewer.skill.SkillResult;
 import dev.logicojp.reviewer.util.ExecutorUtils;
+import dev.logicojp.reviewer.util.FeatureFlags;
 import dev.logicojp.reviewer.util.TokenHashUtils;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
@@ -51,11 +51,11 @@ public class SkillService {
                         ExecutionConfig executionConfig,
                         SkillConfig skillConfig,
                         FeatureFlags featureFlags) {
-                this(skillRegistry, copilotService, githubMcpConfig, executionConfig, skillConfig, featureFlags,
+        this(skillRegistry, copilotService, githubMcpConfig, executionConfig, skillConfig, featureFlags,
                     SharedCircuitBreaker.global());
-                }
+    }
 
-                SkillService(SkillRegistry skillRegistry,
+    SkillService(SkillRegistry skillRegistry,
                      CopilotService copilotService,
                      GithubMcpConfig githubMcpConfig,
                      ExecutionConfig executionConfig,
@@ -68,7 +68,7 @@ public class SkillService {
         this.executionConfig = executionConfig;
         this.skillConfig = skillConfig;
         this.featureFlags = featureFlags;
-                this.circuitBreaker = circuitBreaker;
+        this.circuitBreaker = circuitBreaker;
         this.executorService = Executors.newVirtualThreadPerTaskExecutor();
         this.executorCache = Caffeine.newBuilder()
             .initialCapacity(skillConfig.executorCacheInitialCapacity())

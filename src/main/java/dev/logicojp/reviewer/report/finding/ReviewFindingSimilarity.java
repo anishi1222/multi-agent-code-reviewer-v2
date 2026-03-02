@@ -75,6 +75,10 @@ public final class ReviewFindingSimilarity {
      static boolean hasCommonKeyword(String left, String right) {
         Set<String> leftWords = extractKeywords(left);
         Set<String> rightWords = extractKeywords(right);
+        return hasCommonKeyword(leftWords, rightWords);
+    }
+
+    static boolean hasCommonKeyword(Set<String> leftWords, Set<String> rightWords) {
         if (leftWords.isEmpty() || rightWords.isEmpty()) {
             return false;
         }
@@ -86,7 +90,7 @@ public final class ReviewFindingSimilarity {
         return false;
     }
 
-    private static Set<String> extractKeywords(String text) {
+    static Set<String> extractKeywords(String text) {
         if (text == null || text.isBlank()) {
             return Set.of();
         }

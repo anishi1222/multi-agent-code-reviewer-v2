@@ -1,11 +1,6 @@
 package dev.logicojp.reviewer.report.formatter;
 
 import dev.logicojp.reviewer.report.finding.AggregatedFinding;
-import dev.logicojp.reviewer.report.finding.ReviewFindingParser;
-import dev.logicojp.reviewer.report.finding.ReviewFindingSimilarity;
-import dev.logicojp.reviewer.report.finding.FindingsExtractor;
-import dev.logicojp.reviewer.report.sanitize.ContentSanitizer;
-import dev.logicojp.reviewer.report.summary.SummaryGenerator;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,6 +60,7 @@ class ReviewMergedContentFormatterTest {
             "high",
             "summary",
             "location",
+            Set.of("title"),
             Set.of("ti"),
             Set.of("su"),
             Set.of("lo")

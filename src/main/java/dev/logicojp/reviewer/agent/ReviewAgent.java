@@ -16,6 +16,10 @@ import java.util.Objects;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /// Executes a code review using the Copilot SDK with a specific agent configuration.
@@ -190,6 +194,13 @@ public class ReviewAgent {
     }
 
     private List<ReviewResult> executeReviewPasses(ReviewTarget target, int reviewPasses) throws Exception {
+        if (reviewPasses <= 2) {
+            return executeReviewPassesSequential(target, reviewPasses);
+        }
+        return executeReviewPassesHybrid(target, reviewPasses);
+    }
+
+    private List<ReviewResult> executeReviewPassesSequential(ReviewTarget target, int reviewPasses) throws Exception {
         logger.info("Starting {} review passes with shared session for agent: {} on target: {}",
             reviewPasses, config.name(), target.displayName());
 
@@ -233,6 +244,63 @@ public class ReviewAgent {
             }
             return results;
         }
+    }
+
+    private List<ReviewResult> executeReviewPassesHybrid(ReviewTarget target, int reviewPasses) throws Exception {
+        logger.info("Starting {} review passes with hybrid mode for agent: {} on target: {}",
+            reviewPasses, config.name(), target.displayName());
+
+        var resolvedInstruction = resolveTargetInstruction(target);
+        String displayName = target.displayName();
+        String instruction = resolvedInstruction.instruction();
+        String localSourceContent = resolvedInstruction.localSourceContent();
+        Map<String, Object> mcpServers = resolvedInstruction.mcpServers();
+
+        List<ReviewResult> results = new ArrayList<>(reviewPasses);
+
+        // First pass uses shared-session path to amortize MCP/session setup cost.
+        results.addAll(executeReviewPassesSequential(target, 1));
+
+        if (reviewPasses == 1) {
+            return results;
+        }
+
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Callable<PassResult>> tasks = new ArrayList<>(reviewPasses - 1);
+            for (int pass = 2; pass <= reviewPasses; pass++) {
+                int passNumber = pass;
+                tasks.add(() -> {
+                    String localSourceForPass = resolveLocalSourceContentForPass(target, localSourceContent, passNumber);
+                    ReviewResult result = reviewRetryExecutor.execute(
+                        () -> executeReviewCommon(displayName, instruction, localSourceForPass, mcpServers),
+                        e -> reviewResultFactory.fromException(config, displayName, e)
+                    );
+                    return new PassResult(passNumber, result);
+                });
+            }
+
+            var futures = executor.invokeAll(tasks);
+            List<PassResult> passResults = new ArrayList<>(futures.size());
+            for (var future : futures) {
+                try {
+                    passResults.add(future.get());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                } catch (ExecutionException e) {
+                    throw new IllegalStateException("Hybrid review pass execution failed", e.getCause());
+                }
+            }
+            passResults.sort(Comparator.comparingInt(PassResult::passNumber));
+            for (PassResult passResult : passResults) {
+                results.add(passResult.result());
+            }
+        }
+
+        return results;
+    }
+
+    private record PassResult(int passNumber, ReviewResult result) {
     }
 
     static String resolveLocalSourceContentForPass(ReviewTarget target,

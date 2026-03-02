@@ -12,6 +12,7 @@ public record AggregatedFinding(String title,
                         String normalizedPriority,
                         String normalizedSummary,
                         String normalizedLocation,
+                        Set<String> titleKeywords,
                         Set<String> titleBigrams,
                         Set<String> summaryBigrams,
                         Set<String> locationBigrams) {
@@ -20,6 +21,7 @@ public record AggregatedFinding(String title,
                              String priority,
                              String summary,
                              String location,
+                             Set<String> titleKeywords,
                              Set<String> titleBigrams,
                              Set<String> summaryBigrams,
                              Set<String> locationBigrams) {
@@ -48,6 +50,7 @@ public record AggregatedFinding(String title,
             normalized.priority(),
             normalized.summary(),
             normalized.location(),
+            normalized.titleKeywords(),
             normalized.titleBigrams(),
             normalized.summaryBigrams(),
             normalized.locationBigrams()
@@ -64,6 +67,7 @@ public record AggregatedFinding(String title,
             normalizedPriority,
             normalizedSummary,
             normalizedLocation,
+            ReviewFindingSimilarity.extractKeywords(normalizedTitle),
             ReviewFindingSimilarity.bigrams(normalizedTitle),
             ReviewFindingSimilarity.bigrams(normalizedSummary),
             ReviewFindingSimilarity.bigrams(normalizedLocation)
@@ -84,6 +88,7 @@ public record AggregatedFinding(String title,
             "",
             normalizedRaw,
             "",
+            ReviewFindingSimilarity.extractKeywords(normalizeText("レビュー結果")),
             ReviewFindingSimilarity.bigrams(normalizeText("レビュー結果")),
             ReviewFindingSimilarity.bigrams(similarityTarget),
             Set.of()
@@ -122,7 +127,7 @@ public record AggregatedFinding(String title,
             summaryBigrams, incoming.summaryBigrams())
             || ReviewFindingSimilarity.isSimilarText(normalizedTitle, incoming.title(),
             titleBigrams, incoming.titleBigrams())
-            || ReviewFindingSimilarity.hasCommonKeyword(normalizedTitle, incoming.title());
+            || ReviewFindingSimilarity.hasCommonKeyword(titleKeywords, incoming.titleKeywords());
     }
 
     private boolean matchBySummaryAndTitle(NormalizedFinding incoming) {
@@ -137,7 +142,7 @@ public record AggregatedFinding(String title,
         newPasses.add(passNumber);
         return new AggregatedFinding(title, body, newPasses,
             normalizedTitle, normalizedPriority, normalizedSummary,
-            normalizedLocation, titleBigrams, summaryBigrams, locationBigrams);
+            normalizedLocation, titleKeywords, titleBigrams, summaryBigrams, locationBigrams);
     }
 
     private static String normalizeText(String value) {
