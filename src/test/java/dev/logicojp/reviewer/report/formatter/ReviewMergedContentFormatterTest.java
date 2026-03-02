@@ -56,14 +56,16 @@ class ReviewMergedContentFormatterTest {
             title,
             body,
             new LinkedHashSet<>(passNumbers),
-            "title",
-            "high",
-            "summary",
-            "location",
-            Set.of("title"),
-            Set.of("ti"),
-            Set.of("su"),
-            Set.of("lo")
+            new AggregatedFinding.NormalizedFinding(
+                "title",
+                "high",
+                "summary",
+                "location",
+                Set.of("title"),
+                Set.of("ti"),
+                Set.of("su"),
+                Set.of("lo")
+            )
         );
     }
 }

@@ -190,15 +190,11 @@ public class TemplateService {
             return template;
         }
 
-        Matcher matcher = PLACEHOLDER_PATTERN.matcher(template);
-        StringBuilder sb = new StringBuilder();
-        while (matcher.find()) {
-            String key = matcher.group(1);
-            String value = placeholders.getOrDefault(key, matcher.group());
-            matcher.appendReplacement(sb, Matcher.quoteReplacement(value != null ? value : ""));
-        }
-        matcher.appendTail(sb);
-        return sb.toString();
+        return PLACEHOLDER_PATTERN.matcher(template).replaceAll(match -> {
+            String key = match.group(1);
+            String value = placeholders.getOrDefault(key, match.group());
+            return Matcher.quoteReplacement(value != null ? value : "");
+        });
     }
 
     // Convenience methods for specific templates

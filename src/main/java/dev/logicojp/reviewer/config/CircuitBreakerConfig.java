@@ -8,8 +8,8 @@ public record CircuitBreakerConfig(
     int failureThreshold,
     long resetTimeoutMs
 ) {
-    private static final int DEFAULT_FAILURE_THRESHOLD = 8;
-    private static final long DEFAULT_RESET_TIMEOUT_MS = 30_000L;
+    public static final int DEFAULT_FAILURE_THRESHOLD = 8;
+    public static final long DEFAULT_RESET_TIMEOUT_MS = 30_000L;
 
     public CircuitBreakerConfig {
         failureThreshold = ConfigDefaults.defaultIfNonPositive(failureThreshold, DEFAULT_FAILURE_THRESHOLD);

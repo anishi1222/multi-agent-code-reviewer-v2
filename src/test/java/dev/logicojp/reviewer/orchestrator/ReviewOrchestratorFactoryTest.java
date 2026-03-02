@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.orchestrator;
 
 import com.github.copilot.sdk.CopilotClient;
 import dev.logicojp.reviewer.agent.AgentPromptBuilder;
+import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.config.LocalFileConfig;
@@ -59,7 +60,11 @@ class ReviewOrchestratorFactoryTest {
             templateService,
             (client, config) -> {
                 captured.set(config);
-                return new ReviewOrchestrator(client, config, ReviewOrchestrator.defaultCollaborators(client, config));
+                return new ReviewOrchestrator(
+                    client,
+                    config,
+                    ReviewOrchestrator.defaultCollaborators(client, config, new SharedCircuitBreaker(8, 30_000L))
+                );
             }
         );
 

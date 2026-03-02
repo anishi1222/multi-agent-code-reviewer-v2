@@ -61,7 +61,7 @@ class ContentCollector {
 
     private static int resolveInitialCapacity(int maxAccumulatedSize, int initialAccumulatedCapacity) {
         // Pre-size to reduce growth copies inside synchronized append path.
-        int scaledCapacity = Math.max(initialAccumulatedCapacity, maxAccumulatedSize / 16);
+        int scaledCapacity = Math.max(initialAccumulatedCapacity, maxAccumulatedSize / 64);
         return Math.min(Math.max(16, scaledCapacity), maxAccumulatedSize);
     }
 

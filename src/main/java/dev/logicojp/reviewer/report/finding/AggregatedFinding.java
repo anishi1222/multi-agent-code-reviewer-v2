@@ -6,25 +6,28 @@ import java.util.Objects;
 import java.util.Set;
 
 public record AggregatedFinding(String title,
-                        String body,
-                        Set<Integer> passNumbers,
-                        String normalizedTitle,
-                        String normalizedPriority,
-                        String normalizedSummary,
-                        String normalizedLocation,
-                        Set<String> titleKeywords,
-                        Set<String> titleBigrams,
-                        Set<String> summaryBigrams,
-                        Set<String> locationBigrams) {
+                               String body,
+                               Set<Integer> passNumbers,
+                               NormalizedFinding normalized) {
 
     public record NormalizedFinding(String title,
-                             String priority,
-                             String summary,
-                             String location,
-                             Set<String> titleKeywords,
-                             Set<String> titleBigrams,
-                             Set<String> summaryBigrams,
-                             Set<String> locationBigrams) {
+                                    String priority,
+                                    String summary,
+                                    String location,
+                                    Set<String> titleKeywords,
+                                    Set<String> titleBigrams,
+                                    Set<String> summaryBigrams,
+                                    Set<String> locationBigrams) {
+        public NormalizedFinding {
+            title = title != null ? title : "";
+            priority = priority != null ? priority : "";
+            summary = summary != null ? summary : "";
+            location = location != null ? location : "";
+            titleKeywords = titleKeywords != null ? Set.copyOf(titleKeywords) : Set.of();
+            titleBigrams = titleBigrams != null ? Set.copyOf(titleBigrams) : Set.of();
+            summaryBigrams = summaryBigrams != null ? Set.copyOf(summaryBigrams) : Set.of();
+            locationBigrams = locationBigrams != null ? Set.copyOf(locationBigrams) : Set.of();
+        }
     }
 
     private static final int FALLBACK_SIMILARITY_PREFIX_LENGTH = 500;
@@ -32,6 +35,7 @@ public record AggregatedFinding(String title,
     public AggregatedFinding {
         Objects.requireNonNull(title);
         Objects.requireNonNull(body);
+        Objects.requireNonNull(normalized);
         passNumbers = Collections.unmodifiableSet(new LinkedHashSet<>(passNumbers));
     }
 
@@ -46,22 +50,15 @@ public record AggregatedFinding(String title,
             block.title(),
             block.body(),
             new LinkedHashSet<>(Set.of(passNumber)),
-            normalized.title(),
-            normalized.priority(),
-            normalized.summary(),
-            normalized.location(),
-            normalized.titleKeywords(),
-            normalized.titleBigrams(),
-            normalized.summaryBigrams(),
-            normalized.locationBigrams()
+            normalized
         );
     }
 
     public static NormalizedFinding normalize(ReviewFindingParser.FindingBlock block) {
-        String normalizedTitle = normalizeText(block.title());
-        String normalizedPriority = normalizeText(ReviewFindingParser.extractTableValue(block.body(), "Priority"));
-        String normalizedSummary = normalizeText(ReviewFindingParser.extractTableValue(block.body(), "指摘の概要"));
-        String normalizedLocation = normalizeText(ReviewFindingParser.extractTableValue(block.body(), "該当箇所"));
+        String normalizedTitle = ReviewFindingSimilarity.normalizeText(block.title());
+        String normalizedPriority = ReviewFindingSimilarity.normalizeText(ReviewFindingParser.extractTableValue(block.body(), "Priority"));
+        String normalizedSummary = ReviewFindingSimilarity.normalizeText(ReviewFindingParser.extractTableValue(block.body(), "指摘の概要"));
+        String normalizedLocation = ReviewFindingSimilarity.normalizeText(ReviewFindingParser.extractTableValue(block.body(), "該当箇所"));
         return new NormalizedFinding(
             normalizedTitle,
             normalizedPriority,
@@ -75,23 +72,27 @@ public record AggregatedFinding(String title,
     }
 
     public static AggregatedFinding fallback(String rawContent, int passNumber) {
-        String normalizedRaw = normalizeText(rawContent);
+        String normalizedRaw = ReviewFindingSimilarity.normalizeText(rawContent);
         String similarityTarget = normalizedRaw.length() > FALLBACK_SIMILARITY_PREFIX_LENGTH
             ? normalizedRaw.substring(0, FALLBACK_SIMILARITY_PREFIX_LENGTH)
             : normalizedRaw;
+
+        String normalizedTitle = ReviewFindingSimilarity.normalizeText("レビュー結果");
 
         return new AggregatedFinding(
             "レビュー結果",
             rawContent,
             new LinkedHashSet<>(Set.of(passNumber)),
-            normalizeText("レビュー結果"),
-            "",
-            normalizedRaw,
-            "",
-            ReviewFindingSimilarity.extractKeywords(normalizeText("レビュー結果")),
-            ReviewFindingSimilarity.bigrams(normalizeText("レビュー結果")),
-            ReviewFindingSimilarity.bigrams(similarityTarget),
-            Set.of()
+            new NormalizedFinding(
+                normalizedTitle,
+                "",
+                normalizedRaw,
+                "",
+                ReviewFindingSimilarity.extractKeywords(normalizedTitle),
+                ReviewFindingSimilarity.bigrams(normalizedTitle),
+                ReviewFindingSimilarity.bigrams(similarityTarget),
+                Set.of()
+            )
         );
     }
 
@@ -108,44 +109,41 @@ public record AggregatedFinding(String title,
     }
 
     private boolean hasPriorityMismatch(String incomingPriority) {
-        return !normalizedPriority.isEmpty()
+        return !normalized.priority().isEmpty()
             && !incomingPriority.isEmpty()
-            && !normalizedPriority.equals(incomingPriority);
+            && !normalized.priority().equals(incomingPriority);
     }
 
     private boolean hasLocationContext(String incomingLocation) {
-        return !normalizedLocation.isEmpty() && !incomingLocation.isEmpty();
+        return !normalized.location().isEmpty() && !incomingLocation.isEmpty();
     }
 
     private boolean matchByLocationAndContent(NormalizedFinding incoming) {
-        if (!ReviewFindingSimilarity.isSimilarText(normalizedLocation, incoming.location(),
-            locationBigrams, incoming.locationBigrams())) {
+        if (!ReviewFindingSimilarity.isSimilarText(normalized.location(), incoming.location(),
+            normalized.locationBigrams(), incoming.locationBigrams())) {
             return false;
         }
 
-        return ReviewFindingSimilarity.isSimilarText(normalizedSummary, incoming.summary(),
-            summaryBigrams, incoming.summaryBigrams())
-            || ReviewFindingSimilarity.isSimilarText(normalizedTitle, incoming.title(),
-            titleBigrams, incoming.titleBigrams())
-            || ReviewFindingSimilarity.hasCommonKeyword(titleKeywords, incoming.titleKeywords());
+        return ReviewFindingSimilarity.isSimilarText(normalized.summary(), incoming.summary(),
+            normalized.summaryBigrams(), incoming.summaryBigrams())
+            || ReviewFindingSimilarity.isSimilarText(normalized.title(), incoming.title(),
+            normalized.titleBigrams(), incoming.titleBigrams())
+            || ReviewFindingSimilarity.hasCommonKeyword(normalized.titleKeywords(), incoming.titleKeywords());
     }
 
     private boolean matchBySummaryAndTitle(NormalizedFinding incoming) {
-        return ReviewFindingSimilarity.isSimilarText(normalizedSummary, incoming.summary(),
-            summaryBigrams, incoming.summaryBigrams())
-            && ReviewFindingSimilarity.isSimilarText(normalizedTitle, incoming.title(),
-            titleBigrams, incoming.titleBigrams());
+        return ReviewFindingSimilarity.isSimilarText(normalized.summary(), incoming.summary(),
+            normalized.summaryBigrams(), incoming.summaryBigrams())
+            && ReviewFindingSimilarity.isSimilarText(normalized.title(), incoming.title(),
+            normalized.titleBigrams(), incoming.titleBigrams());
     }
 
     public AggregatedFinding withPass(int passNumber) {
+        if (passNumbers.contains(passNumber)) {
+            return this;
+        }
         var newPasses = new LinkedHashSet<>(passNumbers);
         newPasses.add(passNumber);
-        return new AggregatedFinding(title, body, newPasses,
-            normalizedTitle, normalizedPriority, normalizedSummary,
-            normalizedLocation, titleKeywords, titleBigrams, summaryBigrams, locationBigrams);
-    }
-
-    private static String normalizeText(String value) {
-        return ReviewFindingSimilarity.normalizeText(value);
+        return new AggregatedFinding(title, body, newPasses, normalized);
     }
 }

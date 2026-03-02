@@ -100,7 +100,14 @@ public class ReviewAgent {
             ),
             new ReviewSessionMessageSender(config.name(),
                 tuning.maxAccumulatedSize(), tuning.initialAccumulatedCapacity()),
-            new ReviewRetryExecutor(config.name(), ctx.timeoutConfig().maxRetries()),
+            new ReviewRetryExecutor(
+                config.name(),
+                ctx.timeoutConfig().maxRetries(),
+                ReviewRetryExecutor.DEFAULT_BACKOFF_BASE_MS,
+                ReviewRetryExecutor.DEFAULT_BACKOFF_MAX_MS,
+                Thread::sleep,
+                ctx.reviewCircuitBreaker()
+            ),
             new ReviewSessionConfigFactory(),
             new ReviewResultFactory()
         );

@@ -63,7 +63,10 @@ public final class ContentSanitizer {
             new ContentSanitizationRule(COT_BLOCK_PATTERN, "",
                 List.of("<thinking", "<antthinking", "<reflection", "<inner_monologue",
                     "<scratchpad", "<details>")),
-            new ContentSanitizationRule(DANGEROUS_HTML_PATTERN, ""),
+            new ContentSanitizationRule(DANGEROUS_HTML_PATTERN, "",
+                List.of("<script", "<iframe", "<object", "<embed", "<form", "<input",
+                    "<base", "<link", "<meta", "<style", "<svg", "<math", " on",
+                    "javascript:", "vbscript:", "data:")),
             new ContentSanitizationRule(EXCESSIVE_BLANK_LINES, "\n\n")
         )
     );

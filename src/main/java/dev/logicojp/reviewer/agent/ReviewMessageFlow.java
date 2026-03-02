@@ -77,13 +77,16 @@ final class ReviewMessageFlow {
     private String sendForLocalReview(String instruction,
                                       String localSourceContent,
                                       PromptSender promptSender) throws Exception {
-        String combinedPrompt = new StringBuilder(
-            instruction.length()
-                + localSourceHeaderPrompt.length()
-                + localSourceContent.length()
-                + localReviewResultPrompt.length()
-                + instructionBufferExtraCapacity
-        )
+        int estimatedPromptChars = instruction.length()
+            + localSourceHeaderPrompt.length()
+            + localSourceContent.length()
+            + localReviewResultPrompt.length()
+            + instructionBufferExtraCapacity;
+
+        logger.debug("Agent {}: local review combined prompt size estimate={} chars",
+            agentName, estimatedPromptChars);
+
+        String combinedPrompt = new StringBuilder(estimatedPromptChars)
             .append(instruction)
             .append("\n\n")
             .append(localSourceHeaderPrompt)
