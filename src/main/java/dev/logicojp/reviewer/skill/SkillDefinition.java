@@ -1,12 +1,11 @@
 package dev.logicojp.reviewer.skill;
 
 import dev.logicojp.reviewer.instruction.CustomInstructionSafetyValidator;
+import dev.logicojp.reviewer.util.PlaceholderUtils;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /// Defines a skill that an agent can perform.
 /// Skills are discrete capabilities that can be invoked by name.
@@ -40,8 +39,6 @@ public record SkillDefinition(
         return new SkillDefinition(id, name, description, prompt, List.of(), Map.of());
     }
 
-    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{(\\w+)}");
-
     /// Builds the prompt with parameter substitution in a single pass.
     /// Parameter values exceeding {@code maxParameterValueLength} characters are rejected
     /// to mitigate prompt injection and resource exhaustion.
@@ -62,16 +59,7 @@ public record SkillDefinition(
                 resolvedValues.put(param.name(), value);
             }
         }
-        // Single-pass replacement using regex
-        Matcher matcher = PLACEHOLDER_PATTERN.matcher(prompt);
-        var sb = new StringBuilder();
-        while (matcher.find()) {
-            String key = matcher.group(1);
-            String replacement = resolvedValues.getOrDefault(key, matcher.group());
-            matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(sb);
-        return sb.toString();
+        return PlaceholderUtils.replaceDollarPlaceholders(prompt, resolvedValues);
     }
 
     /// Validates that all required parameters are provided.

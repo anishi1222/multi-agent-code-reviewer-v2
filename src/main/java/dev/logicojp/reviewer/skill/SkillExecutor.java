@@ -4,6 +4,7 @@ import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.util.StructuredConcurrencyUtils;
 import dev.logicojp.reviewer.util.ExecutorUtils;
+import dev.logicojp.reviewer.util.RetryExecutor;
 import dev.logicojp.reviewer.util.RetryPolicyUtils;
 import com.github.copilot.sdk.CopilotClient;
 import com.github.copilot.sdk.SystemMessageMode;
@@ -30,6 +31,7 @@ public class SkillExecutor implements AutoCloseable {
     private static final int MAX_RETRIES = 1;
     private static final long BACKOFF_BASE_MS = 500L;
     private static final long BACKOFF_MAX_MS = 15_000L;
+    private static final SharedCircuitBreaker CIRCUIT_BREAKER = SharedCircuitBreaker.global();
     private final CopilotClient client;
     private final String defaultModel;
     private final long timeoutMinutes;
@@ -84,57 +86,56 @@ public class SkillExecutor implements AutoCloseable {
     private SkillResult executeSafely(SkillDefinition skill,
                                       Map<String, String> parameters,
                                       String systemPrompt) {
-        if (!SharedCircuitBreaker.global().allowRequest()) {
-            logger.warn("Skill {} skipped by open circuit breaker", skill.id());
-            return SkillResult.failure(skill.id(), "Circuit breaker is open for Copilot calls");
-        }
+        RetryExecutor<SkillResult> retryExecutor = new RetryExecutor<>(
+            MAX_RETRIES,
+            BACKOFF_BASE_MS,
+            BACKOFF_MAX_MS,
+            Thread::sleep,
+            CIRCUIT_BREAKER
+        );
 
-        int totalAttempts = MAX_RETRIES + 1;
-        SkillResult lastResult = SkillResult.failure(skill.id(), "Skill execution did not produce a result");
-
-        for (int attempt = 1; attempt <= totalAttempts; attempt++) {
-            try {
-                SkillResult result;
-                if (structuredConcurrencyEnabled) {
-                    result = executeWithStructuredConcurrency(skill, parameters, systemPrompt);
-                } else {
-                    result = executeSync(skill, parameters, systemPrompt);
+        return retryExecutor.execute(
+            () -> structuredConcurrencyEnabled
+                ? executeWithStructuredConcurrency(skill, parameters, systemPrompt)
+                : executeSync(skill, parameters, systemPrompt),
+            e -> SkillResult.failure(skill.id(), e.getMessage()),
+            SkillResult::success,
+            this::isRetryableFailure,
+            this::isTransientException,
+            new RetryExecutor.RetryObserver<>() {
+                @Override
+                public void onCircuitOpen() {
+                    logger.warn("Skill {} skipped by open circuit breaker", skill.id());
                 }
 
-                if (result.success()) {
+                @Override
+                public void onSuccess(int attempt, int totalAttempts, SkillResult result) {
                     if (attempt > 1) {
                         logger.info("Skill {} succeeded on retry attempt {}/{}", skill.id(), attempt, totalAttempts);
                     }
-                    SharedCircuitBreaker.global().onSuccess();
-                    return result;
                 }
 
-                lastResult = result;
-                SharedCircuitBreaker.global().onFailure();
-                boolean retryableFailure = isRetryableFailure(result);
-                if (RetryPolicyUtils.shouldRetry(attempt, totalAttempts, retryableFailure)) {
-                    RetryPolicyUtils.sleepWithBackoff(BACKOFF_BASE_MS, BACKOFF_MAX_MS, attempt);
+                @Override
+                public void onRetryableResult(int attempt, int totalAttempts, SkillResult result) {
                     logger.warn("Skill {} failed on attempt {}/{}: {}. Retrying...",
                         skill.id(), attempt, totalAttempts, result.errorMessage());
-                    continue;
                 }
-                return result;
-            } catch (Exception e) {
-                lastResult = SkillResult.failure(skill.id(), e.getMessage());
-                SharedCircuitBreaker.global().onFailure();
-                boolean transientException = isTransientException(e);
-                if (RetryPolicyUtils.shouldRetry(attempt, totalAttempts, transientException)) {
-                    RetryPolicyUtils.sleepWithBackoff(BACKOFF_BASE_MS, BACKOFF_MAX_MS, attempt);
-                    logger.warn("Skill {} threw exception on attempt {}/{}: {}. Retrying...",
-                        skill.id(), attempt, totalAttempts, e.getMessage(), e);
-                    continue;
-                }
-                logger.error("Skill execution failed for {}: {}", skill.id(), e.getMessage(), e);
-                return lastResult;
-            }
-        }
 
-        return lastResult;
+                @Override
+                public void onFinalException(int attempt,
+                                             int totalAttempts,
+                                             Exception exception,
+                                             boolean transientFailure) {
+                    logger.error("Skill execution failed for {}: {}", skill.id(), exception.getMessage(), exception);
+                }
+
+                @Override
+                public void onRetryableException(int attempt, int totalAttempts, Exception exception) {
+                    logger.warn("Skill {} threw exception on attempt {}/{}: {}. Retrying...",
+                        skill.id(), attempt, totalAttempts, exception.getMessage(), exception);
+                }
+            }
+        );
     }
 
     private boolean isRetryableFailure(SkillResult result) {

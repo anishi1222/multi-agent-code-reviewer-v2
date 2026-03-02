@@ -1,5 +1,9 @@
 package dev.logicojp.reviewer.agent;
 
+import dev.logicojp.reviewer.util.PlaceholderUtils;
+
+import java.util.Map;
+
 /// Builds prompt strings from {@link AgentConfig} data.
 ///
 /// Extracted from {@link AgentConfig} to maintain single responsibility —
@@ -117,11 +121,15 @@ public final class AgentPromptBuilder {
     /// Centralizes ${repository}, ${displayName}, ${name}, ${focusAreas} replacement.
     private static String applyPlaceholders(AgentConfig config, String targetName) {
         String focusAreaText = formatFocusAreas(config);
-        return config.instruction()
-            .replace("${repository}", targetName)
-            .replace("${displayName}", config.displayName() != null ? config.displayName() : config.name())
-            .replace("${name}", config.name())
-            .replace("${focusAreas}", focusAreaText);
+        return PlaceholderUtils.replaceDollarPlaceholders(
+            config.instruction(),
+            Map.of(
+                "repository", targetName,
+                "displayName", config.displayName() != null ? config.displayName() : config.name(),
+                "name", config.name(),
+                "focusAreas", focusAreaText
+            )
+        );
     }
 
     private static String formatFocusAreas(AgentConfig config) {
