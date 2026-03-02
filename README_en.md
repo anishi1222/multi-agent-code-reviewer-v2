@@ -157,6 +157,17 @@ mvn clean package -Pnative
 
 > Note: This project uses Java preview features. Run the JVM JAR with `--enable-preview`.
 
+### Security Runtime Notes
+
+When running on the JVM in production and handling GitHub tokens, consider:
+
+```bash
+java --enable-preview \
+  -XX:+DisableAttachMechanism \
+  -XX:-HeapDumpOnOutOfMemoryError \
+  -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar run --repo owner/repository --all
+```
+
 ### Basic Usage
 
 ```bash

@@ -11,6 +11,11 @@ import io.micronaut.context.ApplicationContext;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -38,12 +43,30 @@ public class ReviewApp {
     }
 
     public static void main(String[] args) {
+        ensureSecureLogDirectory();
         try (var context = ApplicationContext.run()) {
             var app = context.getBean(ReviewApp.class);
             int exitCode = app.execute(args);
             if (exitCode != 0) {
                 System.exit(exitCode);
             }
+        }
+    }
+
+    private static void ensureSecureLogDirectory() {
+        Path logDir = Path.of("logs");
+        try {
+            if (!Files.exists(logDir)) {
+                Files.createDirectories(logDir);
+            }
+            if (Files.getFileAttributeView(logDir, java.nio.file.attribute.PosixFileAttributeView.class) != null) {
+                Set<PosixFilePermission> ownerOnly = PosixFilePermissions.fromString("rwx------");
+                Files.setPosixFilePermissions(logDir, ownerOnly);
+            }
+        } catch (UnsupportedOperationException _) {
+            // Non-POSIX file system: best-effort only.
+        } catch (IOException _) {
+            // Logging may continue with environment defaults when hardening fails.
         }
     }
 
