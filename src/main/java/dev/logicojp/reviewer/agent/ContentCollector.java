@@ -52,8 +52,17 @@ class ContentCollector {
         this.agentName = agentName;
         this.clockMillisSupplier = clockMillisSupplier;
         this.maxAccumulatedSize = maxAccumulatedSize;
-        this.accumulatedBuilder = new StringBuilder(initialAccumulatedCapacity);
+        this.accumulatedBuilder = new StringBuilder(resolveInitialCapacity(
+            maxAccumulatedSize,
+            initialAccumulatedCapacity
+        ));
         this.lastActivityTime = new AtomicLong(clockMillisSupplier.getAsLong());
+    }
+
+    private static int resolveInitialCapacity(int maxAccumulatedSize, int initialAccumulatedCapacity) {
+        // Pre-size to reduce growth copies inside synchronized append path.
+        int scaledCapacity = Math.max(initialAccumulatedCapacity, maxAccumulatedSize / 16);
+        return Math.min(Math.max(16, scaledCapacity), maxAccumulatedSize);
     }
 
     void onActivity() {

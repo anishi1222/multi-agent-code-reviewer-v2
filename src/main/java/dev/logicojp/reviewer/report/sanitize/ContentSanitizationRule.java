@@ -23,9 +23,18 @@ record ContentSanitizationRule(Pattern pattern, String replacement, List<String>
     }
 
     private boolean containsAnyMarker(String input) {
-        String lower = input.toLowerCase(java.util.Locale.ROOT);
         for (String marker : fastCheckMarkers) {
-            if (lower.contains(marker)) {
+            if (containsIgnoreCase(input, marker)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsIgnoreCase(String haystack, String needle) {
+        int limit = haystack.length() - needle.length();
+        for (int i = 0; i <= limit; i++) {
+            if (haystack.regionMatches(true, i, needle, 0, needle.length())) {
                 return true;
             }
         }

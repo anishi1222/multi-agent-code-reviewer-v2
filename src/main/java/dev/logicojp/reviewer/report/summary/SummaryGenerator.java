@@ -204,18 +204,12 @@ public class SummaryGenerator {
             () -> runSummaryAttempt(prompt),
             e -> fallbackSummary(results, "Failed to create or execute summary session: " + e.getMessage()),
             this::isNonBlank,
-            _ -> true,
+            _ -> false,
             this::isTransientFailure,
             new RetryExecutor.RetryObserver<>() {
                 @Override
                 public void onCircuitOpen() {
                     logger.warn("Summary generation skipped by open circuit breaker");
-                }
-
-                @Override
-                public void onRetryableResult(int attempt, int totalAttempts, String result) {
-                    logger.warn("Summary generation returned empty content on attempt {}/{}. Retrying...",
-                        attempt, totalAttempts);
                 }
 
                 @Override
@@ -246,13 +240,29 @@ public class SummaryGenerator {
             throws ExecutionException, TimeoutException {
         var sessionConfig = createSummarySessionConfig();
         long timeoutMs = TimeUnit.MINUTES.toMillis(timeoutMinutes);
+        int contentAttempts = AI_SUMMARY_MAX_RETRIES + 1;
 
         try (CopilotSession session = client.createSession(sessionConfig)
             .get(timeoutMinutes, TimeUnit.MINUTES)) {
-            var response = session
-                .sendAndWait(new MessageOptions().setPrompt(prompt), timeoutMs)
-                .get(timeoutMinutes, TimeUnit.MINUTES);
-            return response.getData().content();
+            for (int attempt = 1; attempt <= contentAttempts; attempt++) {
+                var response = session
+                    .sendAndWait(new MessageOptions().setPrompt(prompt), timeoutMs)
+                    .get(timeoutMinutes, TimeUnit.MINUTES);
+                String content = response.getData().content();
+                if (isNonBlank(content)) {
+                    return content;
+                }
+
+                if (attempt < contentAttempts) {
+                    RetryPolicyUtils.sleepWithBackoff(RETRY_BACKOFF_BASE_MS, RETRY_BACKOFF_MAX_MS, attempt);
+                    logger.warn(
+                        "Summary generation returned empty content on attempt {}/{} in same session. Retrying...",
+                        attempt,
+                        contentAttempts
+                    );
+                }
+            }
+            return null;
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new CopilotCliException("Summary generation interrupted", ex);
