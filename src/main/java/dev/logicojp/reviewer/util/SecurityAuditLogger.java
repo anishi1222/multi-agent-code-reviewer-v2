@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /// Security audit logger helper.
@@ -23,19 +25,24 @@ public final class SecurityAuditLogger {
                            String eventAction,
                            String message,
                            Map<String, String> attributes) {
+        List<String> addedKeys = new ArrayList<>();
+        addedKeys.add("event.category");
         MDC.put("event.category", safe(eventCategory));
+        addedKeys.add("event.action");
         MDC.put("event.action", safe(eventAction));
         if (attributes != null) {
             attributes.forEach((key, value) -> {
                 if (key != null && !key.isBlank()) {
-                    MDC.put("audit." + key, safe(value));
+                    String mdcKey = "audit." + key;
+                    MDC.put(mdcKey, safe(value));
+                    addedKeys.add(mdcKey);
                 }
             });
         }
         try {
             AUDIT_LOGGER.info(message);
         } finally {
-            MDC.clear();
+            addedKeys.forEach(MDC::remove);
         }
     }
 
