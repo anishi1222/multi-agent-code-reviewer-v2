@@ -62,7 +62,7 @@ reviewer:
   models:
     default-model: claude-sonnet-4.5
     review-model: GPT-5.3-Codex
-    report-model: claude-sonnet-4.5
+    report-model: claude-opus-4.6-fast
     summary-model: claude-sonnet-4.5
     reasoning-effort: high
   summary:
