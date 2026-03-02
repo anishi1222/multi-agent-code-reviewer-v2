@@ -3,6 +3,7 @@ package dev.logicojp.reviewer.service;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
+import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.agent.AgentConfig;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.SkillConfig;
@@ -39,6 +40,7 @@ public class SkillService {
     private final ExecutionConfig executionConfig;
     private final SkillConfig skillConfig;
     private final FeatureFlags featureFlags;
+    private final SharedCircuitBreaker circuitBreaker;
     private final ExecutorService executorService;
     private final Cache<ExecutorCacheKey, SkillExecutor> executorCache;
 
@@ -49,12 +51,24 @@ public class SkillService {
                         ExecutionConfig executionConfig,
                         SkillConfig skillConfig,
                         FeatureFlags featureFlags) {
+                this(skillRegistry, copilotService, githubMcpConfig, executionConfig, skillConfig, featureFlags,
+                    SharedCircuitBreaker.global());
+                }
+
+                SkillService(SkillRegistry skillRegistry,
+                     CopilotService copilotService,
+                     GithubMcpConfig githubMcpConfig,
+                     ExecutionConfig executionConfig,
+                     SkillConfig skillConfig,
+                     FeatureFlags featureFlags,
+                     SharedCircuitBreaker circuitBreaker) {
         this.skillRegistry = skillRegistry;
         this.copilotService = copilotService;
         this.githubMcpConfig = githubMcpConfig;
         this.executionConfig = executionConfig;
         this.skillConfig = skillConfig;
         this.featureFlags = featureFlags;
+                this.circuitBreaker = circuitBreaker;
         this.executorService = Executors.newVirtualThreadPerTaskExecutor();
         this.executorCache = Caffeine.newBuilder()
             .initialCapacity(skillConfig.executorCacheInitialCapacity())
@@ -147,7 +161,8 @@ public class SkillService {
                 skillConfig.executorShutdownTimeoutSeconds()
             ),
             executorService,
-            false
+            false,
+            circuitBreaker
         ));
     }
 

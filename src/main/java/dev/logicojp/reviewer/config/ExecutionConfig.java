@@ -125,7 +125,12 @@ public record ExecutionConfig(
     /// Returns a new ExecutionConfig with all default values.
     /// Useful in tests and as a starting point for the Builder.
     public static ExecutionConfig defaults() {
-        return new ExecutionConfig(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        return ExecutionConfig.of(
+            new ConcurrencySettings(0, 0),
+            new TimeoutSettings(0, 0, 0, 0, 0, 0),
+            new RetrySettings(0),
+            new BufferSettings(0, 0, 0)
+        );
     }
 
     public static final class Builder {
