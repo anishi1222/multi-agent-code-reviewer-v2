@@ -1,7 +1,5 @@
 package dev.logicojp.reviewer.report.finding;
 
-import dev.logicojp.reviewer.report.core.ReviewResult;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +21,7 @@ class FindingsParserTest {
             | Priority | Low |
             """;
 
-        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings(content, "agent");
+        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings(content, "agent", "category");
 
         assertThat(findings).hasSize(2);
         assertThat(findings.get(0).title()).isEqualTo("指摘A");
@@ -37,7 +35,7 @@ class FindingsParserTest {
     void fillsTitleWhenOnlyPriorityExists() {
         String content = "| Priority | Medium |";
 
-        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings(content, "agent");
+        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings(content, "agent", "category");
 
         assertThat(findings).hasSize(1);
         assertThat(findings.getFirst().title()).isEqualTo("Finding 1");
@@ -49,7 +47,7 @@ class FindingsParserTest {
     void fillsPriorityWhenOnlyHeadingExists() {
         String content = "### 1. 指摘のみ";
 
-        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings(content, "agent");
+        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings(content, "agent", "category");
 
         assertThat(findings).hasSize(1);
         assertThat(findings.getFirst().title()).isEqualTo("指摘のみ");
@@ -59,7 +57,7 @@ class FindingsParserTest {
     @Test
     @DisplayName("指摘事項なしを含む場合は空を返す")
     void returnsEmptyWhenNoFindingsMarkerExists() {
-        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings("指摘事項なし", "agent");
+        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings("指摘事項なし", "agent", "category");
         assertThat(findings).isEmpty();
     }
 
@@ -75,7 +73,7 @@ class FindingsParserTest {
             追加コメント
             """;
 
-        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings(content, "agent");
+        List<FindingsExtractor.Finding> findings = FindingsParser.extractFindings(content, "agent", "category");
 
         assertThat(findings).hasSize(1);
         assertThat(findings.getFirst().title()).isEqualTo("指摘A");

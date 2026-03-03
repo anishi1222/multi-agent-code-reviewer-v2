@@ -3,6 +3,9 @@ package dev.logicojp.reviewer.cli;
 import dev.logicojp.reviewer.agent.AgentConfig;
 import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.report.core.ReviewResult;
+import dev.logicojp.reviewer.report.finding.ReviewFindingParser;
+import dev.logicojp.reviewer.report.merger.ReviewOverallSummaryAppender;
+import dev.logicojp.reviewer.report.merger.ReviewResultMerger;
 import dev.logicojp.reviewer.service.ReportService;
 import dev.logicojp.reviewer.service.ReviewService;
 import dev.logicojp.reviewer.target.ReviewTarget;
@@ -89,10 +92,16 @@ class ReviewRunExecutor {
 
     public int execute(String resolvedToken, ReviewRunRequest context) {
         output.println("Starting reviews...");
-        List<ReviewResult> results = executeReviews(resolvedToken, context);
-        generateOutputs(results, context);
+        List<ReviewResult> passResults = executeReviews(resolvedToken, context);
+        List<ReviewResult> sanitizedPassResults = sanitizePassResults(passResults);
+        generatePassReports(sanitizedPassResults, context.outputDirectory());
 
-        outputFormatter.printCompletionSummary(results, context.outputDirectory());
+        List<ReviewResult> mergedResults = ReviewResultMerger.mergeByAgent(sanitizedPassResults);
+        List<ReviewResult> finalResults = ReviewOverallSummaryAppender.appendToMergedResults(mergedResults);
+
+        generateFinalOutputs(finalResults, context);
+
+        outputFormatter.printCompletionSummary(finalResults, context.outputDirectory());
         return ExitCodes.OK;
     }
 
@@ -100,9 +109,44 @@ class ReviewRunExecutor {
         return reviewRunner.run(resolvedToken, context);
     }
 
-    private void generateOutputs(List<ReviewResult> results, ReviewRunRequest context) {
+    private void generateFinalOutputs(List<ReviewResult> results, ReviewRunRequest context) {
         generateReports(results, context.outputDirectory());
         generateSummaryIfEnabled(results, context);
+    }
+
+    private void generatePassReports(List<ReviewResult> passResults, Path outputDirectory) {
+        output.println("\nGenerating pass reports...");
+        Path passDirectory = outputDirectory.resolve("passes");
+        List<Path> reports;
+        try {
+            reports = reportsGenerator.generate(passResults, passDirectory);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Pass report generation failed", e);
+        }
+        for (Path report : reports) {
+            output.println("  ✓ " + report.getFileName());
+        }
+    }
+
+    private List<ReviewResult> sanitizePassResults(List<ReviewResult> passResults) {
+        return passResults.stream()
+            .map(this::stripOverallSummary)
+            .toList();
+    }
+
+    private ReviewResult stripOverallSummary(ReviewResult result) {
+        if (result == null || !result.success() || result.content() == null || result.content().isBlank()) {
+            return result;
+        }
+        String strippedContent = ReviewFindingParser.stripOverallSummary(result.content());
+        return ReviewResult.builder()
+            .agentConfig(result.agentConfig())
+            .repository(result.repository())
+            .content(strippedContent)
+            .success(true)
+            .errorMessage(result.errorMessage())
+            .timestamp(result.timestamp())
+            .build();
     }
 
     private void generateSummaryIfEnabled(List<ReviewResult> results, ReviewRunRequest context) {

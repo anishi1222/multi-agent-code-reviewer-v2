@@ -14,7 +14,9 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /// Generates markdown report files for individual agent reviews.
 public class ReportGenerator {
@@ -40,10 +42,14 @@ public class ReportGenerator {
     /// Generates a markdown report file for the given review result.
     /// @param result The review result to generate a report for
     /// @return Path to the generated report file
-     Path generateReport(ReviewResult result) throws IOException {
+      Path generateReport(ReviewResult result) throws IOException {
+          return generateReport(result, 1);
+     }
+
+     Path generateReport(ReviewResult result, int sequence) throws IOException {
         ensureOutputDirectory();
         AgentConfig config = result.agentConfig();
-        Path reportPath = createReportPath(config);
+          Path reportPath = createReportPath(config, sequence);
         
         String reportContent = reportContentFormatter.format(result, invocationTimestamp);
         ReportFileUtils.writeSecureString(reportPath, reportContent);
@@ -60,9 +66,12 @@ public class ReportGenerator {
 
         List<Path> paths = new ArrayList<>();
         List<String> failures = new ArrayList<>();
+        Map<String, Integer> agentSequence = new HashMap<>();
         for (ReviewResult result : results) {
             try {
-                paths.add(generateReport(result));
+                String agentName = result.agentConfig() != null ? result.agentConfig().name() : "unknown";
+                int sequence = agentSequence.merge(agentName, 1, Integer::sum);
+                paths.add(generateReport(result, sequence));
             } catch (IOException e) {
                 String agentName = result.agentConfig().name();
                 logger.error("Failed to generate report for {}: {}", agentName, e.getMessage(), e);
@@ -75,8 +84,8 @@ public class ReportGenerator {
         return List.copyOf(paths);
     }
 
-    private Path createReportPath(AgentConfig config) throws IOException {
-        String filename = buildReportFilename(config);
+    private Path createReportPath(AgentConfig config, int sequence) throws IOException {
+        String filename = buildReportFilename(config, sequence);
         Path normalizedOutput = outputDirectory.toRealPath();
         Path reportPath = normalizedOutput.resolve(filename).normalize();
         if (!reportPath.startsWith(normalizedOutput)) {
@@ -85,8 +94,11 @@ public class ReportGenerator {
         return reportPath;
     }
 
-    private String buildReportFilename(AgentConfig config) {
+    private String buildReportFilename(AgentConfig config, int sequence) {
         String safeName = ReportFilenameUtils.sanitizeAgentName(config.name());
+        if (sequence > 1) {
+            return "%s-pass-%d-report.md".formatted(safeName, sequence);
+        }
         return "%s-report.md".formatted(safeName);
     }
     

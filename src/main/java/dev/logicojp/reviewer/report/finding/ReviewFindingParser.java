@@ -83,6 +83,24 @@ public final class ReviewFindingParser {
         return trimTrailingSeparators(summary);
     }
 
+    /// Removes trailing overall-summary section from review content.
+    public static String stripOverallSummary(String content) {
+        if (content == null || content.isBlank()) {
+            return "";
+        }
+
+        Matcher matcher = OVERALL_HEADER.matcher(content);
+        int summaryStart = -1;
+        while (matcher.find()) {
+            summaryStart = matcher.start();
+        }
+
+        if (summaryStart < 0) {
+            return trimTrailingSeparators(content.trim());
+        }
+        return trimTrailingSeparators(content.substring(0, summaryStart).trim());
+    }
+
     private static String trimTrailingSeparators(String body) {
         if (body == null || body.isBlank()) {
             return "";
@@ -129,7 +147,7 @@ public final class ReviewFindingParser {
         return "raw|" + ReviewFindingSimilarity.normalizeText(rawBody);
     }
 
-     static String extractTableValue(String body, String key) {
+    public static String extractTableValue(String body, String key) {
         Pattern pattern = TABLE_VALUE_PATTERNS.get(key);
         if (pattern == null) {
             pattern = compileTablePattern(key);

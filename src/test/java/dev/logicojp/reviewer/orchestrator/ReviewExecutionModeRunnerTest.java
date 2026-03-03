@@ -24,8 +24,8 @@ class ReviewExecutionModeRunnerTest {
     }
 
     @Test
-    @DisplayName("asyncモードで結果を収集しmulti-pass時にマージする")
-    void executesAsyncAndMerges() {
+    @DisplayName("asyncモードでパス結果を収集する")
+    void executesAsyncAndCollectsRawPassResults() {
         ExecutionConfig config = ExecutionConfig.ofFlat(2, 2, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0);
         var pipeline = new ReviewResultPipeline();
         ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
@@ -59,8 +59,8 @@ class ReviewExecutionModeRunnerTest {
                 }
             );
 
-            assertThat(results).hasSize(1);
-            assertThat(results.getFirst().content()).contains("検出パス: 1, 2");
+            assertThat(results).hasSize(2);
+            assertThat(results).allMatch(ReviewResult::success);
         } finally {
             executorService.close();
         }
@@ -93,6 +93,6 @@ class ReviewExecutionModeRunnerTest {
         );
 
         assertThat(results).hasSize(1);
-        assertThat(results.getFirst().success()).isTrue();
+        assertThat(results).allMatch(ReviewResult::success);
     }
 }

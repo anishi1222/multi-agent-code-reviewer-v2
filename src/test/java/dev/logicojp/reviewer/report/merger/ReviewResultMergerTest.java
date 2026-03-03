@@ -108,7 +108,7 @@ class ReviewResultMergerTest {
         }
 
         @Test
-        @DisplayName("単一パスの末尾に含まれた総評セクションは指摘本文から除去される")
+        @DisplayName("単一パスの末尾に含まれた総評セクションは除去される")
         void trailingOverallSectionIsRemovedFromSinglePassFindingBody() {
             var agent = createAgent("security");
             var content = """
@@ -139,14 +139,13 @@ class ReviewResultMergerTest {
 
             assertThat(merged).hasSize(1);
             assertThat(merged.getFirst().content()).contains("### 1. ログディレクトリの権限制御不足");
-            assertThat(merged.getFirst().content()).contains("**総評**");
-            assertThat(merged.getFirst().content()).contains("マージ後のレビュー結果として");
+            assertThat(merged.getFirst().content()).doesNotContain("**総評**");
+            assertThat(merged.getFirst().content()).doesNotContain("マージ後のレビュー結果として");
             assertThat(merged.getFirst().content()).doesNotContain("全体としては堅牢だが改善余地がある");
-            assertThat(merged.getFirst().content()).containsOnlyOnce("**総評**");
         }
 
         @Test
-        @DisplayName("複数パスで同一総評がある場合は総評を1回だけ保持する")
+        @DisplayName("複数パスで同一総評がある場合も本文には総評を含めない")
         void duplicateOverallSummaryAcrossPassesIsCollapsed() {
             var agent = createAgent("security");
             var content1 = finding("1", "設定漏れ", "Medium", "設定漏れあり", "障害", "src/A.java L1")
@@ -160,13 +159,13 @@ class ReviewResultMergerTest {
             ));
 
             assertThat(merged).hasSize(1);
-            assertThat(merged.getFirst().content()).containsOnlyOnce("**総評**");
-            assertThat(merged.getFirst().content()).contains("マージ後のレビュー結果として");
+            assertThat(merged.getFirst().content()).doesNotContain("**総評**");
+            assertThat(merged.getFirst().content()).doesNotContain("マージ後のレビュー結果として");
             assertThat(merged.getFirst().content()).doesNotContain("同じ改善方針を推奨。");
         }
 
         @Test
-        @DisplayName("複数パスで総評が異なっていてもパス別統合はせずマージ結果ベースで総評を生成する")
+        @DisplayName("複数パスで総評が異なっていても本文には総評を含めない")
         void differentOverallSummariesAcrossPassesUseMergedSummaryOnly() {
             var agent = createAgent("security");
             var content1 = finding("1", "設定漏れ", "Medium", "設定漏れあり", "障害", "src/A.java L1")
@@ -180,8 +179,8 @@ class ReviewResultMergerTest {
             ));
 
             assertThat(merged).hasSize(1);
-            assertThat(merged.getFirst().content()).contains("**総評**");
-            assertThat(merged.getFirst().content()).contains("マージ後のレビュー結果として");
+            assertThat(merged.getFirst().content()).doesNotContain("**総評**");
+            assertThat(merged.getFirst().content()).doesNotContain("マージ後のレビュー結果として");
             assertThat(merged.getFirst().content()).doesNotContain("#### パス 1");
             assertThat(merged.getFirst().content()).doesNotContain("#### パス 2");
             assertThat(merged.getFirst().content()).doesNotContain("運用設定の見直しが必要。");
@@ -222,7 +221,7 @@ class ReviewResultMergerTest {
 
             assertThat(merged).hasSize(1);
             assertThat(merged.getFirst().content()).startsWith("INJECTED");
-            assertThat(merged.getFirst().content()).contains("**総評**");
+            assertThat(merged.getFirst().content()).doesNotContain("**総評**");
             assertThat(extractorCalled).isTrue();
             assertThat(keyResolverCalled).isTrue();
             assertThat(formatterCalled).isTrue();
@@ -280,7 +279,7 @@ class ReviewResultMergerTest {
             assertThat(mergedResult.success()).isTrue();
             assertThat(mergedResult.content()).contains("### 1. トークン露出");
             assertThat(mergedResult.content()).contains("1 パスが失敗しました");
-            assertThat(mergedResult.content()).contains("成功パスの結果に基づきます");
+            assertThat(mergedResult.content()).contains("成功したパスの結果のみです");
         }
 
         @Test

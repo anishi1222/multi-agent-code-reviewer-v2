@@ -44,6 +44,7 @@ class FindingsExtractorTest {
             assertThat(findings).hasSize(2);
             assertThat(findings.get(0).priority()).isEqualTo("Critical");
             assertThat(findings.get(0).title()).isEqualTo("SQLインジェクション");
+            assertThat(findings.get(0).category()).isEqualTo("security");
             assertThat(findings.get(1).priority()).isEqualTo("Low");
             assertThat(findings.get(1).title()).isEqualTo("ログの問題");
         }
@@ -178,9 +179,9 @@ class FindingsExtractorTest {
 
             String summary = FindingsExtractor.buildFindingsSummary(
                 results,
-                (content, agent) -> {
+                (content, agent, category) -> {
                     parserCalled.set(true);
-                    return List.of(new FindingsExtractor.Finding("Injected", "High", agent));
+                    return List.of(new FindingsExtractor.Finding("Injected", "High", agent, category));
                 },
                 findings -> {
                     formatterCalled.set(true);
@@ -222,6 +223,31 @@ class FindingsExtractorTest {
             assertThat(summary).contains("Low (1)");
             assertThat(summary).contains("SQL Injection");
             assertThat(summary).contains("Dead Code");
+            assertThat(summary).contains("カテゴリー:");
+        }
+
+        @Test
+        @DisplayName("同一指摘が複数エージェントに存在する場合は集約される")
+        void deduplicatesSameFindingAcrossAgents() {
+            String content = """
+                ### 1. 共通指摘
+
+                | **Priority** | High |
+                """;
+
+            var results = List.of(
+                ReviewResult.builder()
+                    .agentConfig(testAgent("security")).repository("test")
+                    .content(content).success(true).build(),
+                ReviewResult.builder()
+                    .agentConfig(testAgent("performance")).repository("test")
+                    .content(content).success(true).build()
+            );
+
+            String summary = FindingsExtractor.buildFindingsSummary(results);
+
+            assertThat(summary).contains("High (1)");
+            assertThat(summary).contains("共通指摘");
         }
     }
 }

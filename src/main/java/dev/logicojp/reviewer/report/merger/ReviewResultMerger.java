@@ -10,7 +10,6 @@ import dev.logicojp.reviewer.agent.AgentConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -42,45 +41,6 @@ public final class ReviewResultMerger {
     }
 
     private static final Logger logger = LoggerFactory.getLogger(ReviewResultMerger.class);
-    private static final String NO_FINDINGS_AFTER_FAILURE_TEXT = "成功したパスでは新たな指摘事項は確認されませんでした。";
-    private static final String NO_FINDINGS_TEXT = "重大な指摘事項は確認されませんでした。";
-    private static final String MERGED_SUMMARY_PREFIX = "マージ後のレビュー結果として、";
-    private static final String FINDING_COUNT_SUFFIX = "件の指摘事項を確認しました。";
-    private static final String PRIORITY_BREAKDOWN_PREFIX = " 優先度内訳: ";
-    private static final String TOP_FINDINGS_PREFIX = " 主な指摘: ";
-    private static final String FAILED_PASS_NOTE_PREFIX = " なお、";
-    private static final String FAILED_PASS_NOTE_MIDDLE = "パス中 ";
-    private static final String FAILED_PASS_NOTE_SUFFIX = "パスは失敗しており、総評は成功パスの結果に基づきます。";
-
-    private enum FindingPriority {
-        CRITICAL("critical", "Critical"),
-        HIGH("high", "High"),
-        MEDIUM("medium", "Medium"),
-        LOW("low", "Low"),
-        UNSPECIFIED("", "未分類");
-
-        private final String value;
-        private final String label;
-
-        FindingPriority(String value, String label) {
-            this.value = value;
-            this.label = label;
-        }
-
-        static FindingPriority fromValue(String value) {
-            for (FindingPriority priority : values()) {
-                if (priority.value.equals(value)) {
-                    return priority;
-                }
-            }
-            return UNSPECIFIED;
-        }
-
-        String label() {
-            return label;
-        }
-    }
-
     private ReviewResultMerger() {
         // utility class
     }
@@ -172,8 +132,6 @@ public final class ReviewResultMerger {
         }
 
         String normalizedContent = mergedContentFormatter.format(findingIndex.findings(), 1, 0);
-        String mergedOverallSummary = buildMergedOverallSummary(findingIndex.findings(), 1, 0);
-        normalizedContent = appendOverallSummarySection(normalizedContent, mergedOverallSummary);
         return ReviewResult.builder()
             .agentConfig(result.agentConfig())
             .repository(result.repository())
@@ -236,8 +194,6 @@ public final class ReviewResultMerger {
 
         int failedCount = agentResults.size() - successful.size();
         String content = mergedContentFormatter.format(findingIndex.findings(), agentResults.size(), failedCount);
-    String mergedOverallSummary = buildMergedOverallSummary(findingIndex.findings(), agentResults.size(), failedCount);
-        content = appendOverallSummarySection(content, mergedOverallSummary);
 
         return ReviewResult.builder()
             .agentConfig(config)
@@ -245,76 +201,6 @@ public final class ReviewResultMerger {
             .content(content)
             .success(true)
             .build();
-    }
-
-    private static String buildMergedOverallSummary(Map<String, AggregatedFinding> aggregatedFindings,
-                                                    int totalPasses,
-                                                    int failedPasses) {
-        int findingCount = aggregatedFindings.size();
-        if (findingCount == 0) {
-            return failedPasses > 0
-                ? NO_FINDINGS_AFTER_FAILURE_TEXT
-                : NO_FINDINGS_TEXT;
-        }
-
-        EnumMap<FindingPriority, Integer> priorityCounts = initializePriorityCounts();
-        List<String> topTitles = new ArrayList<>();
-
-        for (AggregatedFinding finding : aggregatedFindings.values()) {
-            FindingPriority priority = FindingPriority.fromValue(finding.normalized().priority());
-            priorityCounts.compute(priority, (_, count) -> count + 1);
-            if (topTitles.size() < 3) {
-                topTitles.add(finding.title());
-            }
-        }
-
-        StringBuilder sb = new StringBuilder();
-        sb.append(MERGED_SUMMARY_PREFIX).append(findingCount).append(FINDING_COUNT_SUFFIX);
-        sb.append(PRIORITY_BREAKDOWN_PREFIX);
-        sb.append(FindingPriority.CRITICAL.label()).append(" ")
-            .append(priorityCounts.get(FindingPriority.CRITICAL)).append("件, ");
-        sb.append(FindingPriority.HIGH.label()).append(" ")
-            .append(priorityCounts.get(FindingPriority.HIGH)).append("件, ");
-        sb.append(FindingPriority.MEDIUM.label()).append(" ")
-            .append(priorityCounts.get(FindingPriority.MEDIUM)).append("件, ");
-        sb.append(FindingPriority.LOW.label()).append(" ")
-            .append(priorityCounts.get(FindingPriority.LOW)).append("件");
-        int unspecified = priorityCounts.get(FindingPriority.UNSPECIFIED);
-        if (unspecified > 0) {
-            sb.append(", ").append(FindingPriority.UNSPECIFIED.label()).append(" ").append(unspecified).append("件");
-        }
-        sb.append("。");
-
-        if (!topTitles.isEmpty()) {
-            sb.append(TOP_FINDINGS_PREFIX).append(String.join("、", topTitles)).append("。");
-        }
-
-        if (failedPasses > 0) {
-            sb.append(FAILED_PASS_NOTE_PREFIX).append(totalPasses)
-                .append(FAILED_PASS_NOTE_MIDDLE).append(failedPasses)
-                .append(FAILED_PASS_NOTE_SUFFIX);
-        }
-
-        return sb.toString();
-    }
-
-    private static EnumMap<FindingPriority, Integer> initializePriorityCounts() {
-        EnumMap<FindingPriority, Integer> counts = new EnumMap<>(FindingPriority.class);
-        for (FindingPriority priority : FindingPriority.values()) {
-            counts.put(priority, 0);
-        }
-        return counts;
-    }
-
-    private static String appendOverallSummarySection(String mergedContent, String mergedOverallSummary) {
-        if (mergedOverallSummary == null || mergedOverallSummary.isBlank()) {
-            return mergedContent;
-        }
-
-        return mergedContent
-            + "\n\n---\n\n"
-            + "**総評**\n\n"
-            + mergedOverallSummary.trim();
     }
 
     private static final class FindingIndex {
