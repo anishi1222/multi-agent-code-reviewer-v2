@@ -12,7 +12,7 @@ public final class ReviewFindingParser {
     private static final Pattern TRAILING_GLOBAL_SECTION = Pattern.compile(
         "(?im)^##\\s+.+$|^###\\s*(?:総評|総合評価|総括|まとめ|overall\\s+assessment|overall\\s+summary|overall|summary)\\s*$|^\\*\\*(?:総評|総合評価|総括|まとめ|overall\\s+assessment|overall\\s+summary|overall|summary)\\*\\*\\s*$"
     );
-    private static final Pattern TRAILING_SEPARATOR = Pattern.compile("(?s)(.*?)(?:\\n\\s*---\\s*)+$");
+    private static final Pattern SEPARATOR_LINE = Pattern.compile("^\\s*---\\s*$");
     private static final Pattern OVERALL_HEADER = Pattern.compile(
         "(?im)^(?:##+\\s*(?:総評|総合評価|総括|まとめ|overall\\s+assessment|overall\\s+summary|overall|summary)\\s*$|\\*\\*(?:総評|総合評価|総括|まとめ|overall\\s+assessment|overall\\s+summary|overall|summary)\\*\\*\\s*$)"
     );
@@ -105,11 +105,15 @@ public final class ReviewFindingParser {
         if (body == null || body.isBlank()) {
             return "";
         }
-        Matcher trailingSeparatorMatcher = TRAILING_SEPARATOR.matcher(body);
-        if (trailingSeparatorMatcher.matches()) {
-            return trailingSeparatorMatcher.group(1).trim();
+        List<String> lines = new ArrayList<>(body.lines().toList());
+        while (!lines.isEmpty() && SEPARATOR_LINE.matcher(lines.getLast()).matches()) {
+            lines.removeLast();
         }
-        return body.trim();
+        // Also remove trailing blank lines left after separator removal
+        while (!lines.isEmpty() && lines.getLast().isBlank()) {
+            lines.removeLast();
+        }
+        return String.join("\n", lines).trim();
     }
 
     private static int findTrailingGlobalSectionStart(String rawBody) {
