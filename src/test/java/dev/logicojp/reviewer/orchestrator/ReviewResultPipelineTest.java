@@ -55,8 +55,8 @@ class ReviewResultPipelineTest {
     }
 
     @Test
-    @DisplayName("reviewPassesが複数の場合はエージェント単位にマージする")
-    void finalizeResultsMergesWhenMultiPass() {
+    @DisplayName("reviewPassesが複数の場合も生のパス結果を返す")
+    void finalizeResultsReturnsRawPassResultsWhenMultiPass() {
         var pipeline = new ReviewResultPipeline();
         var pass1 = ReviewResult.builder()
             .agentConfig(agent("security"))
@@ -91,8 +91,9 @@ class ReviewResultPipelineTest {
 
         List<ReviewResult> finalized = pipeline.finalizeResults(List.of(pass1, pass2), 2);
 
-        assertThat(finalized).hasSize(1);
-        assertThat(finalized.getFirst().content()).contains("検出パス: 1, 2");
+        assertThat(finalized).hasSize(2);
+        assertThat(finalized.getFirst().content()).contains("### 1. SQLインジェクション");
+        assertThat(finalized.get(1).content()).contains("### 1. SQLインジェクション");
     }
 
 }

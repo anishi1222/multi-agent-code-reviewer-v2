@@ -20,7 +20,7 @@ final class FindingsParser {
     private FindingsParser() {
     }
 
-    static List<FindingsExtractor.Finding> extractFindings(String content, String agentName) {
+    static List<FindingsExtractor.Finding> extractFindings(String content, String agentName, String category) {
         List<FindingsExtractor.Finding> findings = new ArrayList<>();
 
         List<String> titles = new ArrayList<>();
@@ -34,11 +34,11 @@ final class FindingsParser {
 
         int count = Math.min(titles.size(), priorities.size());
         for (int i = 0; i < count; i++) {
-            findings.add(new FindingsExtractor.Finding(titles.get(i), priorities.get(i), agentName));
+            findings.add(new FindingsExtractor.Finding(titles.get(i), priorities.get(i), agentName, category));
         }
 
-        appendPriorityOnlyFindings(findings, titles, priorities, agentName);
-        appendTitleOnlyFindings(findings, titles, priorities, agentName);
+        appendPriorityOnlyFindings(findings, titles, priorities, agentName, category);
+        appendTitleOnlyFindings(findings, titles, priorities, agentName, category);
 
         return findings;
     }
@@ -60,24 +60,26 @@ final class FindingsParser {
     private static void appendPriorityOnlyFindings(List<FindingsExtractor.Finding> findings,
                                                    List<String> titles,
                                                    List<String> priorities,
-                                                   String agentName) {
+                                                   String agentName,
+                                                   String category) {
         if (!titles.isEmpty() || priorities.isEmpty()) {
             return;
         }
         for (int i = 0; i < priorities.size(); i++) {
-            findings.add(new FindingsExtractor.Finding("Finding " + (i + 1), priorities.get(i), agentName));
+            findings.add(new FindingsExtractor.Finding("Finding " + (i + 1), priorities.get(i), agentName, category));
         }
     }
 
     private static void appendTitleOnlyFindings(List<FindingsExtractor.Finding> findings,
                                                 List<String> titles,
                                                 List<String> priorities,
-                                                String agentName) {
+                                                String agentName,
+                                                String category) {
         if (titles.isEmpty() || !priorities.isEmpty()) {
             return;
         }
         for (String title : titles) {
-            findings.add(new FindingsExtractor.Finding(title, "Unknown", agentName));
+            findings.add(new FindingsExtractor.Finding(title, "Unknown", agentName, category));
         }
     }
 

@@ -19,7 +19,7 @@ public final class FindingsExtractor {
 
     @FunctionalInterface
     interface FindingsParserStrategy {
-        List<Finding> parse(String content, String agentName);
+        List<Finding> parse(String content, String agentName, String category);
     }
 
     @FunctionalInterface
@@ -37,7 +37,7 @@ public final class FindingsExtractor {
     /// @param title   The finding title
     /// @param priority The priority level (Critical, High, Medium, Low)
     /// @param agent   The agent name that produced the finding
-    public record Finding(String title, String priority, String agent) {}
+    public record Finding(String title, String priority, String agent, String category) {}
 
     /// Builds a deterministic findings summary from all review results.
     ///
@@ -50,7 +50,7 @@ public final class FindingsExtractor {
     public static String buildFindingsSummary(List<ReviewResult> results) {
         return buildFindingsSummary(
             results,
-            FindingsExtractor::extractFindings,
+            (content, agentName, category) -> extractFindings(content, agentName, category),
             FindingsSummaryFormatter::formatSummary
         );
     }
@@ -70,8 +70,9 @@ public final class FindingsExtractor {
             }
 
             String agentName = resolveAgentName(result);
+            String category = resolveCategory(result);
 
-            List<Finding> findings = parserStrategy.parse(result.content(), agentName);
+            List<Finding> findings = parserStrategy.parse(result.content(), agentName, category);
             allFindings.addAll(findings);
         }
 
@@ -92,9 +93,23 @@ public final class FindingsExtractor {
             : "unknown";
     }
 
+    private static String resolveCategory(ReviewResult result) {
+        if (result.agentConfig() == null) {
+            return "unknown";
+        }
+        if (!result.agentConfig().focusAreas().isEmpty()) {
+            return result.agentConfig().focusAreas().getFirst();
+        }
+        return result.agentConfig().displayName();
+    }
+
     /// Extracts findings from a single agent's review content.
     static List<Finding> extractFindings(String content, String agentName) {
-        List<Finding> findings = FindingsParser.extractFindings(content, agentName);
+        return extractFindings(content, agentName, agentName);
+    }
+
+    static List<Finding> extractFindings(String content, String agentName, String category) {
+        List<Finding> findings = FindingsParser.extractFindings(content, agentName, category);
         logger.debug("Agent '{}': extracted {} finding(s)", agentName, findings.size());
         return findings;
     }
