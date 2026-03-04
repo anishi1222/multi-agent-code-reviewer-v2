@@ -9,6 +9,43 @@ Reference checklist: `reports/anishi1222/multi-agent-code-reviewer/documentation
 3. Publish a GitHub Release from the tag and include EN/JA summary notes.
 4. Update `README_en.md` and `README_ja.md` with release references and URLs.
 
+## 2026-03-04 (v2026.03.04)
+
+### Summary
+- Applied security vulnerability fixes (jackson-core GHSA-72hv-8253-57qq, CodeQL ReDoS alert #9).
+- Updated dependencies (Copilot SDK 1.0.10, actions/checkout 6.0.2).
+- Introduced OWASP Dependency Check with NVD API key integration in CI.
+
+### Highlights
+
+#### Security Fixes
+- Pinned jackson-core to 2.21.1 to address GHSA-72hv-8253-57qq (PRs #76, #80).
+- Replaced ReDoS-prone `TRAILING_SEPARATOR` regex with a loop-based implementation (CodeQL alert #9, PR #77).
+
+#### Dependency Updates
+- Bumped `io.github.copilot-community-sdk:copilot-sdk` to 1.0.10 (PR #79).
+- Bumped `actions/checkout` from 4.2.2 to 6.0.2 (PR #78).
+
+#### CI Improvements
+- Introduced OWASP Dependency Check with NVD API key integration for automated dependency vulnerability scanning.
+
+#### Documentation Fix
+- Corrected release tag references to v2026.03.03 (PR #75).
+
+#### PR Chain
+- [#75](https://github.com/anishi1222/multi-agent-code-reviewer/pull/75): fix release tag URL references
+- [#76](https://github.com/anishi1222/multi-agent-code-reviewer/pull/76): jackson-core security fix
+- [#77](https://github.com/anishi1222/multi-agent-code-reviewer/pull/77): ReDoS regex fix
+- [#78](https://github.com/anishi1222/multi-agent-code-reviewer/pull/78): actions/checkout update
+- [#79](https://github.com/anishi1222/multi-agent-code-reviewer/pull/79): Copilot SDK update
+- [#80](https://github.com/anishi1222/multi-agent-code-reviewer/pull/80): jackson-core pinning
+
+### Validation
+- `mvn test` — 838 tests passed, 0 failures
+- `mvn clean package` — build succeeded
+
+---
+
 ## 2026-03-03 (v2026.03.03)
 
 ### Summary

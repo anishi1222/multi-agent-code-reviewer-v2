@@ -9,6 +9,43 @@
 3. タグから GitHub Release を作成し、EN/JA 要約を本文に含める。
 4. `README_en.md` と `README_ja.md` にリリース参照とURLを追記する。
 
+## 2026-03-04 (v2026.03.04)
+
+### 概要
+- セキュリティ脆弱性修正（jackson-core GHSA-72hv-8253-57qq、CodeQL ReDoS アラート #9）を実施しました。
+- 依存関係を更新しました（Copilot SDK 1.0.10、actions/checkout 6.0.2）。
+- CI に OWASP Dependency Check（NVD API キー連携）を導入しました。
+
+### 主な変更
+
+#### セキュリティ修正
+- jackson-core を 2.21.1 にピン留めし、GHSA-72hv-8253-57qq に対処（PR #76, #80）。
+- ReDoS 脆弱性のある `TRAILING_SEPARATOR` 正規表現をループ処理に置換（CodeQL アラート #9、PR #77）。
+
+#### 依存関係更新
+- `io.github.copilot-community-sdk:copilot-sdk` を 1.0.10 へ更新（PR #79）。
+- `actions/checkout` を 4.2.2 → 6.0.2 へ更新（PR #78）。
+
+#### CI 改善
+- OWASP Dependency Check を NVD API キー連携で導入し、依存関係の脆弱性検証を自動化。
+
+#### ドキュメント修正
+- リリースタグ参照を v2026.03.03 に修正（PR #75）。
+
+#### PRチェーン
+- [#75](https://github.com/anishi1222/multi-agent-code-reviewer/pull/75): リリースタグURL修正
+- [#76](https://github.com/anishi1222/multi-agent-code-reviewer/pull/76): jackson-core セキュリティ修正
+- [#77](https://github.com/anishi1222/multi-agent-code-reviewer/pull/77): ReDoS 正規表現修正
+- [#78](https://github.com/anishi1222/multi-agent-code-reviewer/pull/78): actions/checkout 更新
+- [#79](https://github.com/anishi1222/multi-agent-code-reviewer/pull/79): Copilot SDK 更新
+- [#80](https://github.com/anishi1222/multi-agent-code-reviewer/pull/80): jackson-core ピン留め
+
+### 検証
+- `mvn test` — 838テスト合格、0失敗
+- `mvn clean package` — ビルド成功
+
+---
+
 ## 2026-03-03 (v2026.03.03)
 
 ### 概要
