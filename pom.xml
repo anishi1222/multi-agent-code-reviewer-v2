@@ -236,6 +236,15 @@
                         <groupId>org.owasp</groupId>
                         <artifactId>dependency-check-maven</artifactId>
                         <version>${dependency.check.version}</version>
+                        <configuration>
+                            <nvdApiKey>${NVD_API_KEY}</nvdApiKey>
+                            <dataDirectory>/tmp/owasp</dataDirectory>
+                        </configuration>
+                        <formats>
+                            <format>sarif</format>
+                            <format>html</format>
+                            <format>json</format>
+                        </formats>
                         <executions>
                             <execution>
                                 <id>dependency-check</id>
