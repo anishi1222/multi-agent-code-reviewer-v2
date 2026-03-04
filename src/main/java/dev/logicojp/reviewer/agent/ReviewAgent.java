@@ -278,53 +278,55 @@ public class ReviewAgent {
             reviewPasses, config.name(), target.displayName());
 
         ResolvedReviewParams params = resolveReviewParams(target);
-        String displayName = params.displayName();
-        String instruction = params.instruction();
-        String localSourceContent = params.localSourceContent();
-        Map<String, Object> mcpServers = params.mcpServers();
 
         List<ReviewResult> results = new ArrayList<>(reviewPasses);
 
         // First pass uses shared-session path to amortize MCP/session setup cost.
         results.addAll(executeReviewPassesSequential(target, 1));
 
-        if (reviewPasses == 1) {
-            return results;
+        if (reviewPasses > 1) {
+            results.addAll(submitAndCollectParallelPasses(target, params, reviewPasses));
         }
 
+        return results;
+    }
+
+    /// Submits remaining passes (2..N) in parallel and collects results in pass order.
+    private List<ReviewResult> submitAndCollectParallelPasses(
+            ReviewTarget target, ResolvedReviewParams params, int reviewPasses)
+            throws InterruptedException {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Callable<PassResult>> tasks = new ArrayList<>(reviewPasses - 1);
             for (int pass = 2; pass <= reviewPasses; pass++) {
                 int passNumber = pass;
-                tasks.add(() -> {
-                    String localSourceForPass = resolveLocalSourceContentForPass(target, localSourceContent, passNumber);
-                    ReviewResult result = reviewRetryExecutor.execute(
-                        () -> executeReviewCommon(displayName, instruction, localSourceForPass, mcpServers),
-                        e -> reviewResultFactory.fromException(config, displayName, e)
-                    );
-                    return new PassResult(passNumber, result);
-                });
+                tasks.add(() -> executeParallelPass(target, params, passNumber));
             }
 
-            var futures = executor.invokeAll(tasks);
-            List<PassResult> passResults = new ArrayList<>(futures.size());
-            for (var future : futures) {
-                try {
-                    passResults.add(future.get());
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw e;
-                } catch (ExecutionException e) {
-                    throw new IllegalStateException("Hybrid review pass execution failed", e.getCause());
-                }
-            }
-            passResults.sort(Comparator.comparingInt(PassResult::passNumber));
-            for (PassResult passResult : passResults) {
-                results.add(passResult.result());
+            return collectParallelPassResults(executor.invokeAll(tasks));
+        }
+    }
+
+    private PassResult executeParallelPass(ReviewTarget target, ResolvedReviewParams params, int passNumber) {
+        String localSourceForPass = resolveLocalSourceContentForPass(target, params.localSourceContent(), passNumber);
+        ReviewResult result = reviewRetryExecutor.execute(
+            () -> executeReviewCommon(params.displayName(), params.instruction(), localSourceForPass, params.mcpServers()),
+            e -> reviewResultFactory.fromException(config, params.displayName(), e)
+        );
+        return new PassResult(passNumber, result);
+    }
+
+    private static List<ReviewResult> collectParallelPassResults(List<Future<PassResult>> futures)
+            throws InterruptedException {
+        List<PassResult> passResults = new ArrayList<>(futures.size());
+        for (var future : futures) {
+            try {
+                passResults.add(future.get());
+            } catch (ExecutionException e) {
+                throw new IllegalStateException("Hybrid review pass execution failed", e.getCause());
             }
         }
-
-        return results;
+        passResults.sort(Comparator.comparingInt(PassResult::passNumber));
+        return passResults.stream().map(PassResult::result).toList();
     }
 
     private record PassResult(int passNumber, ReviewResult result) {

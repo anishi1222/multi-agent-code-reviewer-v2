@@ -121,40 +121,44 @@ public class SkillExecutor implements AutoCloseable {
             SkillResult::success,
             this::isRetryableFailure,
             this::isTransientException,
-            new RetryExecutor.RetryObserver<>() {
-                @Override
-                public void onCircuitOpen() {
-                    logger.warn("Skill {} skipped by open circuit breaker", skill.id());
-                }
+            skillRetryObserver(skill.id())
+        );
+    }
 
-                @Override
-                public void onSuccess(int attempt, int totalAttempts, SkillResult result) {
-                    if (attempt > 1) {
-                        logger.info("Skill {} succeeded on retry attempt {}/{}", skill.id(), attempt, totalAttempts);
-                    }
-                }
+    private static RetryExecutor.RetryObserver<SkillResult> skillRetryObserver(String skillId) {
+        return new RetryExecutor.RetryObserver<>() {
+            @Override
+            public void onCircuitOpen() {
+                logger.warn("Skill {} skipped by open circuit breaker", skillId);
+            }
 
-                @Override
-                public void onRetryableResult(int attempt, int totalAttempts, SkillResult result) {
-                    logger.warn("Skill {} failed on attempt {}/{}: {}. Retrying...",
-                        skill.id(), attempt, totalAttempts, result.errorMessage());
-                }
-
-                @Override
-                public void onFinalException(int attempt,
-                                             int totalAttempts,
-                                             Exception exception,
-                                             boolean transientFailure) {
-                    logger.error("Skill execution failed for {}: {}", skill.id(), exception.getMessage(), exception);
-                }
-
-                @Override
-                public void onRetryableException(int attempt, int totalAttempts, Exception exception) {
-                    logger.warn("Skill {} threw exception on attempt {}/{}: {}. Retrying...",
-                        skill.id(), attempt, totalAttempts, exception.getMessage(), exception);
+            @Override
+            public void onSuccess(int attempt, int totalAttempts, SkillResult result) {
+                if (attempt > 1) {
+                    logger.info("Skill {} succeeded on retry attempt {}/{}", skillId, attempt, totalAttempts);
                 }
             }
-        );
+
+            @Override
+            public void onRetryableResult(int attempt, int totalAttempts, SkillResult result) {
+                logger.warn("Skill {} failed on attempt {}/{}: {}. Retrying...",
+                    skillId, attempt, totalAttempts, result.errorMessage());
+            }
+
+            @Override
+            public void onFinalException(int attempt,
+                                         int totalAttempts,
+                                         Exception exception,
+                                         boolean transientFailure) {
+                logger.error("Skill execution failed for {}: {}", skillId, exception.getMessage(), exception);
+            }
+
+            @Override
+            public void onRetryableException(int attempt, int totalAttempts, Exception exception) {
+                logger.warn("Skill {} threw exception on attempt {}/{}: {}. Retrying...",
+                    skillId, attempt, totalAttempts, exception.getMessage(), exception);
+            }
+        };
     }
 
     private boolean isRetryableFailure(SkillResult result) {

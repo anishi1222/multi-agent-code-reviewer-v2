@@ -100,19 +100,24 @@ public final class FrontmatterParser {
                 break;
             }
 
-            if (!trimmed.isEmpty()) {
-                int colonIdx = trimmed.indexOf(':');
-                if (colonIdx > 0) {
-                    String key = trimmed.substring(0, colonIdx).trim();
-                    String value = stripQuotes(trimmed.substring(colonIdx + 1).trim());
-                    if (!value.isEmpty()) {
-                        nested.put(key, value);
-                    }
-                }
-            }
+            parseBlockEntry(trimmed, nested);
         }
 
         return nested.isEmpty() ? Map.of() : Map.copyOf(nested);
+    }
+
+    /// Parses a single indented `key: value` entry and adds it to the map.
+    private static void parseBlockEntry(String trimmed, Map<String, String> nested) {
+        if (trimmed.isEmpty()) return;
+
+        int colonIdx = trimmed.indexOf(':');
+        if (colonIdx <= 0) return;
+
+        String key = trimmed.substring(0, colonIdx).trim();
+        String value = stripQuotes(trimmed.substring(colonIdx + 1).trim());
+        if (!value.isEmpty()) {
+            nested.put(key, value);
+        }
     }
 
     /// Extracts the raw frontmatter text (between `---` delimiters) from content.
