@@ -239,12 +239,12 @@
                         <configuration>
                             <nvdApiKey>${NVD_API_KEY}</nvdApiKey>
                             <dataDirectory>/tmp/owasp</dataDirectory>
+                            <formats>
+                                <format>sarif</format>
+                                <format>html</format>
+                                <format>json</format>
+                            </formats>
                         </configuration>
-                        <formats>
-                            <format>sarif</format>
-                            <format>html</format>
-                            <format>json</format>
-                        </formats>
                         <executions>
                             <execution>
                                 <id>dependency-check</id>
