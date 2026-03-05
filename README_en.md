@@ -6,11 +6,11 @@ A parallel code review application using multiple AI agents with GitHub Copilot 
 
 - **Parallel Multi-Agent Execution**: Simultaneous review from security, code quality, performance, and best practices perspectives
 - **GitHub Repository / Local Directory Support**: Review source code from GitHub repositories or local directories
-- **Custom Instructions**: Incorporate project-specific rules and guidelines into the review
 - **Flexible Agent Definitions**: Define agents in GitHub Copilot format (.agent.md)
 - **Agent Skill Support**: Define individual skills for agents to execute specific tasks
 - **External Configuration Files**: Agent definitions can be swapped without rebuilding
-- **Reusable Prompt Files**: Load GitHub Copilot format (.prompt.md) reusable prompts as supplementary instructions
+- **Per-Pass Session ID Naming**: Session IDs use `{agent}_{currentPass}of{totalPasses}_{invocationTimestamp}` for traceability
+- **Isolated Session Mode**: Disable shared session reuse across passes with `--no-shared-session`
 - **LLM Model Selection**: Use different models for review, report generation, and summary generation
 - **Structured Review Results**: Consistent format with Priority (Critical/High/Medium/Low)
 - **Executive Summary Generation**: Management-facing report aggregating all review results
@@ -19,7 +19,6 @@ A parallel code review application using multiple AI agents with GitHub Copilot 
 - **Multi-Pass Review**: Each agent performs multiple review passes and merges results for improved coverage
 - **Content Sanitization**: Automatic removal of LLM preamble text and chain-of-thought leakage from review output
 - **Default Model Externalization**: Configure the default model in `application.yml` (changeable without rebuild)
-- **Instruction Sandboxing**: User-provided instructions are injected with structured boundaries and explicit system-instruction precedence
 - **Token Lifetime Minimization**: Runtime token handling is narrowed to execution boundaries to reduce in-memory exposure time
 - **DI-Consistent Service Construction**: `CopilotService` is unified to DI constructor usage (no no-arg path)
 
@@ -27,6 +26,7 @@ A parallel code review application using multiple AI agents with GitHub Copilot 
 
 All review findings from 2026-02-16 through 2026-03-05 review cycles have been fully addressed.
 
+- 2026-03-05 (post v2026.03.05): Session execution and artifact handling update — removed structured-concurrency feature flag toggles and stabilized the execution path, added per-pass session naming based on CLI invocation timestamp, introduced `--no-shared-session` to force isolated sessions per pass, moved pass reports under hidden `.checkpoints/passes`, and auto-cleaned `.checkpoints` at CLI shutdown. PRs #86/#87 merged
 - 2026-03-05 (v2026.03.05): **Breaking change** — Discontinued custom instruction support, migrated to agent skills only. Removed `--instructions`/`--no-instructions`/`--no-prompts` CLI options. Created 4 new agent skills from custom instructions (java-best-practices, java-bug-patterns, spring-boot-review, vuejs3-review). Completed all 16 complexity refactorings (5 HIGH + 9 MEDIUM + 2 LOW). Aligned micronaut.version with parent 4.10.9
 - 2026-03-04 (v2026.03.04):Security fixes & dependency updates — pinned jackson-core to 2.21.1 (GHSA-72hv-8253-57qq), replaced ReDoS-prone regex with loop (CodeQL alert #9), bumped Copilot SDK to 1.0.10, bumped actions/checkout to 6.0.2, introduced OWASP Dependency Check in CI. PRs #75/#76/#77/#78/#79/#80 merged
 - 2026-03-03 (v2026.03.03):Report generation flow improvement — generate per-pass review reports without overall summary, merge after all passes complete, recount finding severity from the merged report content to append an accurate overall summary, and deduplicate identical findings across agents in the executive summary with review category listing. Code-quality remediation including DRY/responsibility separation/Optional/type-safety improvements. PRs #72/#73 merged
@@ -201,12 +201,12 @@ java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   --review-model gpt-4.1 \
   --summary-model claude-sonnet-4
 
-# Review with custom instructions
+# Run with isolated sessions per pass
 java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
   run \
-  --local ./my-project \
+  --repo owner/repository \
   --all \
-  --instructions ./my-instructions.md
+  --no-shared-session
 
 # List available agents
 java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
@@ -226,13 +226,11 @@ java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
 | `--token` | - | GitHub token input (`-` for stdin only; direct value is rejected) | `$GITHUB_TOKEN` |
 | `--parallelism` | - | Number of parallel executions | 4 |
 | `--no-summary` | - | Skip summary generation | false |
+| `--no-shared-session` | - | Force isolated session per review pass (disable shared session reuse) | false |
 | `--model` | - | Default model for all stages | - |
 | `--review-model` | - | Model for review | Agent config |
 | `--report-model` | - | Model for report generation | review-model |
 | `--summary-model` | - | Model for summary generation | default-model |
-| `--instructions` | - | Custom instruction file (can be specified multiple times) | - |
-| `--no-instructions` | - | Disable automatic loading of custom instructions | false |
-| `--no-prompts` | - | Disable loading `.github/prompts/*.prompt.md` | false |
 | `--help` | `-h` | Show help | - |
 | `--version` | `-V` | Show version | - |
 | `--verbose` | `-v` | Enable verbose logging (debug level) | - |
@@ -255,20 +253,16 @@ Displays a list of available agents. Additional directories can be specified wit
 export GITHUB_TOKEN=your_github_token
 ```
 
-### Feature Flags (Structured Concurrency)
+### Session Behavior
 
-Enable structured concurrency globally or for skills only using env vars or JVM properties:
+By default, multi-pass reviews reuse one shared session per agent. To isolate each pass in its own session, use `--no-shared-session`.
 
 ```bash
-# Global structured concurrency
-export REVIEWER_STRUCTURED_CONCURRENCY=true
-
-# Skills-only structured concurrency
-export REVIEWER_STRUCTURED_CONCURRENCY_SKILLS=true
-
-# JVM properties (alternative)
-java -Dreviewer.feature-flags.structured-concurrency=true -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar run --repo owner/repo --all
-java -Dreviewer.feature-flags.structured-concurrency-skills=true -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar skill --list
+java --enable-preview -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
+  run \
+  --repo owner/repository \
+  --all \
+  --no-shared-session
 ```
 
 ### Local Directory Review
@@ -297,85 +291,9 @@ Supported file extensions:
 
 > **Note**: Files up to 256 KB each are collected, with a 2 MB total limit. Files that may contain sensitive information (`application-prod`, `.env`, `keystore`, etc.) are automatically excluded.
 
-### Custom Instructions
+### Review Inputs
 
-You can incorporate project-specific rules and guidelines into the review.
-
-```bash
-# Specify instruction files
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
-  run \
-  --local ./my-project \
-  --all \
-  --instructions ./coding-standards.md \
-  --instructions ./security-guidelines.md
-
-# Disable automatic loading
-java -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar \
-  run \
-  --local ./my-project \
-  --all \
-  --no-instructions
-```
-
-#### Auto-detected Instruction Files
-
-During local directory review, custom instructions are automatically loaded from the following paths (in order of priority):
-
-1. `.github/copilot-instructions.md`
-2. `.copilot/instructions.md`
-3. `copilot-instructions.md`
-4. `INSTRUCTIONS.md`
-5. `.instructions.md`
-6. `.github/instructions/*.instructions.md` (GitHub Copilot per-scope instructions)
-7. `.github/prompts/*.prompt.md` (GitHub Copilot reusable prompt files)
-
-#### GitHub Copilot Per-scope Instructions
-
-The `.github/instructions/*.instructions.md` format used by GitHub Copilot is supported.  
-YAML frontmatter can specify `applyTo` (target file glob pattern) and `description`.
-
-```markdown
----
-applyTo: '**/*.java'
-description: 'Java coding standards'
----
-- Use UpperCamelCase for class names
-- Write Javadoc for all public methods
-- Prefer immutable objects where possible
-```
-
-Multiple instruction files can be placed in the `.github/instructions/` directory:
-
-```
-.github/
-├── copilot-instructions.md          # Repository-wide instructions
-├── instructions/
-│   ├── java.instructions.md         # Java-specific rules
-│   ├── typescript.instructions.md   # TypeScript-specific rules
-│   └── security.instructions.md     # Security guidelines
-└── prompts/
-    ├── java-junit.prompt.md         # JUnit test generation prompt
-    └── java-docs.prompt.md          # Javadoc generation prompt
-```
-
-#### GitHub Copilot Reusable Prompt Files
-
-The `.github/prompts/*.prompt.md` format used by GitHub Copilot is supported.
-Prompt files are injected into the agent system prompt as supplementary instructions.
-
-YAML frontmatter can specify `description` and `agent` (target agent).
-
-```markdown
----
-description: 'JUnit 5 best practices'
-agent: 'agent'
----
-# JUnit 5 Best Practices
-Your goal is to help write effective unit tests...
-```
-
-Use `--no-prompts` to disable loading prompt files.
+Custom instruction inputs via CLI were removed in v2026.03.05. Use agent skills under `.github/skills/` to provide domain-specific review guidance.
 
 ### Output Example
 
@@ -408,6 +326,8 @@ Reports are generated under the output base directory in a subdirectory correspo
 
 Use `-o` / `--output` to change the output base directory (default: `./reports`).
 
+Pass-level intermediate reports are written under `.checkpoints/passes` during execution and cleaned up automatically when the CLI exits.
+
 ## Configuration
 
 Customize application behavior via `application.yml`.
@@ -419,18 +339,19 @@ reviewer:
       - ./agents
       - ./.github/agents
   execution:
-    parallelism: 4              # Default parallel execution count
-    review-passes: 3            # Number of review passes per agent (multi-pass review)
-    orchestrator-timeout-minutes: 45  # Orchestrator timeout (minutes)
-    agent-timeout-minutes: 20   # Agent timeout (minutes)
-    idle-timeout-minutes: 5     # Idle timeout (minutes) — auto-terminate when no events
-    skill-timeout-minutes: 20   # Skill timeout (minutes)
-    summary-timeout-minutes: 20 # Summary timeout (minutes)
-    gh-auth-timeout-seconds: 30 # GitHub auth timeout (seconds)
-    max-retries: 2              # Max retry count on review failure
-  feature-flags:
-    structured-concurrency: false       # Enable Structured Concurrency
-    structured-concurrency-skills: false # Enable Structured Concurrency for skills only
+    shared-session-enabled: true # Reuse one session per agent across passes (default)
+    concurrency:
+      parallelism: 4             # Default parallel execution count
+      review-passes: 3           # Number of review passes per agent (multi-pass review)
+    timeouts:
+      orchestrator-timeout-minutes: 45  # Orchestrator timeout (minutes)
+      agent-timeout-minutes: 20          # Agent timeout (minutes)
+      idle-timeout-minutes: 5            # Idle timeout (minutes)
+      skill-timeout-minutes: 20          # Skill timeout (minutes)
+      summary-timeout-minutes: 20        # Summary timeout (minutes)
+      gh-auth-timeout-seconds: 30        # GitHub auth timeout (seconds)
+    retry:
+      max-retries: 2             # Max retry count on review failure
   local-files:
     max-file-size: 262144               # Max local file size (256KB)
     max-total-size: 2097152             # Max total local file size (2MB)
