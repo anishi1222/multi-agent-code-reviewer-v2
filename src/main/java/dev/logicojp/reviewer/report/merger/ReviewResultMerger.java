@@ -110,26 +110,13 @@ public final class ReviewResultMerger {
         if (result == null || !result.success()) {
             return result;
         }
-
         String content = result.content();
         if (content == null || content.isBlank()) {
             return result;
         }
 
         FindingIndex findingIndex = new FindingIndex(findingKeyResolver);
-        List<ReviewFindingParser.FindingBlock> blocks = findingBlockExtractor.extract(content);
-        if (blocks.isEmpty()) {
-            String normalized = ReviewFindingSimilarity.normalizeText(content);
-            if (!normalized.isEmpty()) {
-                findingIndex.putIfAbsent(
-                    "fallback|" + normalized,
-                    AggregatedFinding.fallbackWithNormalized(content, normalized, 1)
-                );
-            }
-        }
-        for (ReviewFindingParser.FindingBlock block : blocks) {
-            findingIndex.addOrMerge(block, 1);
-        }
+        collectPassFindings(content, 1, findingBlockExtractor, findingIndex, new LinkedHashSet<>());
 
         String normalizedContent = mergedContentFormatter.format(findingIndex.findings(), 1, 0);
         return ReviewResult.builder()
@@ -147,7 +134,6 @@ public final class ReviewResultMerger {
                                                   FindingBlockExtractor findingBlockExtractor,
                                                   FindingKeyResolver findingKeyResolver,
                                                   MergedContentFormatter mergedContentFormatter) {
-        // Use the config from the first result
         AgentConfig config = agentResults.getFirst().agentConfig();
         String repository = agentResults.getFirst().repository();
 
@@ -156,7 +142,6 @@ public final class ReviewResultMerger {
             .toList();
 
         if (successful.isEmpty()) {
-            // All passes failed — return the last failure
             logger.warn("Agent {}: all {} passes failed", config.name(), agentResults.size());
             return agentResults.getLast();
         }
@@ -164,33 +149,7 @@ public final class ReviewResultMerger {
         logger.info("Agent {}: merging {} successful pass(es) out of {} total",
             config.name(), successful.size(), agentResults.size());
 
-        FindingIndex findingIndex = new FindingIndex(findingKeyResolver);
-        Set<String> fallbackPassContents = new LinkedHashSet<>();
-
-        for (int i = 0; i < successful.size(); i++) {
-            ReviewResult result = successful.get(i);
-            int passNumber = i + 1;
-            String content = result.content();
-            if (content == null || content.isBlank()) {
-                continue;
-            }
-
-            List<ReviewFindingParser.FindingBlock> blocks = findingBlockExtractor.extract(content);
-            if (blocks.isEmpty()) {
-                String normalized = ReviewFindingSimilarity.normalizeText(content);
-                if (!normalized.isEmpty() && fallbackPassContents.add(normalized)) {
-                    findingIndex.putIfAbsent(
-                        "fallback|" + normalized,
-                        AggregatedFinding.fallbackWithNormalized(content, normalized, passNumber)
-                    );
-                }
-                continue;
-            }
-
-            for (ReviewFindingParser.FindingBlock block : blocks) {
-                findingIndex.addOrMerge(block, passNumber);
-            }
-        }
+        FindingIndex findingIndex = collectFindings(successful, findingBlockExtractor, findingKeyResolver);
 
         int failedCount = agentResults.size() - successful.size();
         String content = mergedContentFormatter.format(findingIndex.findings(), agentResults.size(), failedCount);
@@ -201,6 +160,46 @@ public final class ReviewResultMerger {
             .content(content)
             .success(true)
             .build();
+    }
+
+    /// Collects and deduplicates findings from all successful pass results.
+    private static FindingIndex collectFindings(List<ReviewResult> successful,
+                                                FindingBlockExtractor findingBlockExtractor,
+                                                FindingKeyResolver findingKeyResolver) {
+        FindingIndex findingIndex = new FindingIndex(findingKeyResolver);
+        Set<String> fallbackPassContents = new LinkedHashSet<>();
+
+        for (int i = 0; i < successful.size(); i++) {
+            String content = successful.get(i).content();
+            if (content == null || content.isBlank()) {
+                continue;
+            }
+            collectPassFindings(content, i + 1, findingBlockExtractor, findingIndex, fallbackPassContents);
+        }
+        return findingIndex;
+    }
+
+    /// Extracts findings from a single pass and adds them to the index.
+    private static void collectPassFindings(String content,
+                                            int passNumber,
+                                            FindingBlockExtractor findingBlockExtractor,
+                                            FindingIndex findingIndex,
+                                            Set<String> fallbackPassContents) {
+        List<ReviewFindingParser.FindingBlock> blocks = findingBlockExtractor.extract(content);
+        if (blocks.isEmpty()) {
+            String normalized = ReviewFindingSimilarity.normalizeText(content);
+            if (!normalized.isEmpty() && fallbackPassContents.add(normalized)) {
+                findingIndex.putIfAbsent(
+                    "fallback|" + normalized,
+                    AggregatedFinding.fallbackWithNormalized(content, normalized, passNumber)
+                );
+            }
+            return;
+        }
+
+        for (ReviewFindingParser.FindingBlock block : blocks) {
+            findingIndex.addOrMerge(block, passNumber);
+        }
     }
 
     private static final class FindingIndex {

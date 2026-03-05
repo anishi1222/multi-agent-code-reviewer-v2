@@ -9,6 +9,39 @@ Reference checklist: `reports/anishi1222/multi-agent-code-reviewer/documentation
 3. Publish a GitHub Release from the tag and include EN/JA summary notes.
 4. Update `README_en.md` and `README_ja.md` with release references and URLs.
 
+## 2026-03-05 (v2026.03.05)
+
+### Summary
+- Discontinued custom instruction support and migrated to agent skills only (**breaking change**).
+- Created 4 new agent skills from custom instructions (java-best-practices, java-bug-patterns, spring-boot-review, vuejs3-review).
+- Completed all 16 complexity-based refactorings (5 HIGH + 9 MEDIUM + 2 LOW).
+- Aligned `micronaut.version` with `micronaut-parent:4.10.9`.
+
+### Breaking Changes
+- **Custom instruction support removed**: Deleted `--instructions`, `--no-instructions`, `--no-prompts` CLI options. Removed auto-loading from `.github/instructions/` and `.github/prompts/`. Agent skills (`.github/skills/`) are now the only supported extensibility mechanism.
+
+### Highlights
+
+#### New Agent Skills
+- `java-best-practices`: Java best practices (Records, pattern matching, immutability, Optional, naming)
+- `java-bug-patterns`: Bug patterns & code smells (resource management, equality, cognitive complexity)
+- `spring-boot-review`: Spring Boot best practices (DI, configuration, service layer, logging)
+- `vuejs3-review`: Vue.js 3 best practices (Composition API, TypeScript, component design)
+
+#### Complexity Refactoring (16 items)
+- HIGH: FrontmatterParser (CC 10→6), ReviewResultMerger (59→32 lines), SkillExecutor (nesting 5→2), ReviewAgent (53→17 lines), SummaryGenerator (10→7 params)
+- MEDIUM: SkillExecutor.executeSync, SummaryGenerator (runSummaryAttempt/buildSummaryWithAI), FrontmatterParser.parseFieldsManually, ReviewResultMerger.normalizeSingleResult, ReviewAgent.executeReviewPassesFallback, ReviewExecutionModeRunner (3 methods)
+- LOW: AgentConfigLoader.firstSuspiciousField (CC 7→2), ReviewOrchestrator.assembleCollaborators (55→25 lines)
+
+#### Dependencies
+- Changed `micronaut.version` from `4.10.16` to `4.10.9` to align with `micronaut-parent`.
+
+### Validation
+- `mvn test` — 731 tests passed, 0 failures
+- `mvn clean package` — build succeeded
+
+---
+
 ## 2026-03-04 (v2026.03.04)
 
 ### Summary

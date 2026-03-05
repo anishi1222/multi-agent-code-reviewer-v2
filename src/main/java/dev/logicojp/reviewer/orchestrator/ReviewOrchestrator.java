@@ -6,7 +6,6 @@ import dev.logicojp.reviewer.agent.ReviewContext;
 import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.config.ExecutionConfig;
 import dev.logicojp.reviewer.config.GithubMcpConfig;
-import dev.logicojp.reviewer.instruction.CustomInstruction;
 import dev.logicojp.reviewer.report.core.ReviewResult;
 import dev.logicojp.reviewer.target.LocalFileProvider;
 import dev.logicojp.reviewer.target.ReviewTarget;
@@ -43,7 +42,6 @@ public class ReviewOrchestrator implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(ReviewOrchestrator.class);
 
     private final ExecutionConfig executionConfig;
-    private final List<CustomInstruction> customInstructions;
     private final boolean structuredConcurrencyEnabled;
     /// Initialized in constructor — null when Structured Concurrency mode is active.
     private final ExecutorService executorService;
@@ -85,7 +83,6 @@ public class ReviewOrchestrator implements AutoCloseable {
                        OrchestratorConfig orchestratorConfig,
                        OrchestratorCollaborators collaborators) {
         this.executionConfig = orchestratorConfig.executionConfig();
-        this.customInstructions = orchestratorConfig.customInstructions();
         this.structuredConcurrencyEnabled = orchestratorConfig.featureFlags().structuredConcurrency();
         var resources = collaborators.executorResources();
         this.executorService = resources.executorService();
@@ -99,9 +96,6 @@ public class ReviewOrchestrator implements AutoCloseable {
         logger.info("Parallelism set to {}", executionConfig.parallelism());
         if (executionConfig.reviewPasses() > 1) {
             logger.info("Multi-pass review enabled: {} passes per agent", executionConfig.reviewPasses());
-        }
-        if (!this.customInstructions.isEmpty()) {
-            logger.info("Custom instructions loaded ({} instruction(s))", this.customInstructions.size());
         }
     }
 
@@ -170,48 +164,51 @@ public class ReviewOrchestrator implements AutoCloseable {
             orchestratorConfig.githubMcpConfig()
         ).orElse(Map.of());
 
-        ReviewResultPipeline reviewResultPipeline = new ReviewResultPipeline();
+        var executionPipeline = createExecutionPipeline(
+            orchestratorConfig, resources, reviewerFactory);
 
-        AgentReviewExecutor agentReviewExecutor = new AgentReviewExecutor(
-            resources.concurrencyLimit(),
-            resources.agentExecutionExecutor(),
-            reviewerFactory
-        );
-
-        ReviewExecutionModeRunner reviewExecutionModeRunner = new ReviewExecutionModeRunner(
-            orchestratorConfig.executionConfig(),
-            resources.executorService(),
-            reviewResultPipeline
-        );
-
-        ReviewContextFactory reviewContextFactory = new ReviewContextFactory(
-            client,
-            orchestratorConfig.executionConfig(),
-            orchestratorConfig.customInstructions(),
-            orchestratorConfig.reasoningEffort(),
-            orchestratorConfig.outputConstraints(),
-            cachedMcpServers,
-            orchestratorConfig.localFileConfig(),
-            resources.sharedScheduler(),
-            reviewCircuitBreaker
-        );
+        ReviewContextFactory reviewContextFactory = createReviewContextFactory(
+            client, orchestratorConfig, cachedMcpServers, resources, reviewCircuitBreaker);
 
         LocalSourcePrecomputer localSourcePrecomputer = new LocalSourcePrecomputer(
-            localSourceCollectorFactory,
-            orchestratorConfig.localFileConfig()
-        );
+            localSourceCollectorFactory, orchestratorConfig.localFileConfig());
 
         return new OrchestratorCollaborators(
-            reviewerFactory,
-            localSourceCollectorFactory,
-            resources,
-            cachedMcpServers,
-            reviewResultPipeline,
-            agentReviewExecutor,
-            reviewExecutionModeRunner,
-            reviewContextFactory,
-            localSourcePrecomputer
-        );
+            reviewerFactory, localSourceCollectorFactory, resources, cachedMcpServers,
+            executionPipeline.pipeline(), executionPipeline.executor(),
+            executionPipeline.modeRunner(), reviewContextFactory, localSourcePrecomputer);
+    }
+
+    private record ExecutionPipelineComponents(
+        ReviewResultPipeline pipeline,
+        AgentReviewExecutor executor,
+        ReviewExecutionModeRunner modeRunner
+    ) {}
+
+    private static ExecutionPipelineComponents createExecutionPipeline(
+            OrchestratorConfig orchestratorConfig,
+            ExecutorResources resources,
+            AgentReviewerFactory reviewerFactory) {
+        ReviewResultPipeline pipeline = new ReviewResultPipeline();
+        AgentReviewExecutor executor = new AgentReviewExecutor(
+            resources.concurrencyLimit(), resources.agentExecutionExecutor(), reviewerFactory);
+        ReviewExecutionModeRunner modeRunner = new ReviewExecutionModeRunner(
+            orchestratorConfig.executionConfig(), resources.executorService(), pipeline);
+        return new ExecutionPipelineComponents(pipeline, executor, modeRunner);
+    }
+
+    private static ReviewContextFactory createReviewContextFactory(
+            CopilotClient client,
+            OrchestratorConfig orchestratorConfig,
+            Map<String, Object> cachedMcpServers,
+            ExecutorResources resources,
+            SharedCircuitBreaker reviewCircuitBreaker) {
+        return new ReviewContextFactory(
+            client, orchestratorConfig.executionConfig(),
+            orchestratorConfig.reasoningEffort(),
+            orchestratorConfig.outputConstraints(), cachedMcpServers,
+            orchestratorConfig.localFileConfig(), resources.sharedScheduler(),
+            reviewCircuitBreaker);
     }
 
     private static AgentReviewerFactory defaultReviewerFactory(OrchestratorConfig orchestratorConfig) {

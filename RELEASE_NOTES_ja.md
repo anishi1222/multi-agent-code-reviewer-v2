@@ -9,6 +9,39 @@
 3. タグから GitHub Release を作成し、EN/JA 要約を本文に含める。
 4. `README_en.md` と `README_ja.md` にリリース参照とURLを追記する。
 
+## 2026-03-05 (v2026.03.05)
+
+### 概要
+- Custom Instruction サポートを終了し、Agent Skills のみのサポートに移行しました（**破壊的変更**）。
+- Custom Instructions から4つの Agent Skills を新規作成しました（java-best-practices, java-bug-patterns, spring-boot-review, vuejs3-review）。
+- 複雑度分析に基づく全16件のリファクタリング（HIGH 5件 + MEDIUM 9件 + LOW 2件）を実施しました。
+- `micronaut.version` を `micronaut-parent:4.10.9` に一致させました。
+
+### 破壊的変更
+- **Custom Instruction サポート終了**: `--instructions`, `--no-instructions`, `--no-prompts` CLIオプションを削除。`.github/instructions/` および `.github/prompts/` からの自動ロードを廃止。今後は Agent Skills（`.github/skills/`）のみをサポートします。
+
+### 主な変更
+
+#### Agent Skills 新規追加
+- `java-best-practices`: Javaベストプラクティス（Records、パターンマッチング、不変性、Optional、命名規則）
+- `java-bug-patterns`: バグパターン・コードスメル検出（リソース管理、等価比較、認知的複雑度）
+- `spring-boot-review`: Spring Boot ベストプラクティス（DI、設定、サービス層、ロギング）
+- `vuejs3-review`: Vue.js 3 ベストプラクティス（Composition API、TypeScript、コンポーネント設計）
+
+#### 複雑度リファクタリング（16件）
+- HIGH: FrontmatterParser(CC 10→6)、ReviewResultMerger(59→32行)、SkillExecutor(ネスト5→2)、ReviewAgent(53→17行)、SummaryGenerator(10→7パラメータ)
+- MEDIUM: SkillExecutor.executeSync、SummaryGenerator(runSummaryAttempt/buildSummaryWithAI)、FrontmatterParser.parseFieldsManually、ReviewResultMerger.normalizeSingleResult、ReviewAgent.executeReviewPassesFallback、ReviewExecutionModeRunner(3メソッド)
+- LOW: AgentConfigLoader.firstSuspiciousField(CC 7→2)、ReviewOrchestrator.assembleCollaborators(55→25行)
+
+#### 依存関係
+- `micronaut.version` を `4.10.16` → `4.10.9` に変更し、`micronaut-parent` と一致させました。
+
+### 検証
+- `mvn test` — 731テスト合格、0失敗
+- `mvn clean package` — ビルド成功
+
+---
+
 ## 2026-03-04 (v2026.03.04)
 
 ### 概要

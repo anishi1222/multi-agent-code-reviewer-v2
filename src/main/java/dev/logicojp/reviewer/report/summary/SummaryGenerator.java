@@ -83,12 +83,17 @@ public class SummaryGenerator {
     private static final int AI_SUMMARY_MAX_RETRIES = 1;
     private static final long RETRY_BACKOFF_BASE_MS = 1_000L;
     private static final long RETRY_BACKOFF_MAX_MS = 15_000L;
+
+    /// Groups the core configuration values for SummaryGenerator.
+    record SummaryGeneratorConfig(
+        Path outputDirectory,
+        String summaryModel,
+        String reasoningEffort,
+        long timeoutMinutes
+    ) {}
     
-    private final Path outputDirectory;
+    private final SummaryGeneratorConfig config;
     private final CopilotClient client;
-    private final String summaryModel;
-    private final String reasoningEffort;
-    private final long timeoutMinutes;
     private final TemplateService templateService;
     private final String invocationTimestamp;
     private final SummaryPromptBuilder summaryPromptBuilder;
@@ -157,12 +162,10 @@ public class SummaryGenerator {
         }
 
         public SummaryGenerator build() {
+            var config = new SummaryGeneratorConfig(outputDirectory, summaryModel, reasoningEffort, timeoutMinutes);
             return new SummaryGenerator(
-                outputDirectory,
+                config,
                 client,
-                summaryModel,
-                reasoningEffort,
-                timeoutMinutes,
                 templateService,
                 summaryConfig,
                 collaborators,
@@ -180,11 +183,8 @@ public class SummaryGenerator {
                             TemplateService templateService,
                             SummaryConfig summaryConfig) {
         this(
-            outputDirectory,
+            new SummaryGeneratorConfig(outputDirectory, summaryModel, reasoningEffort, timeoutMinutes),
             client,
-            summaryModel,
-            reasoningEffort,
-            timeoutMinutes,
             templateService,
             summaryConfig,
             null,
@@ -195,21 +195,15 @@ public class SummaryGenerator {
 
     /// Full-parameter constructor for testing — all collaborators are injectable.
     SummaryGenerator(
-            Path outputDirectory,
+            SummaryGeneratorConfig config,
             CopilotClient client,
-            String summaryModel,
-            String reasoningEffort,
-            long timeoutMinutes,
             TemplateService templateService,
             SummaryConfig summaryConfig,
             SummaryCollaborators collaborators,
             Clock clock,
             SharedCircuitBreaker circuitBreaker) {
-        this.outputDirectory = outputDirectory;
+        this.config = config;
         this.client = client;
-        this.summaryModel = summaryModel;
-        this.reasoningEffort = reasoningEffort;
-        this.timeoutMinutes = timeoutMinutes;
         this.templateService = templateService;
         this.circuitBreaker = circuitBreaker;
         this.invocationTimestamp = LocalDateTime.now(clock).format(TIMESTAMP_FORMATTER);
@@ -247,7 +241,7 @@ public class SummaryGenerator {
     }
     
     private String buildSummaryWithAI(List<ReviewResult> results, String repository) {
-        logger.info("Using model for summary: {}", summaryModel);
+        logger.info("Using model for summary: {}", config.summaryModel());
         String prompt = summaryPromptBuilder.buildSummaryPrompt(results, repository);
         RetryExecutor<String> retryExecutor = new RetryExecutor<>(
             AI_SUMMARY_MAX_RETRIES,
@@ -263,28 +257,7 @@ public class SummaryGenerator {
             this::isNonBlank,
             _ -> false,
             this::isTransientFailure,
-            new RetryExecutor.RetryObserver<>() {
-                @Override
-                public void onCircuitOpen() {
-                    logger.warn("Summary generation skipped by open circuit breaker");
-                }
-
-                @Override
-                public void onRetryableException(int attempt, int totalAttempts, Exception exception) {
-                    logger.warn("Summary generation failed on attempt {}/{}: {}. Retrying...",
-                        attempt, totalAttempts, exception.getMessage(), exception);
-                }
-
-                @Override
-                public void onFinalException(int attempt,
-                                             int totalAttempts,
-                                             Exception exception,
-                                             boolean transientFailure) {
-                    if (!transientFailure) {
-                        logger.warn("Summary generation failed without retry: {}", exception.getMessage(), exception);
-                    }
-                }
-            }
+            summaryRetryObserver()
         );
 
         if (!isNonBlank(summary)) {
@@ -296,35 +269,40 @@ public class SummaryGenerator {
     private String runSummaryAttempt(String prompt)
             throws ExecutionException, TimeoutException {
         var sessionConfig = createSummarySessionConfig();
-        long sessionCreateTimeoutMinutes = sessionCreateTimeoutMinutes(timeoutMinutes);
-        long timeoutMs = messageTimeoutMs(timeoutMinutes);
-        int contentAttempts = AI_SUMMARY_MAX_RETRIES + 1;
+        long sessionCreateTimeoutMinutes = sessionCreateTimeoutMinutes(config.timeoutMinutes());
 
         try (CopilotSession session = client.createSession(sessionConfig)
             .get(sessionCreateTimeoutMinutes, TimeUnit.MINUTES)) {
-            for (int attempt = 1; attempt <= contentAttempts; attempt++) {
-                var response = session
-                    .sendAndWait(new MessageOptions().setPrompt(prompt), timeoutMs)
-                    .get(timeoutMinutes, TimeUnit.MINUTES);
-                String content = response.getData().content();
-                if (isNonBlank(content)) {
-                    return content;
-                }
-
-                if (attempt < contentAttempts) {
-                    RetryPolicyUtils.sleepWithBackoff(RETRY_BACKOFF_BASE_MS, RETRY_BACKOFF_MAX_MS, attempt);
-                    logger.warn(
-                        "Summary generation returned empty content on attempt {}/{} in same session. Retrying...",
-                        attempt,
-                        contentAttempts
-                    );
-                }
-            }
-            return null;
+            return sendUntilNonBlank(session, prompt);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new CopilotCliException("Summary generation interrupted", ex);
         }
+    }
+
+    /// Sends the prompt up to {@code contentAttempts} times within the same session,
+    /// returning the first non-blank response or {@code null}.
+    private String sendUntilNonBlank(CopilotSession session, String prompt)
+            throws ExecutionException, InterruptedException, TimeoutException {
+        long timeoutMs = messageTimeoutMs(config.timeoutMinutes());
+        int contentAttempts = AI_SUMMARY_MAX_RETRIES + 1;
+
+        for (int attempt = 1; attempt <= contentAttempts; attempt++) {
+            var response = session
+                .sendAndWait(new MessageOptions().setPrompt(prompt), timeoutMs)
+                .get(config.timeoutMinutes(), TimeUnit.MINUTES);
+            String content = response.getData().content();
+            if (isNonBlank(content)) {
+                return content;
+            }
+            if (attempt < contentAttempts) {
+                RetryPolicyUtils.sleepWithBackoff(RETRY_BACKOFF_BASE_MS, RETRY_BACKOFF_MAX_MS, attempt);
+                logger.warn(
+                    "Summary generation returned empty content on attempt {}/{} in same session. Retrying...",
+                    attempt, contentAttempts);
+            }
+        }
+        return null;
     }
 
     static long sessionCreateTimeoutMinutes(long totalTimeoutMinutes) {
@@ -343,10 +321,33 @@ public class SummaryGenerator {
         return RetryPolicyUtils.isTransientException(exception);
     }
 
+    private static RetryExecutor.RetryObserver<String> summaryRetryObserver() {
+        return new RetryExecutor.RetryObserver<>() {
+            @Override
+            public void onCircuitOpen() {
+                logger.warn("Summary generation skipped by open circuit breaker");
+            }
+
+            @Override
+            public void onRetryableException(int attempt, int totalAttempts, Exception exception) {
+                logger.warn("Summary generation failed on attempt {}/{}: {}. Retrying...",
+                    attempt, totalAttempts, exception.getMessage(), exception);
+            }
+
+            @Override
+            public void onFinalException(int attempt, int totalAttempts,
+                                         Exception exception, boolean transientFailure) {
+                if (!transientFailure) {
+                    logger.warn("Summary generation failed without retry: {}", exception.getMessage(), exception);
+                }
+            }
+        };
+    }
+
     private SessionConfig createSummarySessionConfig() {
         String systemPrompt = templateService.getSummarySystemPrompt();
         var sessionConfig = new SessionConfig()
-            .setModel(summaryModel)
+            .setModel(config.summaryModel())
             .setSystemMessage(new SystemMessageConfig()
                 .setMode(SystemMessageMode.REPLACE)
                 .setContent(systemPrompt));
@@ -356,9 +357,9 @@ public class SummaryGenerator {
     }
 
     private void applyReasoningEffort(SessionConfig sessionConfig) {
-        String effort = ModelConfig.resolveReasoningEffort(summaryModel, reasoningEffort);
+        String effort = ModelConfig.resolveReasoningEffort(config.summaryModel(), config.reasoningEffort());
         if (effort != null) {
-            logger.info("Setting reasoning effort '{}' for model: {}", effort, summaryModel);
+            logger.info("Setting reasoning effort '{}' for model: {}", effort, config.summaryModel());
             sessionConfig.setReasoningEffort(effort);
         }
     }
@@ -369,15 +370,15 @@ public class SummaryGenerator {
     }
 
     private Path resolveSummaryOutputDirectory() {
-        Path invocationDirectory = outputDirectory.getFileName();
+        Path invocationDirectory = config.outputDirectory().getFileName();
         if (invocationDirectory == null) {
-            return outputDirectory;
+            return config.outputDirectory();
         }
         if (!INVOCATION_TIMESTAMP_PATTERN.matcher(invocationDirectory.toString()).matches()) {
-            return outputDirectory;
+            return config.outputDirectory();
         }
-        Path parent = outputDirectory.getParent();
-        return parent != null ? parent : outputDirectory;
+        Path parent = config.outputDirectory().getParent();
+        return parent != null ? parent : config.outputDirectory();
     }
 
     private void ensureOutputDirectory(Path directory) throws IOException {

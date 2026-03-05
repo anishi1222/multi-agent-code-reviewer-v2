@@ -189,21 +189,26 @@ public class ReviewAgent {
             for (int pass = 0; pass < reviewPasses; pass++) {
                 tasks.add(() -> review(target));
             }
-            List<Future<ReviewResult>> futures = executor.invokeAll(tasks);
-            List<ReviewResult> results = new ArrayList<>(reviewPasses);
-            for (Future<ReviewResult> future : futures) {
-                try {
-                    results.add(future.get());
-                } catch (ExecutionException e) {
-                    logger.warn("Agent {}: fallback pass failed: {}", config.name(), e.getMessage(), e);
-                    results.add(reviewResultFactory.fromException(config, target.displayName(), e));
-                }
-            }
-            return results;
+            return collectFallbackResults(executor.invokeAll(tasks), target);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return List.of(reviewResultFactory.fromException(config, target.displayName(), e));
         }
+    }
+
+    private List<ReviewResult> collectFallbackResults(List<Future<ReviewResult>> futures,
+                                                       ReviewTarget target)
+            throws InterruptedException {
+        List<ReviewResult> results = new ArrayList<>(futures.size());
+        for (Future<ReviewResult> future : futures) {
+            try {
+                results.add(future.get());
+            } catch (ExecutionException e) {
+                logger.warn("Agent {}: fallback pass failed: {}", config.name(), e.getMessage(), e);
+                results.add(reviewResultFactory.fromException(config, target.displayName(), e));
+            }
+        }
+        return results;
     }
     
     private ReviewResult executeReview(ReviewTarget target) throws Exception {
@@ -237,7 +242,7 @@ public class ReviewAgent {
         String localSourceContent = params.localSourceContent();
         Map<String, Object> mcpServers = params.mcpServers();
 
-        String systemPrompt = buildSystemPromptWithCustomInstruction();
+        String systemPrompt = buildSystemPrompt();
         SessionConfig sessionConfig = reviewSessionConfigFactory.create(
             config,
             ctx,
@@ -278,53 +283,55 @@ public class ReviewAgent {
             reviewPasses, config.name(), target.displayName());
 
         ResolvedReviewParams params = resolveReviewParams(target);
-        String displayName = params.displayName();
-        String instruction = params.instruction();
-        String localSourceContent = params.localSourceContent();
-        Map<String, Object> mcpServers = params.mcpServers();
 
         List<ReviewResult> results = new ArrayList<>(reviewPasses);
 
         // First pass uses shared-session path to amortize MCP/session setup cost.
         results.addAll(executeReviewPassesSequential(target, 1));
 
-        if (reviewPasses == 1) {
-            return results;
+        if (reviewPasses > 1) {
+            results.addAll(submitAndCollectParallelPasses(target, params, reviewPasses));
         }
 
+        return results;
+    }
+
+    /// Submits remaining passes (2..N) in parallel and collects results in pass order.
+    private List<ReviewResult> submitAndCollectParallelPasses(
+            ReviewTarget target, ResolvedReviewParams params, int reviewPasses)
+            throws InterruptedException {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<Callable<PassResult>> tasks = new ArrayList<>(reviewPasses - 1);
             for (int pass = 2; pass <= reviewPasses; pass++) {
                 int passNumber = pass;
-                tasks.add(() -> {
-                    String localSourceForPass = resolveLocalSourceContentForPass(target, localSourceContent, passNumber);
-                    ReviewResult result = reviewRetryExecutor.execute(
-                        () -> executeReviewCommon(displayName, instruction, localSourceForPass, mcpServers),
-                        e -> reviewResultFactory.fromException(config, displayName, e)
-                    );
-                    return new PassResult(passNumber, result);
-                });
+                tasks.add(() -> executeParallelPass(target, params, passNumber));
             }
 
-            var futures = executor.invokeAll(tasks);
-            List<PassResult> passResults = new ArrayList<>(futures.size());
-            for (var future : futures) {
-                try {
-                    passResults.add(future.get());
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw e;
-                } catch (ExecutionException e) {
-                    throw new IllegalStateException("Hybrid review pass execution failed", e.getCause());
-                }
-            }
-            passResults.sort(Comparator.comparingInt(PassResult::passNumber));
-            for (PassResult passResult : passResults) {
-                results.add(passResult.result());
+            return collectParallelPassResults(executor.invokeAll(tasks));
+        }
+    }
+
+    private PassResult executeParallelPass(ReviewTarget target, ResolvedReviewParams params, int passNumber) {
+        String localSourceForPass = resolveLocalSourceContentForPass(target, params.localSourceContent(), passNumber);
+        ReviewResult result = reviewRetryExecutor.execute(
+            () -> executeReviewCommon(params.displayName(), params.instruction(), localSourceForPass, params.mcpServers()),
+            e -> reviewResultFactory.fromException(config, params.displayName(), e)
+        );
+        return new PassResult(passNumber, result);
+    }
+
+    private static List<ReviewResult> collectParallelPassResults(List<Future<PassResult>> futures)
+            throws InterruptedException {
+        List<PassResult> passResults = new ArrayList<>(futures.size());
+        for (var future : futures) {
+            try {
+                passResults.add(future.get());
+            } catch (ExecutionException e) {
+                throw new IllegalStateException("Hybrid review pass execution failed", e.getCause());
             }
         }
-
-        return results;
+        passResults.sort(Comparator.comparingInt(PassResult::passNumber));
+        return passResults.stream().map(PassResult::result).toList();
     }
 
     private record PassResult(int passNumber, ReviewResult result) {
@@ -368,7 +375,7 @@ public class ReviewAgent {
                                              String instruction,
                                              String localSourceContent,
                                              Map<String, Object> mcpServers) throws Exception {
-        String systemPrompt = buildSystemPromptWithCustomInstruction();
+        String systemPrompt = buildSystemPrompt();
         SessionConfig sessionConfig = reviewSessionConfigFactory.create(
             config,
             ctx,
@@ -516,17 +523,13 @@ public class ReviewAgent {
         return idleTimeoutScheduler.schedule(ctx.sharedScheduler(), collector, idleTimeoutMs);
     }
 
-    /// Builds the system prompt including output constraints and custom instructions.
+    /// Builds the system prompt including output constraints.
     /// Output constraints (CoT suppression, language enforcement) are loaded from an external
     /// template and appended after the base system prompt.
-    /// Custom instructions from .github/instructions/*.instructions.md are appended last.
-    private String buildSystemPromptWithCustomInstruction() {
+    private String buildSystemPrompt() {
         return reviewSystemPromptFormatter.format(
             AgentPromptBuilder.buildFullSystemPrompt(config, focusAreasGuidance),
-            ctx.outputConstraints(),
-            ctx.customInstructions(),
-            instruction -> logger.debug("Applied custom instruction from {} to agent: {}",
-                instruction.sourcePath(), config.name())
+            ctx.outputConstraints()
         );
     }
 }
