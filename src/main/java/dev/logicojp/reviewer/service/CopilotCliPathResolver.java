@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.service;
 
 import dev.logicojp.reviewer.util.CliPathResolver;
+import io.micronaut.context.annotation.Value;
 import jakarta.inject.Singleton;
 
 import java.nio.file.Path;
@@ -10,8 +11,19 @@ import java.nio.file.Path;
 public class CopilotCliPathResolver {
 
     static final String CLI_PATH_ENV = "COPILOT_CLI_PATH";
-    private static final String PATH_ENV = "PATH";
     private static final String[] CLI_CANDIDATES = {"github-copilot", "copilot"};
+    private final String configuredCliPath;
+    private final String configuredPath;
+
+    public CopilotCliPathResolver() {
+        this(System.getenv(CLI_PATH_ENV), System.getenv("PATH"));
+    }
+
+    public CopilotCliPathResolver(@Value("${COPILOT_CLI_PATH:}") String configuredCliPath,
+                                  @Value("${PATH:}") String configuredPath) {
+        this.configuredCliPath = configuredCliPath;
+        this.configuredPath = configuredPath;
+    }
 
     public String resolveCliPath() {
         String explicit = resolveExplicitCliPath();
@@ -22,7 +34,7 @@ public class CopilotCliPathResolver {
     }
 
     private String resolveExplicitCliPath() {
-        String explicit = env(CLI_PATH_ENV);
+        String explicit = configuredCliPath;
         if (explicit == null || explicit.isBlank()) {
             return null;
         }
@@ -34,7 +46,7 @@ public class CopilotCliPathResolver {
     }
 
     private String resolveCliPathFromSystemPath() {
-        String pathEnv = env(PATH_ENV);
+        String pathEnv = configuredPath;
         if (pathEnv == null || pathEnv.isBlank()) {
             throw new CopilotCliException("PATH is not set. Install GitHub Copilot CLI and/or set "
                 + CLI_PATH_ENV + " to its executable path.");
@@ -47,11 +59,6 @@ public class CopilotCliPathResolver {
         throw new CopilotCliException("GitHub Copilot CLI not found in PATH. Install it and ensure "
             + "`github-copilot` or `copilot` is available, or set " + CLI_PATH_ENV + ".");
     }
-
-    private String env(String key) {
-        return System.getenv(key);
-    }
-
     private CopilotCliException explicitPathNotFound(String explicit) {
         Path explicitPathValue = Path.of(explicit.trim()).toAbsolutePath().normalize();
         return new CopilotCliException("Copilot CLI not found at " + explicitPathValue

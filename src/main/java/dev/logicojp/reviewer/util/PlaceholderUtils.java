@@ -5,6 +5,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /// Placeholder replacement helpers for `${key}` style templates.
+///
+/// This syntax is used for agent prompt construction.
+/// Report and summary templates use `{{key}}` and are processed by
+/// {@link dev.logicojp.reviewer.service.TemplateService}.
 public final class PlaceholderUtils {
 
     private static final Pattern DOLLAR_PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{(\\w+)}");

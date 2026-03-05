@@ -19,20 +19,20 @@ class ReviewRunRequestFactoryTest {
     @DisplayName("実行リクエストへ必要項目を正しく転送する")
     void createsRunRequestWithExpectedFields() {
         var factory = new ReviewRunRequestFactory();
-        var options = new ReviewCommand.ParsedOptions(
-            new ReviewCommand.TargetSelection.Repository("owner/repo"),
-            new ReviewCommand.AgentSelection.All(),
-            Path.of("./reports"),
-            List.of(),
-            "ghp_token",
-            3,
-            true,
-            "review-model",
-            "report-model",
-            "summary-model",
-            "default-model",
-            false
-        );
+        var options = ReviewCommand.ParsedOptions.builder()
+            .target(new ReviewCommand.TargetSelection.Repository("owner/repo"))
+            .agents(new ReviewCommand.AgentSelection.All())
+            .outputDirectory(Path.of("./reports"))
+            .additionalAgentDirs(List.of())
+            .githubToken("ghp_token")
+            .parallelism(3)
+            .noSummary(true)
+            .reviewModel("review-model")
+            .reportModel("report-model")
+            .summaryModel("summary-model")
+            .defaultModel("default-model")
+            .trustTarget(false)
+            .build();
         var target = ReviewTarget.gitHub("owner/repo");
         var modelConfig = new ModelConfig("review-model", "report-model", "summary-model", "high", "default-model");
         var agentConfigs = Map.of("code-quality", new AgentConfig("code-quality", "Code Quality", "review-model", "prompt", "instruction", "", List.of(), List.of()));

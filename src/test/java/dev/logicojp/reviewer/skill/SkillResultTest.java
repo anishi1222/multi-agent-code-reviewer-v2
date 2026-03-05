@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("SkillResult")
 class SkillResultTest {
@@ -66,11 +67,11 @@ class SkillResultTest {
     class Constructor {
 
         @Test
-        @DisplayName("timestampがnullの場合はInstant.nowが設定される")
-        void nullTimestampDefaultsToNow() {
-            SkillResult result = new SkillResult("s1", true, "c", null, null);
-            assertThat(result.timestamp()).isNotNull();
-            assertThat(result.timestamp()).isBeforeOrEqualTo(Instant.now());
+        @DisplayName("timestampがnullの場合は例外を投げる")
+        void nullTimestampThrows() {
+            assertThatThrownBy(() -> new SkillResult("s1", true, "c", null, null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("timestamp must not be null");
         }
 
         @Test

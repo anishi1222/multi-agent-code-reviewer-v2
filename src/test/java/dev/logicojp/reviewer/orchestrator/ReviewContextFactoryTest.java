@@ -23,7 +23,7 @@ class ReviewContextFactoryTest {
         CopilotClient client = new CopilotClient(new CopilotClientOptions());
         var scheduler = Executors.newSingleThreadScheduledExecutor();
         try {
-            var executionConfig = ExecutionConfig.ofFlat(2, 1, 10, 5, 3, 5, 5, 10, 2, 0, 0, 0);
+            var executionConfig = dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(2, 1, 10, 5, 3, 5, 5, 10, 2, 0, 0, 0);
             Map<String, Object> cachedMcp = Map.of("github", Map.of("type", "http"));
             var localFileConfig = new LocalFileConfig();
 

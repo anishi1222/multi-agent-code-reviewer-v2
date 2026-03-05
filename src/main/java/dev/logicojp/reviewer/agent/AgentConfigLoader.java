@@ -12,7 +12,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -197,15 +196,9 @@ public class AgentConfigLoader {
     /// Skills without an agent metadata field are available to all agents.
     private List<SkillDefinition> collectSkillsForAgent(String agentName,
                                                          List<SkillDefinition> globalSkills) {
-        List<SkillDefinition> skills = new ArrayList<>();
-
-        for (SkillDefinition skill : globalSkills) {
-            if (isSkillApplicableToAgent(skill, agentName)) {
-                skills.add(skill);
-            }
-        }
-
-        return skills;
+        return globalSkills.stream()
+            .filter(skill -> isSkillApplicableToAgent(skill, agentName))
+            .toList();
     }
 
     private boolean isSkillApplicableToAgent(SkillDefinition skill, String agentName) {

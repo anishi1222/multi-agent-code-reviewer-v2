@@ -8,9 +8,6 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 @Singleton
 class SkillExecutionCoordinator {
@@ -23,8 +20,7 @@ class SkillExecutionCoordinator {
     @FunctionalInterface
     interface SkillRunner {
         SkillResult run(String skillId, Map<String, String> parameters, String resolvedToken, String model,
-                        long timeoutMinutes)
-            throws ExecutionException, TimeoutException, InterruptedException;
+                        long timeoutMinutes);
     }
 
     @FunctionalInterface
@@ -44,8 +40,7 @@ class SkillExecutionCoordinator {
         this(
             copilotService::initializeOrThrow,
             (skillId, parameters, resolvedToken, model, timeoutMinutes) ->
-                skillService.executeSkill(skillId, parameters, resolvedToken, model)
-                    .get(timeoutMinutes, TimeUnit.MINUTES),
+                skillService.executeSkill(skillId, parameters, resolvedToken, model),
             copilotService::shutdown,
             output
         );
@@ -69,59 +64,11 @@ class SkillExecutionCoordinator {
         try {
             return LifecycleRunner.executeWithLifecycle(
                 () -> initializer.initialize(resolvedToken),
-                () -> runUnchecked(skillId, parameters, resolvedToken, model, timeoutMinutes),
+                () -> runAndHandleResult(skillId, parameters, resolvedToken, model, timeoutMinutes),
                 shutdowner::shutdown
             );
-        } catch (SkillRunExecutionException e) {
-            throw toExecutionFailure((ExecutionException) e.getCause());
-        } catch (SkillRunTimeoutException e) {
-            throw toExecutionFailure((TimeoutException) e.getCause());
-        } catch (SkillRunInterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw toInterruptedFailure((InterruptedException) e.getCause());
-        }
-    }
-
-    private int runUnchecked(String skillId,
-                             Map<String, String> parameters,
-                             String resolvedToken,
-                             String model,
-                             long timeoutMinutes) {
-        try {
-            return runAndHandleResult(skillId, parameters, resolvedToken, model, timeoutMinutes);
-        } catch (ExecutionException e) {
-            throw new SkillRunExecutionException(e);
-        } catch (TimeoutException e) {
-            throw new SkillRunTimeoutException(e);
-        } catch (InterruptedException e) {
-            throw new SkillRunInterruptedException(e);
-        }
-    }
-
-    private static final class SkillRunExecutionException extends RuntimeException {
-        @java.io.Serial
-        private static final long serialVersionUID = 1L;
-
-        private SkillRunExecutionException(ExecutionException cause) {
-            super(cause);
-        }
-    }
-
-    private static final class SkillRunTimeoutException extends RuntimeException {
-        @java.io.Serial
-        private static final long serialVersionUID = 1L;
-
-        private SkillRunTimeoutException(TimeoutException cause) {
-            super(cause);
-        }
-    }
-
-    private static final class SkillRunInterruptedException extends RuntimeException {
-        @java.io.Serial
-        private static final long serialVersionUID = 1L;
-
-        private SkillRunInterruptedException(InterruptedException cause) {
-            super(cause);
+        } catch (RuntimeException e) {
+            throw toExecutionFailure(e);
         }
     }
 
@@ -129,8 +76,7 @@ class SkillExecutionCoordinator {
                                    Map<String, String> parameters,
                                    String resolvedToken,
                                    String model,
-                                   long timeoutMinutes)
-        throws ExecutionException, TimeoutException, InterruptedException {
+                                   long timeoutMinutes) {
         printExecutionStart(skillId, parameters);
         SkillResult result = skillRunner.run(skillId, parameters, resolvedToken, model, timeoutMinutes);
         return toExitCode(result);
@@ -161,9 +107,5 @@ class SkillExecutionCoordinator {
 
     private CopilotCliException toExecutionFailure(Exception cause) {
         return new CopilotCliException("Skill execution failed", cause);
-    }
-
-    private CopilotCliException toInterruptedFailure(InterruptedException cause) {
-        return new CopilotCliException("Skill execution interrupted", cause);
     }
 }

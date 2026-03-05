@@ -89,30 +89,6 @@ public class ReviewCommand {
             Objects.requireNonNull(agents, "agents must not be null");
         }
 
-        ParsedOptions(
-            TargetSelection target,
-            AgentSelection agents,
-            Path outputDirectory,
-            List<Path> additionalAgentDirs,
-            String githubToken,
-            int parallelism,
-            boolean noSummary,
-            String reviewModel,
-            String reportModel,
-            String summaryModel,
-            String defaultModel,
-            boolean trustTarget
-        ) {
-            this(
-                target,
-                agents,
-                new OutputOptions(outputDirectory, additionalAgentDirs, parallelism, noSummary, false),
-                new ModelOptions(reviewModel, reportModel, summaryModel, defaultModel),
-                githubToken,
-                trustTarget
-            );
-        }
-
         public Path outputDirectory() {
             return output.outputDirectory();
         }

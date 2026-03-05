@@ -102,38 +102,6 @@ public record ExecutionConfig(
             : DEFAULT_SHARED_SESSION_ENABLED;
     }
 
-    public static ExecutionConfig ofFlat(int parallelism,
-                                         int reviewPasses,
-                                         long orchestratorTimeoutMinutes,
-                                         long agentTimeoutMinutes,
-                                         long idleTimeoutMinutes,
-                                         long skillTimeoutMinutes,
-                                         long summaryTimeoutMinutes,
-                                         long ghAuthTimeoutSeconds,
-                                         int maxRetries,
-                                         int maxAccumulatedSize,
-                                         int initialAccumulatedCapacity,
-                                         int instructionBufferExtraCapacity) {
-        return new ExecutionConfig(
-            new ConcurrencySettings(parallelism, reviewPasses),
-            new TimeoutSettings(
-                orchestratorTimeoutMinutes,
-                agentTimeoutMinutes,
-                idleTimeoutMinutes,
-                skillTimeoutMinutes,
-                summaryTimeoutMinutes,
-                ghAuthTimeoutSeconds
-            ),
-            new RetrySettings(maxRetries),
-            new BufferSettings(
-                maxAccumulatedSize,
-                initialAccumulatedCapacity,
-                instructionBufferExtraCapacity
-            ),
-            DEFAULT_SHARED_SESSION_ENABLED
-        );
-    }
-
     public static ExecutionConfig of(ConcurrencySettings concurrency,
                                      TimeoutSettings timeouts,
                                      RetrySettings retry,
@@ -147,22 +115,6 @@ public record ExecutionConfig(
                                      BufferSettings buffers,
                                      boolean sharedSessionEnabled) {
         return new ExecutionConfig(concurrency, timeouts, retry, buffers, sharedSessionEnabled);
-    }
-
-    public ConcurrencySettings concurrencySettings() {
-        return concurrency;
-    }
-
-    public TimeoutSettings timeoutSettings() {
-        return timeouts;
-    }
-
-    public RetrySettings retrySettings() {
-        return retry;
-    }
-
-    public BufferSettings bufferSettings() {
-        return buffers;
     }
 
     public int parallelism() {

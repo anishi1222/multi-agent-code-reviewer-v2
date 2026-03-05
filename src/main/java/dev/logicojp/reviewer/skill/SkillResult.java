@@ -2,6 +2,7 @@ package dev.logicojp.reviewer.skill;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Objects;
 
 /// Result of a skill execution.
 public record SkillResult(
@@ -13,7 +14,7 @@ public record SkillResult(
 ) {
 
     public SkillResult {
-        timestamp = (timestamp == null) ? Instant.now() : timestamp;
+        timestamp = Objects.requireNonNull(timestamp, "timestamp must not be null");
     }
 
     /// Creates a successful result.

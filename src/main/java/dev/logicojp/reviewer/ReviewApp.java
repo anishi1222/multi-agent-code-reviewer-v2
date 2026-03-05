@@ -10,6 +10,8 @@ import dev.logicojp.reviewer.cli.SkillCommand;
 import io.micronaut.context.ApplicationContext;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
@@ -27,6 +29,7 @@ import java.util.Set;
 @Singleton
 public class ReviewApp {
     private static final Set<String> SUBCOMMANDS = Set.of("run", "list", "skill");
+    private static final Logger logger = LoggerFactory.getLogger(ReviewApp.class);
 
     private final ReviewCommand reviewCommand;
     private final ListAgentsCommand listAgentsCommand;
@@ -79,9 +82,9 @@ public class ReviewApp {
         if (insecureFlags.isEmpty()) {
             return;
         }
-        System.err.println(
-            "WARNING: Potentially insecure JVM flags detected: " + String.join(", ", insecureFlags)
-                + ". Heap dumps or OOM handlers may expose authentication tokens."
+        logger.warn(
+            "Potentially insecure JVM flags detected: {}. Heap dumps or OOM handlers may expose authentication tokens.",
+            String.join(", ", insecureFlags)
         );
     }
 

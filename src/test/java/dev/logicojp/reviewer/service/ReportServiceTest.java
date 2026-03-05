@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -69,7 +70,8 @@ class ReportServiceTest {
             new CopilotCliHealthChecker(new CopilotTimeoutResolver()),
             new CopilotTimeoutResolver(),
             new CopilotStartupErrorFormatter(),
-            new CopilotClientStarter()
+            new CopilotClientStarter(),
+            null
         ) {
             @Override
             public CopilotClient getClient() {
@@ -79,7 +81,7 @@ class ReportServiceTest {
 
         ReportService service = new ReportService(
             copilotService,
-            ExecutionConfig.ofFlat(1, 1, 1, 1, 1, 1, 3, 1, 0, 0, 0, 0),
+            dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(1, 1, 1, 1, 1, 1, 3, 1, 0, 0, 0, 0),
             factory
         );
 
@@ -92,6 +94,8 @@ class ReportServiceTest {
     @Test
     @DisplayName("generateSummary は timeout を渡して factory 生成ジェネレータを使用する")
     void generateSummaryUsesFactoryGeneratorWithTimeout() throws IOException {
+        Files.writeString(tempDir.resolve("executive-summary.md"), "{{repository}}\n{{summary}}\n");
+
         TemplateService templateService = new TemplateService(new TemplateConfig(tempDir.toString(),
             null, null, null, null, null, null, null));
 
@@ -109,15 +113,14 @@ class ReportServiceTest {
                                                            String summaryModel,
                                                            String reasoningEffort,
                                                            long timeoutMinutes) {
-                return new SummaryGenerator(outputDirectory, copilotClient, summaryModel, reasoningEffort,
-                    timeoutMinutes, templateService, new SummaryConfig(0, 0, 0, 0, 0, 0)) {
-                    @Override
-                    public Path generateSummary(List<ReviewResult> results, String repository) {
-                        capturedTimeout.set(timeoutMinutes);
-                        capturedModel.set(summaryModel);
-                        return outputDirectory.resolve("summary.md");
-                    }
-                };
+                capturedTimeout.set(timeoutMinutes);
+                capturedModel.set(summaryModel);
+                return SummaryGenerator.builder(outputDirectory, copilotClient, summaryModel, templateService)
+                    .reasoningEffort(reasoningEffort)
+                    .timeoutMinutes(timeoutMinutes)
+                    .summaryConfig(new SummaryConfig(0, 0, 0, 0, 0, 0))
+                    .aiSummaryBuilder((results, repository) -> "summary")
+                    .build();
             }
         };
 
@@ -126,7 +129,8 @@ class ReportServiceTest {
             new CopilotCliHealthChecker(new CopilotTimeoutResolver()),
             new CopilotTimeoutResolver(),
             new CopilotStartupErrorFormatter(),
-            new CopilotClientStarter()
+            new CopilotClientStarter(),
+            null
         ) {
             @Override
             public CopilotClient getClient() {
@@ -136,7 +140,7 @@ class ReportServiceTest {
 
         ReportService service = new ReportService(
             copilotService,
-            ExecutionConfig.ofFlat(1, 1, 1, 1, 1, 1, 7, 1, 0, 0, 0, 0),
+            dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(1, 1, 1, 1, 1, 1, 7, 1, 0, 0, 0, 0),
             factory
         );
 
@@ -144,6 +148,7 @@ class ReportServiceTest {
 
         assertThat(capturedTimeout.get()).isEqualTo(7L);
         assertThat(capturedModel.get()).isEqualTo("m");
-        assertThat(summary).isEqualTo(tempDir.resolve("summary.md"));
+        assertThat(summary).exists();
+        assertThat(summary.getParent()).isEqualTo(tempDir);
     }
 }

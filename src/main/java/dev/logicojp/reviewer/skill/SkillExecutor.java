@@ -3,7 +3,6 @@ package dev.logicojp.reviewer.skill;
 import dev.logicojp.reviewer.agent.SharedCircuitBreaker;
 import dev.logicojp.reviewer.config.GithubMcpConfig;
 import dev.logicojp.reviewer.util.StructuredConcurrencyUtils;
-import dev.logicojp.reviewer.util.ExecutorUtils;
 import dev.logicojp.reviewer.util.RetryExecutor;
 import dev.logicojp.reviewer.util.RetryPolicyUtils;
 import com.github.copilot.sdk.CopilotClient;
@@ -18,9 +17,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -36,24 +32,17 @@ public class SkillExecutor implements AutoCloseable {
     private final String defaultModel;
     private final long timeoutMinutes;
     private final int maxParameterValueLength;
-    private final int executorShutdownTimeoutSeconds;
-    private final Executor executor;
-    private final boolean ownsExecutor;
     private final Map<String, Object> cachedMcpServers;
     private final SharedCircuitBreaker circuitBreaker;
 
     public SkillExecutor(CopilotClient client, String githubToken,
                          GithubMcpConfig githubMcpConfig,
-                         SkillExecutorConfig config,
-                         Executor executor,
-                         boolean ownsExecutor) {
+                         SkillExecutorConfig config) {
         this(
             client,
             githubToken,
             githubMcpConfig,
             config,
-            executor,
-            ownsExecutor,
             SharedCircuitBreaker.withDefaultConfig()
         );
     }
@@ -62,16 +51,11 @@ public class SkillExecutor implements AutoCloseable {
                          String githubToken,
                          GithubMcpConfig githubMcpConfig,
                          SkillExecutorConfig config,
-                         Executor executor,
-                         boolean ownsExecutor,
                          SharedCircuitBreaker circuitBreaker) {
         this.client = client;
         this.defaultModel = config.defaultModel();
         this.timeoutMinutes = config.timeoutMinutes();
         this.maxParameterValueLength = config.maxParameterValueLength();
-        this.executorShutdownTimeoutSeconds = config.executorShutdownTimeoutSeconds();
-        this.executor = executor;
-        this.ownsExecutor = ownsExecutor;
         this.cachedMcpServers = GithubMcpConfig.buildMcpServers(githubToken, githubMcpConfig).orElse(Map.of());
         this.circuitBreaker = circuitBreaker;
     }
@@ -89,15 +73,15 @@ public class SkillExecutor implements AutoCloseable {
     }
 
     /// Executes a skill with the given parameters.
-    public CompletableFuture<SkillResult> execute(SkillDefinition skill, Map<String, String> parameters) {
+    public SkillResult execute(SkillDefinition skill, Map<String, String> parameters) {
         return execute(skill, parameters, null);
     }
 
     /// Executes a skill with the given parameters and system prompt.
-    public CompletableFuture<SkillResult> execute(SkillDefinition skill,
-                                                  Map<String, String> parameters,
-                                                  @Nullable String systemPrompt) {
-        return CompletableFuture.supplyAsync(() -> executeSafely(skill, parameters, systemPrompt), executor);
+    public SkillResult execute(SkillDefinition skill,
+                               Map<String, String> parameters,
+                               @Nullable String systemPrompt) {
+        return executeSafely(skill, parameters, systemPrompt);
     }
 
     private SkillResult executeSafely(SkillDefinition skill,
@@ -234,11 +218,9 @@ public class SkillExecutor implements AutoCloseable {
         return sessionConfig;
     }
 
-    /// Shuts down the internally-owned executor, if any.
+    /// No-op lifecycle hook; retained for API symmetry with other closeable services.
     @Override
     public void close() {
-        if (ownsExecutor && executor instanceof ExecutorService es) {
-            ExecutorUtils.shutdownGracefully(es, executorShutdownTimeoutSeconds);
-        }
+        // No-op: execution uses StructuredTaskScope and does not own external executors.
     }
 }

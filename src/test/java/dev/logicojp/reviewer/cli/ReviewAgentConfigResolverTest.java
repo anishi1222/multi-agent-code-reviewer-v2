@@ -69,20 +69,16 @@ class ReviewAgentConfigResolverTest {
     }
 
     private static ReviewCommand.ParsedOptions parsedOptions(String reviewModel) {
-        return new ReviewCommand.ParsedOptions(
-            new ReviewCommand.TargetSelection.Repository("owner/repo"),
-            new ReviewCommand.AgentSelection.All(),
-            Path.of("./reports"),
-            List.of(),
-            null,
-            4,
-            false,
-            reviewModel,
-            null,
-            null,
-            null,
-            false
-        );
+        return ReviewCommand.ParsedOptions.builder()
+            .target(new ReviewCommand.TargetSelection.Repository("owner/repo"))
+            .agents(new ReviewCommand.AgentSelection.All())
+            .outputDirectory(Path.of("./reports"))
+            .additionalAgentDirs(List.of())
+            .parallelism(4)
+            .noSummary(false)
+            .reviewModel(reviewModel)
+            .trustTarget(false)
+            .build();
     }
 
     private static AgentConfig agentConfig(String name, String model) {

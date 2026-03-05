@@ -30,6 +30,11 @@ final class ConfigDefaults {
         return value <= 0 ? defaultValue : value;
     }
 
+    /// Returns {@code defaultValue} when {@code value} is zero or negative.
+    static double defaultIfNonPositive(double value, double defaultValue) {
+        return value <= 0.0 ? defaultValue : value;
+    }
+
     /// Returns {@code defaultValue} when {@code value} is negative (zero is allowed).
     static int defaultIfNegative(int value, int defaultValue) {
         return value < 0 ? defaultValue : value;
