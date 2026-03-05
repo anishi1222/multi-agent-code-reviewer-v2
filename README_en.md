@@ -157,6 +157,14 @@ mvn clean package
 mvn clean package -Pnative
 ```
 
+### Test Troubleshooting
+
+If tests fail with `NoSuchMethodError` for synthetic methods such as `access$0`, run a clean rebuild to remove stale class outputs:
+
+```bash
+mvn clean test
+```
+
 ## Usage
 
 > Note: This project uses Java preview features. Run the JVM JAR with `--enable-preview`.

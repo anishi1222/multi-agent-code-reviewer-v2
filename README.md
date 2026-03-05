@@ -83,6 +83,14 @@ mvn test
 mvn test -Dtest=ModelConfigTest
 ```
 
+### Test Troubleshooting
+
+If tests fail with `NoSuchMethodError` for synthetic methods such as `access$0`, run a clean rebuild to clear stale class outputs:
+
+```bash
+mvn clean test
+```
+
 ## Documentation
 
 - English: [README_en.md](./README_en.md)

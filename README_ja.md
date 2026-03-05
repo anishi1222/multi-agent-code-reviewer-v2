@@ -157,6 +157,14 @@ mvn clean package
 mvn clean package -Pnative
 ```
 
+### テストのトラブルシュート
+
+`access$0` のような合成メソッドに対する `NoSuchMethodError` がテストで出た場合は、古いクラス成果物が原因のことがあります。クリーンビルドを実行してください。
+
+```bash
+mvn clean test
+```
+
 ## 使い方
 
 > 注意: 本プロジェクトは Java のプレビュー機能を利用しています。JVM で実行する場合は `--enable-preview` を付けてください。
