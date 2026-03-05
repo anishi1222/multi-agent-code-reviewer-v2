@@ -34,20 +34,19 @@ class ReviewPreparationServiceTest {
             Clock.fixed(Instant.parse("2026-02-19T09:10:11Z"), ZoneId.of("UTC"))
         );
 
-        ReviewCommand.ParsedOptions options = new ReviewCommand.ParsedOptions(
-            new ReviewCommand.TargetSelection.Repository("owner/repo"),
-            new ReviewCommand.AgentSelection.All(),
-            Path.of("./reports"),
-            List.of(),
-            null,
-            4,
-            false,
-            "review-model",
-            "report-model",
-            "summary-model",
-            "default-model",
-            false
-        );
+        ReviewCommand.ParsedOptions options = ReviewCommand.ParsedOptions.builder()
+            .target(new ReviewCommand.TargetSelection.Repository("owner/repo"))
+            .agents(new ReviewCommand.AgentSelection.All())
+            .outputDirectory(Path.of("./reports"))
+            .additionalAgentDirs(List.of())
+            .parallelism(4)
+            .noSummary(false)
+            .reviewModel("review-model")
+            .reportModel("report-model")
+            .summaryModel("summary-model")
+            .defaultModel("default-model")
+            .trustTarget(false)
+            .build();
         ReviewTarget target = ReviewTarget.gitHub("owner/repo");
         ModelConfig modelConfig = new ModelConfig("r", "p", "s", "high", "d");
         Map<String, AgentConfig> agentConfigs = Map.of(

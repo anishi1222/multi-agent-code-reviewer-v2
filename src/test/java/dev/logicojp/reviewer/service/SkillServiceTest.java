@@ -23,7 +23,8 @@ class SkillServiceTest {
             new CopilotCliHealthChecker(new CopilotTimeoutResolver()),
             new CopilotTimeoutResolver(),
             new CopilotStartupErrorFormatter(),
-            new CopilotClientStarter()
+            new CopilotClientStarter(),
+            null
         );
     }
 
@@ -34,12 +35,12 @@ class SkillServiceTest {
             new dev.logicojp.reviewer.skill.SkillRegistry(),
             newCopilotService(),
             new GithubMcpConfig(null, null, null, null, null, null),
-            ExecutionConfig.ofFlat(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0),
+            dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0),
             SkillConfig.defaults(),
             SharedCircuitBreaker.withDefaultConfig()
         );
 
-        var result = service.executeSkill("missing", Map.of(), null, "model").join();
+        var result = service.executeSkill("missing", Map.of(), null, "model");
 
         assertThat(result.success()).isFalse();
         assertThat(result.errorMessage()).contains("Skill not found");
@@ -52,7 +53,7 @@ class SkillServiceTest {
             new dev.logicojp.reviewer.skill.SkillRegistry(),
             newCopilotService(),
             new GithubMcpConfig(null, null, null, null, null, null),
-            ExecutionConfig.ofFlat(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0),
+            dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0),
             SkillConfig.defaults(),
             SharedCircuitBreaker.withDefaultConfig()
         );

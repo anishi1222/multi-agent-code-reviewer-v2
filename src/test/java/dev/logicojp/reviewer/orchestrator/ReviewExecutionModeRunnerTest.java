@@ -11,8 +11,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,54 +22,48 @@ class ReviewExecutionModeRunnerTest {
     }
 
     @Test
-    @DisplayName("asyncモードでパス結果を収集する")
-    void executesAsyncAndCollectsRawPassResults() {
-        ExecutionConfig config = ExecutionConfig.ofFlat(2, 2, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0);
+    @DisplayName("reviewPasses > 1 のstructuredモードでパス結果を収集する")
+    void executesStructuredAndCollectsRawPassResults() {
+        ExecutionConfig config = dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(2, 2, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0);
         var pipeline = new ReviewResultPipeline();
-        ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
+        var runner = new ReviewExecutionModeRunner(config, pipeline);
+        var results = runner.executeStructured(
+            Map.of("security", agent("security")),
+            ReviewTarget.gitHub("owner/repo"),
+            null,
+            (agentConfig, target, context, reviewPasses, perAgentTimeoutMinutes) -> {
+                var passResults = new ArrayList<ReviewResult>(reviewPasses);
+                for (int pass = 0; pass < reviewPasses; pass++) {
+                    passResults.add(ReviewResult.builder()
+                        .agentConfig(agentConfig)
+                        .repository(target.displayName())
+                        .content("""
+                            ### 1. SQLインジェクション
 
-        try {
-            var runner = new ReviewExecutionModeRunner(config, executorService, pipeline);
-            var results = runner.executeAsync(
-                Map.of("security", agent("security")),
-                ReviewTarget.gitHub("owner/repo"),
-                null,
-                (agentConfig, target, context, reviewPasses, perAgentTimeoutMinutes) -> {
-                    var passResults = new ArrayList<ReviewResult>(reviewPasses);
-                    for (int pass = 0; pass < reviewPasses; pass++) {
-                        passResults.add(ReviewResult.builder()
-                            .agentConfig(agentConfig)
-                            .repository(target.displayName())
-                            .content("""
-                                ### 1. SQLインジェクション
-
-                                | 項目 | 内容 |
-                                |------|------|
-                                | **Priority** | High |
-                                | **指摘の概要** | プレースホルダ未使用 |
-                                | **該当箇所** | src/A.java L10 |
-                                """)
-                            .success(true)
-                            .timestamp(Instant.now())
-                            .build());
-                    }
-                    return passResults;
+                            | 項目 | 内容 |
+                            |------|------|
+                            | **Priority** | High |
+                            | **指摘の概要** | プレースホルダ未使用 |
+                            | **該当箇所** | src/A.java L10 |
+                            """)
+                        .success(true)
+                        .timestamp(Instant.now())
+                        .build());
                 }
-            );
+                return passResults;
+            }
+        );
 
-            assertThat(results).hasSize(2);
-            assertThat(results).allMatch(ReviewResult::success);
-        } finally {
-            executorService.close();
-        }
+        assertThat(results).hasSize(2);
+        assertThat(results).allMatch(ReviewResult::success);
     }
 
     @Test
     @DisplayName("structuredモードで結果を収集できる")
     void executesStructured() {
-        ExecutionConfig config = ExecutionConfig.ofFlat(2, 1, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0);
+        ExecutionConfig config = dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(2, 1, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0);
         var pipeline = new ReviewResultPipeline();
-        var runner = new ReviewExecutionModeRunner(config, null, pipeline);
+        var runner = new ReviewExecutionModeRunner(config, pipeline);
 
         var results = runner.executeStructured(
             Map.of("security", agent("security")),

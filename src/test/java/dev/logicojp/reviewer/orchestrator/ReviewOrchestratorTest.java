@@ -28,7 +28,7 @@ class ReviewOrchestratorTest {
             null,
             new GithubMcpConfig(null, null, null, null, null, null),
             new LocalFileConfig(),
-            ExecutionConfig.ofFlat(2, 1, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0),
+            dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(2, 1, 2, 1, 1, 1, 1, 1, 0, 0, 0, 0),
             "high",
             null,
             "2026-03-05-12-34-56",

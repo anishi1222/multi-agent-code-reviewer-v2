@@ -48,9 +48,10 @@ public record SkillConfig(
             maxExecutorCacheSize, DEFAULT_MAX_EXECUTOR_CACHE_SIZE);
         executorCacheInitialCapacity = ConfigDefaults.defaultIfNonPositive(
             executorCacheInitialCapacity, DEFAULT_EXECUTOR_CACHE_INITIAL_CAPACITY);
-        if (executorCacheLoadFactor <= 0.0) {
-            executorCacheLoadFactor = DEFAULT_EXECUTOR_CACHE_LOAD_FACTOR;
-        }
+        executorCacheLoadFactor = ConfigDefaults.defaultIfNonPositive(
+            executorCacheLoadFactor,
+            DEFAULT_EXECUTOR_CACHE_LOAD_FACTOR
+        );
         serviceShutdownTimeoutSeconds = ConfigDefaults.defaultIfNonPositive(
             serviceShutdownTimeoutSeconds, DEFAULT_SERVICE_SHUTDOWN_TIMEOUT_SECONDS);
         executorShutdownTimeoutSeconds = ConfigDefaults.defaultIfNonPositive(

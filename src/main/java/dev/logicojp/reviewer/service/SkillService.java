@@ -13,7 +13,6 @@ import dev.logicojp.reviewer.skill.SkillDefinition;
 import dev.logicojp.reviewer.skill.SkillExecutor;
 import dev.logicojp.reviewer.skill.SkillRegistry;
 import dev.logicojp.reviewer.skill.SkillResult;
-import dev.logicojp.reviewer.util.ExecutorUtils;
 import dev.logicojp.reviewer.util.TokenHashUtils;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
@@ -23,9 +22,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Function;
 
 /// Service for managing and executing skills.
@@ -40,7 +36,6 @@ public class SkillService {
     private final ExecutionConfig executionConfig;
     private final SkillConfig skillConfig;
     private final SharedCircuitBreaker circuitBreaker;
-    private final ExecutorService executorService;
     private final Cache<ExecutorCacheKey, SkillExecutor> executorCache;
 
     @Inject
@@ -66,7 +61,6 @@ public class SkillService {
         this.executionConfig = executionConfig;
         this.skillConfig = skillConfig;
         this.circuitBreaker = circuitBreaker;
-        this.executorService = Executors.newVirtualThreadPerTaskExecutor();
         this.executorCache = Caffeine.newBuilder()
             .initialCapacity(skillConfig.executorCacheInitialCapacity())
             .maximumSize(skillConfig.maxExecutorCacheSize())
@@ -107,10 +101,10 @@ public class SkillService {
     }
 
     /// Executes a skill by ID with the given parameters.
-    public CompletableFuture<SkillResult> executeSkill(String skillId,
-                                                        Map<String, String> parameters,
-                                                        String githubToken,
-                                                        String model) {
+    public SkillResult executeSkill(String skillId,
+                                    Map<String, String> parameters,
+                                    String githubToken,
+                                    String model) {
         return executeResolvedSkill(
             skillId,
             skill -> createExecutor(githubToken, model).execute(skill, parameters)
@@ -118,24 +112,23 @@ public class SkillService {
     }
 
     /// Executes a skill with a custom system prompt.
-    public CompletableFuture<SkillResult> executeSkill(String skillId,
-                                                        Map<String, String> parameters,
-                                                        String githubToken,
-                                                        String model,
-                                                        String systemPrompt) {
+    public SkillResult executeSkill(String skillId,
+                                    Map<String, String> parameters,
+                                    String githubToken,
+                                    String model,
+                                    String systemPrompt) {
         return executeResolvedSkill(
             skillId,
             skill -> createExecutor(githubToken, model).execute(skill, parameters, systemPrompt)
         );
     }
 
-    private CompletableFuture<SkillResult> executeResolvedSkill(
+    private SkillResult executeResolvedSkill(
             String skillId,
-            Function<SkillDefinition, CompletableFuture<SkillResult>> runner) {
+            Function<SkillDefinition, SkillResult> runner) {
         Optional<SkillDefinition> skillOpt = skillRegistry.get(skillId);
         if (skillOpt.isEmpty()) {
-            return CompletableFuture.completedFuture(
-                SkillResult.failure(skillId, "Skill not found: " + skillId));
+            return SkillResult.failure(skillId, "Skill not found: " + skillId);
         }
 
         return runner.apply(skillOpt.get());
@@ -156,8 +149,6 @@ public class SkillService {
                 skillConfig.maxParameterValueLength(),
                 skillConfig.executorShutdownTimeoutSeconds()
             ),
-            executorService,
-            false,
             circuitBreaker
         ));
     }
@@ -175,6 +166,5 @@ public class SkillService {
             executor.close();
         }
         executorCache.invalidateAll();
-        ExecutorUtils.shutdownGracefully(executorService, skillConfig.serviceShutdownTimeoutSeconds());
     }
 }

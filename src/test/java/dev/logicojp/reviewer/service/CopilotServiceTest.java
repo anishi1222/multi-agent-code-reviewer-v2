@@ -14,7 +14,8 @@ class CopilotServiceTest {
             new CopilotCliHealthChecker(new CopilotTimeoutResolver()),
             new CopilotTimeoutResolver(),
             new CopilotStartupErrorFormatter(),
-            new CopilotClientStarter()
+            new CopilotClientStarter(),
+            null
         );
     }
 

@@ -43,7 +43,8 @@ class ReviewOrchestratorFactoryTest {
             new CopilotCliHealthChecker(new CopilotTimeoutResolver()),
             new CopilotTimeoutResolver(),
             new CopilotStartupErrorFormatter(),
-            new CopilotClientStarter()
+            new CopilotClientStarter(),
+            null
         ) {
             @Override
             public CopilotClient getClient() {
@@ -81,7 +82,7 @@ class ReviewOrchestratorFactoryTest {
 
         try (ReviewOrchestrator ignored = factory.create(
             "token",
-            ExecutionConfig.ofFlat(2, 1, 5, 5, 1, 5, 5, 5, 1, 0, 0, 0),
+            dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(2, 1, 5, 5, 1, 5, 5, 5, 1, 0, 0, 0),
             "high",
             "constraints",
             "2026-03-05-12-34-56"

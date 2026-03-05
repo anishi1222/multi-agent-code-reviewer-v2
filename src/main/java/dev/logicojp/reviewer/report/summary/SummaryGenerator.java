@@ -28,6 +28,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -119,6 +120,7 @@ public class SummaryGenerator {
         private long timeoutMinutes = 5;
         private SummaryConfig summaryConfig = new SummaryConfig(0, 0, 0, 0, 0, 0);
         private SummaryCollaborators collaborators;
+        private BiFunction<List<ReviewResult>, String, String> aiSummaryBuilderOverride;
         private Clock clock = Clock.systemDefaultZone();
         private SharedCircuitBreaker circuitBreaker = SharedCircuitBreaker.withDefaultConfig();
 
@@ -152,6 +154,12 @@ public class SummaryGenerator {
             return this;
         }
 
+        /// Overrides only AI summary generation in tests while keeping template formatting logic.
+        public Builder aiSummaryBuilder(BiFunction<List<ReviewResult>, String, String> aiSummaryBuilderOverride) {
+            this.aiSummaryBuilderOverride = aiSummaryBuilderOverride;
+            return this;
+        }
+
         public Builder clock(Clock clock) {
             this.clock = clock;
             return this;
@@ -164,34 +172,33 @@ public class SummaryGenerator {
 
         public SummaryGenerator build() {
             var config = new SummaryGeneratorConfig(outputDirectory, summaryModel, reasoningEffort, timeoutMinutes);
+            SummaryCollaborators effectiveCollaborators = collaborators;
+            if (aiSummaryBuilderOverride != null) {
+                var overrideCollaborators = new SummaryCollaborators(
+                    null,
+                    null,
+                    null,
+                    (results, repository) -> aiSummaryBuilderOverride.apply(results, repository)
+                );
+                effectiveCollaborators = effectiveCollaborators == null
+                    ? overrideCollaborators
+                    : new SummaryCollaborators(
+                        effectiveCollaborators.summaryPromptBuilder(),
+                        effectiveCollaborators.fallbackSummaryBuilder(),
+                        effectiveCollaborators.summaryFinalReportFormatter(),
+                        overrideCollaborators.aiSummaryBuilder()
+                    );
+            }
             return new SummaryGenerator(
                 config,
                 client,
                 templateService,
                 summaryConfig,
-                collaborators,
+                effectiveCollaborators,
                 clock,
                 circuitBreaker
             );
         }
-    }
-
-    public SummaryGenerator(Path outputDirectory,
-                            CopilotClient client,
-                            String summaryModel,
-                            String reasoningEffort,
-                            long timeoutMinutes,
-                            TemplateService templateService,
-                            SummaryConfig summaryConfig) {
-        this(
-            new SummaryGeneratorConfig(outputDirectory, summaryModel, reasoningEffort, timeoutMinutes),
-            client,
-            templateService,
-            summaryConfig,
-            null,
-            Clock.systemDefaultZone(),
-            SharedCircuitBreaker.withDefaultConfig()
-        );
     }
 
     /// Full-parameter constructor for testing — all collaborators are injectable.

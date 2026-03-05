@@ -1,6 +1,7 @@
 package dev.logicojp.reviewer.util;
 
 import dev.logicojp.reviewer.config.ExecutionConfig;
+import io.micronaut.context.annotation.Value;
 import io.micronaut.core.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -23,21 +24,34 @@ public final class GitHubTokenResolver {
     private static final String PLACEHOLDER = "${GITHUB_TOKEN}";
     private static final String STDIN_TOKEN_SENTINEL = "-";
     private static final int MAX_STDIN_TOKEN_BYTES = 256;
-    private static final String PATH_ENV = "PATH";
     private static final String GH_CLI_PATH_ENV = "GH_CLI_PATH";
     private static final long DEFAULT_TIMEOUT_SECONDS = 10;
     private static final Path SAFE_WORKING_DIRECTORY =
         Path.of(System.getProperty("java.io.tmpdir")).toAbsolutePath().normalize();
 
     private final long timeoutSeconds;
+    private final String configuredGhCliPath;
+    private final String configuredPath;
 
     GitHubTokenResolver(long timeoutSeconds) {
+        this(timeoutSeconds, null, null);
+    }
+
+    GitHubTokenResolver(long timeoutSeconds, @Nullable String configuredGhCliPath, @Nullable String configuredPath) {
         this.timeoutSeconds = (timeoutSeconds <= 0) ? DEFAULT_TIMEOUT_SECONDS : timeoutSeconds;
+        this.configuredGhCliPath = configuredGhCliPath;
+        this.configuredPath = configuredPath;
     }
 
     @Inject
+    public GitHubTokenResolver(ExecutionConfig executionConfig,
+                               @Nullable @Value("${GH_CLI_PATH:}") String configuredGhCliPath,
+                               @Nullable @Value("${PATH:}") String configuredPath) {
+        this(executionConfig.ghAuthTimeoutSeconds(), configuredGhCliPath, configuredPath);
+    }
+
     public GitHubTokenResolver(ExecutionConfig executionConfig) {
-        this(executionConfig.ghAuthTimeoutSeconds());
+        this(executionConfig.ghAuthTimeoutSeconds(), System.getenv(GH_CLI_PATH_ENV), System.getenv("PATH"));
     }
 
     public Optional<String> resolve(@Nullable String providedToken) {
@@ -126,7 +140,7 @@ public final class GitHubTokenResolver {
     }
 
     private String resolveGhCliPath() {
-        String explicit = System.getenv(GH_CLI_PATH_ENV);
+        String explicit = configuredGhCliPath;
         if (explicit != null && !explicit.isBlank()) {
             var explicitPath = CliPathResolver.resolveExplicitExecutable(explicit, "gh");
             if (explicitPath.isPresent()) {
@@ -137,7 +151,7 @@ public final class GitHubTokenResolver {
             return null;
         }
 
-        if (System.getenv(PATH_ENV) == null || System.getenv(PATH_ENV).isBlank()) {
+        if (configuredPath == null || configuredPath.isBlank()) {
             return null;
         }
         return CliPathResolver.findExecutableInPath("gh")

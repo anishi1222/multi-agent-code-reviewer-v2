@@ -1,7 +1,6 @@
 package dev.logicojp.reviewer.orchestrator;
 
 import dev.logicojp.reviewer.util.ExecutorUtils;
-import io.micronaut.core.annotation.Nullable;
 
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
@@ -9,7 +8,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 
 record ExecutorResources(
-    @Nullable ExecutorService executorService,
     ExecutorService agentExecutionExecutor,
     ScheduledExecutorService sharedScheduler,
     Semaphore concurrencyLimit
@@ -24,7 +22,6 @@ record ExecutorResources(
     }
 
     void shutdownGracefully() {
-        ExecutorUtils.shutdownGracefully(executorService, EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS);
         ExecutorUtils.shutdownGracefully(agentExecutionExecutor, EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS);
         ExecutorUtils.shutdownGracefully(sharedScheduler, SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS);
     }

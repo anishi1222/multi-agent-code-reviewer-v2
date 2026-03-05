@@ -36,7 +36,7 @@ class SkillCommandTest {
     }
 
     private static final ExecutionConfig EXECUTION_CONFIG =
-        ExecutionConfig.ofFlat(2, 1, 5, 5, 5, 5, 5, 5, 0, 1024, 256, 32);
+        dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(2, 1, 5, 5, 5, 5, 5, 5, 0, 1024, 256, 32);
 
     @Test
     @DisplayName("正常フローで終了コード0を返す")
@@ -92,7 +92,8 @@ class SkillCommandTest {
                 new CopilotCliHealthChecker(new CopilotTimeoutResolver()),
                 new CopilotTimeoutResolver(),
                 new CopilotStartupErrorFormatter(),
-                new CopilotClientStarter()
+                new CopilotClientStarter(),
+                null
             ),
             new GithubMcpConfig(null, null, null, null, null, null),
             EXECUTION_CONFIG,

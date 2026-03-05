@@ -34,7 +34,7 @@ class ReviewRunExecutorTest {
         );
         ReviewOutputFormatter formatter = new ReviewOutputFormatter(
             cliOutput,
-            ExecutionConfig.ofFlat(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+            dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0)
         );
 
         AtomicBoolean summaryCalled = new AtomicBoolean(false);
@@ -79,7 +79,7 @@ class ReviewRunExecutorTest {
         );
         ReviewOutputFormatter formatter = new ReviewOutputFormatter(
             cliOutput,
-            ExecutionConfig.ofFlat(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+            dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0)
         );
 
         ReviewRunExecutor executor = new ReviewRunExecutor(

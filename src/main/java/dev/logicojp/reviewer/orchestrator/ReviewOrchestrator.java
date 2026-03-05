@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
@@ -42,10 +41,8 @@ public class ReviewOrchestrator implements AutoCloseable {
     private static final Logger logger = LoggerFactory.getLogger(ReviewOrchestrator.class);
 
     private final ExecutionConfig executionConfig;
-    /// Initialized in constructor — null when Structured Concurrency mode is active.
-    private final ExecutorService executorService;
     /// Dedicated executor for per-agent review execution to avoid commonPool usage.
-    private final ExecutorService agentExecutionExecutor;
+    private final java.util.concurrent.ExecutorService agentExecutionExecutor;
     /// Shared scheduler for idle-timeout handling across all agents.
     private final ScheduledExecutorService sharedScheduler;
     private final ReviewExecutionModeRunner reviewExecutionModeRunner;
@@ -83,7 +80,6 @@ public class ReviewOrchestrator implements AutoCloseable {
                        OrchestratorCollaborators collaborators) {
         this.executionConfig = orchestratorConfig.executionConfig();
         var resources = collaborators.executorResources();
-        this.executorService = resources.executorService();
         this.agentExecutionExecutor = resources.agentExecutionExecutor();
         this.sharedScheduler = resources.sharedScheduler();
         this.agentReviewExecutor = collaborators.agentReviewExecutor();
@@ -115,34 +111,30 @@ public class ReviewOrchestrator implements AutoCloseable {
             AgentReviewerFactory reviewerFactory,
             LocalSourceCollectorFactory localSourceCollectorFactory,
             SharedCircuitBreaker reviewCircuitBreaker) {
-        ExecutorService executorService = null;
         ExecutorResources resources = null;
         try {
-            resources = createExecutorResources(orchestratorConfig, executorService);
+            resources = createExecutorResources(orchestratorConfig);
             return assembleCollaborators(client, orchestratorConfig, reviewerFactory,
                 localSourceCollectorFactory, resources, reviewCircuitBreaker);
         } catch (Exception e) {
             if (resources != null) {
                 resources.shutdownGracefully();
-            } else {
-                ExecutorUtils.shutdownGracefully(executorService, EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS);
             }
             throw e;
         }
     }
 
     private static ExecutorResources createExecutorResources(
-            OrchestratorConfig orchestratorConfig,
-            ExecutorService executorService) {
+            OrchestratorConfig orchestratorConfig) {
         Semaphore concurrencyLimit = new Semaphore(orchestratorConfig.executionConfig().parallelism());
-        ExecutorService agentExecutionExecutor = Executors.newThreadPerTaskExecutor(
+        var agentExecutionExecutor = Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual().name("agent-execution-", 0).factory());
         // Scheduler uses one lightweight platform thread intentionally:
         // it only triggers periodic timeout checks and should not run blocking review work.
         ScheduledExecutorService sharedScheduler = Executors.newSingleThreadScheduledExecutor(
             Thread.ofPlatform().daemon(true).name("idle-timeout-shared").factory()
         );
-        return new ExecutorResources(executorService, agentExecutionExecutor,
+        return new ExecutorResources(agentExecutionExecutor,
             sharedScheduler, concurrencyLimit);
     }
 
@@ -187,7 +179,7 @@ public class ReviewOrchestrator implements AutoCloseable {
         AgentReviewExecutor executor = new AgentReviewExecutor(
             resources.concurrencyLimit(), resources.agentExecutionExecutor(), reviewerFactory);
         ReviewExecutionModeRunner modeRunner = new ReviewExecutionModeRunner(
-            orchestratorConfig.executionConfig(), resources.executorService(), pipeline);
+            orchestratorConfig.executionConfig(), pipeline);
         return new ExecutionPipelineComponents(pipeline, executor, modeRunner);
     }
 
@@ -253,8 +245,12 @@ public class ReviewOrchestrator implements AutoCloseable {
         var cachedSourceContent = localSourcePrecomputer.preComputeSourceContent(target);
 
         ReviewContext sharedContext = reviewContextFactory.create(cachedSourceContent);
-
-        return executeByMode(agents, target, sharedContext);
+        return reviewExecutionModeRunner.executeStructured(
+            agents,
+            target,
+            sharedContext,
+            agentReviewExecutor::executeAgentPassesSafely
+        );
     }
 
     private void logReviewStart(int agentCount,
@@ -265,21 +261,9 @@ public class ReviewOrchestrator implements AutoCloseable {
             agentCount, reviewPasses, totalTasks, target.displayName());
     }
 
-    private List<ReviewResult> executeByMode(Map<String, AgentConfig> agents,
-                                             ReviewTarget target,
-                                             ReviewContext sharedContext) {
-        return reviewExecutionModeRunner.executeStructured(
-            agents,
-            target,
-            sharedContext,
-            agentReviewExecutor::executeAgentPassesSafely
-        );
-    }
-
     /// Closes executor resources.
     @Override
     public void close() {
-        ExecutorUtils.shutdownGracefully(executorService, EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS);
         ExecutorUtils.shutdownGracefully(agentExecutionExecutor, EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS);
         ExecutorUtils.shutdownGracefully(sharedScheduler, SCHEDULER_SHUTDOWN_TIMEOUT_SECONDS);
     }

@@ -17,10 +17,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.TimeUnit;
 
 /// Executes a code review using the Copilot SDK with a specific agent configuration.
@@ -194,29 +191,41 @@ public class ReviewAgent {
     }
 
     private List<ReviewResult> executeReviewPassesFallback(ReviewTarget target, int reviewPasses) {
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Callable<ReviewResult>> tasks = new ArrayList<>(reviewPasses);
+        try (var scope = StructuredTaskScope.<ReviewResult>open()) {
+            List<StructuredTaskScope.Subtask<ReviewResult>> tasks = new ArrayList<>(reviewPasses);
             for (int pass = 1; pass <= reviewPasses; pass++) {
                 int passNumber = pass;
-                tasks.add(() -> reviewForPass(target, passNumber, reviewPasses));
+                tasks.add(scope.fork(() -> reviewForPass(target, passNumber, reviewPasses)));
             }
-            return collectFallbackResults(executor.invokeAll(tasks), target);
+
+            scope.join();
+            return collectFallbackResults(tasks, target);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return List.of(reviewResultFactory.fromException(config, target.displayName(), e));
         }
     }
 
-    private List<ReviewResult> collectFallbackResults(List<Future<ReviewResult>> futures,
+    private List<ReviewResult> collectFallbackResults(List<StructuredTaskScope.Subtask<ReviewResult>> subtasks,
                                                        ReviewTarget target)
             throws InterruptedException {
-        List<ReviewResult> results = new ArrayList<>(futures.size());
-        for (Future<ReviewResult> future : futures) {
-            try {
-                results.add(future.get());
-            } catch (ExecutionException e) {
-                logger.warn("Agent {}: fallback pass failed: {}", config.name(), e.getMessage(), e);
-                results.add(reviewResultFactory.fromException(config, target.displayName(), e));
+        List<ReviewResult> results = new ArrayList<>(subtasks.size());
+        for (var subtask : subtasks) {
+            switch (subtask.state()) {
+                case SUCCESS -> results.add(subtask.get());
+                case FAILED -> {
+                    Throwable failure = subtask.exception();
+                    Exception cause = failure instanceof Exception exception
+                        ? exception
+                        : new IllegalStateException("Fallback pass failed", failure);
+                    logger.warn("Agent {}: fallback pass failed: {}", config.name(), cause.getMessage(), cause);
+                    results.add(reviewResultFactory.fromException(config, target.displayName(), cause));
+                }
+                case UNAVAILABLE -> results.add(reviewResultFactory.fromException(
+                    config,
+                    target.displayName(),
+                    new IllegalStateException("Fallback pass cancelled")
+                ));
             }
         }
         return results;
@@ -326,14 +335,15 @@ public class ReviewAgent {
     private List<ReviewResult> submitAndCollectParallelPasses(
             ReviewTarget target, ResolvedReviewParams params, int reviewPasses)
             throws InterruptedException {
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<Callable<PassResult>> tasks = new ArrayList<>(reviewPasses - 1);
+        try (var scope = StructuredTaskScope.<PassResult>open()) {
+            List<StructuredTaskScope.Subtask<PassResult>> tasks = new ArrayList<>(reviewPasses - 1);
             for (int pass = 2; pass <= reviewPasses; pass++) {
                 int passNumber = pass;
-                tasks.add(() -> executeParallelPass(target, params, passNumber, reviewPasses));
+                tasks.add(scope.fork(() -> executeParallelPass(target, params, passNumber, reviewPasses)));
             }
 
-            return collectParallelPassResults(executor.invokeAll(tasks));
+            scope.join();
+            return collectParallelPassResults(tasks);
         }
     }
 
@@ -356,14 +366,17 @@ public class ReviewAgent {
         return new PassResult(passNumber, result);
     }
 
-    private static List<ReviewResult> collectParallelPassResults(List<Future<PassResult>> futures)
-            throws InterruptedException {
-        List<PassResult> passResults = new ArrayList<>(futures.size());
-        for (var future : futures) {
-            try {
-                passResults.add(future.get());
-            } catch (ExecutionException e) {
-                throw new IllegalStateException("Hybrid review pass execution failed", e.getCause());
+    private static List<ReviewResult> collectParallelPassResults(
+            List<StructuredTaskScope.Subtask<PassResult>> subtasks) {
+        List<PassResult> passResults = new ArrayList<>(subtasks.size());
+        for (var subtask : subtasks) {
+            switch (subtask.state()) {
+                case SUCCESS -> passResults.add(subtask.get());
+                case FAILED -> throw new IllegalStateException(
+                    "Hybrid review pass execution failed",
+                    subtask.exception()
+                );
+                case UNAVAILABLE -> throw new IllegalStateException("Hybrid review pass execution cancelled");
             }
         }
         passResults.sort(Comparator.comparingInt(PassResult::passNumber));

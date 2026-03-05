@@ -31,7 +31,7 @@ class ReviewServiceTest {
         TemplateService templateService = new TemplateService(new TemplateConfig(tempDir.toString(),
             null, null, null, "output-constraints.md", null, null, null));
 
-        ExecutionConfig executionConfig = ExecutionConfig.ofFlat(4, 1, 5, 5, 1, 5, 5, 5, 1, 0, 0, 0);
+        ExecutionConfig executionConfig = dev.logicojp.reviewer.testutil.ExecutionConfigFixtures.config(4, 1, 5, 5, 1, 5, 5, 5, 1, 0, 0, 0);
         AtomicReference<ExecutionConfig> capturedExecution = new AtomicReference<>();
         AtomicReference<String> capturedOutputConstraints = new AtomicReference<>();
 

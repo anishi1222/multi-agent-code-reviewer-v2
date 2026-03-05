@@ -17,7 +17,11 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/// Service for loading and processing templates.
+/// Service for loading and processing report/summary templates.
+///
+/// Uses Mustache-style placeholders in the form `{{placeholder}}` for files under
+/// the `templates/` directory. Agent prompt placeholders use `${placeholder}` and
+/// are handled by {@link dev.logicojp.reviewer.util.PlaceholderUtils}.
 /// Supports loading from external files with fallback to classpath resources.
 @Singleton
 public class TemplateService {

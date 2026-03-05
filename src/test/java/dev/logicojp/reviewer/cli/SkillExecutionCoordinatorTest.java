@@ -8,8 +8,6 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -57,32 +55,13 @@ class SkillExecutionCoordinatorTest {
     }
 
     @Test
-    @DisplayName("ExecutionExceptionはCopilotCliExceptionに変換")
-    void wrapsExecutionException() {
+    @DisplayName("実行中の例外はCopilotCliExceptionに変換")
+    void wrapsRuntimeException() {
         var coordinator = new SkillExecutionCoordinator(
             token -> {
             },
             (skillId, parameters, resolvedToken, model, timeoutMinutes) -> {
-                throw new ExecutionException("boom", new RuntimeException("boom"));
-            },
-            () -> {
-            },
-            cliOutput()
-        );
-
-        assertThatThrownBy(() -> coordinator.execute("scan", Map.of(), "token", "gpt-5", 1))
-            .isInstanceOf(CopilotCliException.class)
-            .hasMessageContaining("Skill execution failed");
-    }
-
-    @Test
-    @DisplayName("TimeoutExceptionはCopilotCliExceptionに変換")
-    void wrapsTimeoutException() {
-        var coordinator = new SkillExecutionCoordinator(
-            token -> {
-            },
-            (skillId, parameters, resolvedToken, model, timeoutMinutes) -> {
-                throw new TimeoutException("timeout");
+                throw new IllegalStateException("boom");
             },
             () -> {
             },
@@ -102,7 +81,7 @@ class SkillExecutionCoordinatorTest {
             token -> {
             },
             (skillId, parameters, resolvedToken, model, timeoutMinutes) -> {
-                throw new ExecutionException("boom", new RuntimeException("boom"));
+                throw new IllegalStateException("boom");
             },
             () -> shutdownCalled.set(true),
             cliOutput()
