@@ -9,6 +9,37 @@ Reference checklist: `reports/anishi1222/multi-agent-code-reviewer/documentation
 3. Publish a GitHub Release from the tag and include EN/JA summary notes.
 4. Update `README_en.md` and `README_ja.md` with release references and URLs.
 
+## 2026-03-05 (post v2026.03.05)
+
+### Summary
+- Stabilized the review execution path by removing structured-concurrency feature flag toggles.
+- Added pass-aware session naming and shared-session control for multi-pass reviews.
+- Moved pass-level intermediate reports under hidden checkpoints and cleaned them up at CLI exit.
+
+### Highlights
+
+#### Session Execution Updates
+- Added session naming format: `{agent}_{currentPass}of{totalPasses}_{invocationTimestamp}`.
+- Added `--no-shared-session` to force isolated sessions per pass.
+- Propagated a single CLI invocation timestamp through preparation, orchestration, and session config creation.
+
+#### Intermediate Artifact Handling
+- Pass-level artifacts are generated under `.checkpoints/passes`.
+- `.checkpoints` is deleted in a `finally` block at CLI termination.
+
+#### Runtime Consistency
+- Removed structured-concurrency feature flag toggles and fixed execution to the stabilized path.
+
+#### PR Chain
+- [#86](https://github.com/anishi1222/multi-agent-code-reviewer/pull/86): remove feature flags and stabilize session execution path
+- [#87](https://github.com/anishi1222/multi-agent-code-reviewer/pull/87): add per-pass session naming, no-shared-session mode, and checkpoint cleanup
+
+### Validation
+- `mvn clean package` — build succeeded
+- `java --enable-preview -agentlib:native-image-agent=config-merge-dir=src/main/resources/META-INF/native-image -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar run --repo anishi1222/multi-agent-code-reviewer --all` — run succeeded
+
+---
+
 ## 2026-03-05 (v2026.03.05)
 
 ### Summary

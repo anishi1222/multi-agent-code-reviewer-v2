@@ -9,6 +9,37 @@
 3. タグから GitHub Release を作成し、EN/JA 要約を本文に含める。
 4. `README_en.md` と `README_ja.md` にリリース参照とURLを追記する。
 
+## 2026-03-05 (post v2026.03.05)
+
+### 概要
+- Structured Concurrency の機能フラグ切替を廃止し、レビュー実行経路を安定化しました。
+- マルチパスレビュー向けにパス単位セッション命名と共有セッション制御を追加しました。
+- パス単位中間レポートを隠しチェックポイント配下へ移動し、CLI終了時に自動削除するようにしました。
+
+### 主な変更
+
+#### セッション実行の更新
+- セッション名フォーマットを追加: `{agent}_{currentPass}of{totalPasses}_{invocationTimestamp}`。
+- `--no-shared-session` を追加し、パスごとの独立セッション実行を可能にしました。
+- CLI起動時刻を準備フェーズからオーケストレーション、セッション設定生成まで一貫して伝播しました。
+
+#### 中間成果物の取り扱い
+- パス単位成果物を `.checkpoints/passes` 配下に出力するよう変更しました。
+- CLI終了時に `finally` で `.checkpoints` を再帰削除するようにしました。
+
+#### 実行経路の一貫性
+- Structured Concurrency の機能フラグ切替を削除し、安定化済みの実行経路へ固定しました。
+
+#### PRチェーン
+- [#86](https://github.com/anishi1222/multi-agent-code-reviewer/pull/86): Feature Flag削除とセッション実行経路の固定化
+- [#87](https://github.com/anishi1222/multi-agent-code-reviewer/pull/87): パス単位セッション命名・`--no-shared-session`・チェックポイント掃除
+
+### 検証
+- `mvn clean package` — ビルド成功
+- `java --enable-preview -agentlib:native-image-agent=config-merge-dir=src/main/resources/META-INF/native-image -jar target/multi-agent-reviewer-1.0.0-SNAPSHOT.jar run --repo anishi1222/multi-agent-code-reviewer --all` — 実行成功
+
+---
+
 ## 2026-03-05 (v2026.03.05)
 
 ### 概要
